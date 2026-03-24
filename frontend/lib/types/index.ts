@@ -1,5 +1,10 @@
 export type EventType = "HARVEST" | "PROCESSING" | "SHIPPING" | "RETAIL";
 
+export interface OwnershipRecord {
+  owner: string; // Stellar address
+  transferredAt: number; // unix ms
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -7,6 +12,7 @@ export interface Product {
   owner: string; // Stellar address
   timestamp: number;
   authorizedActors: string[];
+  ownershipHistory?: OwnershipRecord[];
 }
 
 export interface TrackingEvent {

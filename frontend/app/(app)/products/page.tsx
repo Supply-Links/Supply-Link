@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import type { Product } from "@/lib/types";
 
@@ -27,14 +28,18 @@ export default function ProductsPage() {
       <h1 className="text-2xl font-bold mb-6">Products</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {MOCK_PRODUCTS.map((product) => (
-          <div key={product.id} className="border rounded-xl p-6 flex flex-col gap-4 shadow-sm">
+          <Link
+            key={product.id}
+            href={`/products/${product.id}`}
+            className="border rounded-xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow"
+          >
             <div>
               <h2 className="text-lg font-semibold">{product.name}</h2>
               <p className="text-sm text-gray-500">Origin: {product.origin}</p>
               <p className="text-xs text-gray-400 mt-1 font-mono truncate">ID: {product.id}</p>
             </div>
             <ProductQRCode productId={product.id} size={160} />
-          </div>
+          </Link>
         ))}
       </div>
     </main>
