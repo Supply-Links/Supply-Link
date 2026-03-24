@@ -11,6 +11,7 @@ export interface Product {
   origin: string;
   owner: string; // Stellar address
   timestamp: number;
+  active: boolean;
   authorizedActors: string[];
   ownershipHistory?: OwnershipRecord[];
 }
