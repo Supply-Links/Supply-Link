@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getProductById } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
+import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
 
 interface Props {
   params: { id: string };
@@ -50,17 +51,7 @@ export default function ProductDetailPage({ params }: Props) {
       {/* Authorized Actors */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Authorized Actors</h2>
-        {p.authorizedActors.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No authorized actors.</p>
-        ) : (
-          <ul className="space-y-2">
-            {p.authorizedActors.map((actor) => (
-              <li key={actor} className="font-mono text-xs bg-[var(--muted-bg)] rounded-md px-3 py-2 break-all text-[var(--foreground)]">
-                {actor}
-              </li>
-            ))}
-          </ul>
-        )}
+        <AuthorizedActorsPanel productId={p.id} initialActors={p.authorizedActors} />
       </section>
 
       {/* Ownership History */}

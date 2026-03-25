@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { Navbar } from "@/components/Navbar";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -22,7 +21,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           storageKey="supply-link-theme"
         >
-          <Navbar />
           {children}
         </ThemeProvider>
       </body>
