@@ -64,9 +64,11 @@ impl SupplyLinkContract {
     }
 
     /// Add a tracking event for a product.
+    /// `caller` must be the product owner or an address in `authorized_actors`.
     pub fn add_tracking_event(
         env: Env,
         product_id: String,
+        caller: Address,
         location: String,
         event_type: String,
         metadata: String,
@@ -77,8 +79,12 @@ impl SupplyLinkContract {
             .get(&DataKey::Product(product_id.clone()))
             .expect("product not found");
 
-        // caller must be owner or an authorized actor
-        let caller = product.owner.clone();
+        // Verify caller is owner or an authorized actor before requiring auth
+        let is_owner = product.owner == caller;
+        let is_actor = product.authorized_actors.contains(&caller);
+        if !is_owner && !is_actor {
+            panic!("caller is not authorized");
+        }
         caller.require_auth();
 
         let event = TrackingEvent {
@@ -176,7 +182,7 @@ mod tests {
     use proptest::prelude::*;
     use soroban_sdk::{testutils::Address as _, Env};
 
-    fn setup() -> (Env, soroban_sdk::Address, String) {
+    fn setup() -> (Env, soroban_sdk::Address, soroban_sdk::Address, String) {
         let env = Env::default();
         env.mock_all_auths();
         let contract_id = env.register_contract(None, SupplyLinkContract);
@@ -189,13 +195,14 @@ mod tests {
             &String::from_str(&env, "Factory A"),
             &owner,
         );
-        (env, contract_id, product_id)
+        (env, contract_id, owner, product_id)
     }
 
-    fn add_event(env: &Env, contract_id: &soroban_sdk::Address, product_id: &String) {
+    fn add_event(env: &Env, contract_id: &soroban_sdk::Address, product_id: &String, caller: &soroban_sdk::Address) {
         let client = SupplyLinkContractClient::new(env, contract_id);
         client.add_tracking_event(
             product_id,
+            caller,
             &String::from_str(env, "Warehouse"),
             &String::from_str(env, "SHIPPING"),
             &String::from_str(env, "{}"),
@@ -215,7 +222,7 @@ mod tests {
     /// Req 3.2 — registered product with no events returns 0
     #[test]
     fn test_registered_product_no_events_returns_zero() {
-        let (env, contract_id, product_id) = setup();
+        let (env, contract_id, _owner, product_id) = setup();
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         assert_eq!(client.get_events_count(&product_id), 0);
     }
@@ -223,8 +230,8 @@ mod tests {
     /// Req 3.3 — one add_tracking_event call → count == 1
     #[test]
     fn test_one_event_returns_one() {
-        let (env, contract_id, product_id) = setup();
-        add_event(&env, &contract_id, &product_id);
+        let (env, contract_id, owner, product_id) = setup();
+        add_event(&env, &contract_id, &product_id, &owner);
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         assert_eq!(client.get_events_count(&product_id), 1);
     }
@@ -232,9 +239,9 @@ mod tests {
     /// Req 3.4 — multiple add_tracking_event calls → correct count
     #[test]
     fn test_multiple_events_returns_correct_count() {
-        let (env, contract_id, product_id) = setup();
+        let (env, contract_id, owner, product_id) = setup();
         for _ in 0..5 {
-            add_event(&env, &contract_id, &product_id);
+            add_event(&env, &contract_id, &product_id, &owner);
         }
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         assert_eq!(client.get_events_count(&product_id), 5);
@@ -243,9 +250,9 @@ mod tests {
     /// Req 3.5 — get_events_count == get_tracking_events(...).len()
     #[test]
     fn test_count_equals_vec_len() {
-        let (env, contract_id, product_id) = setup();
+        let (env, contract_id, owner, product_id) = setup();
         for _ in 0..3 {
-            add_event(&env, &contract_id, &product_id);
+            add_event(&env, &contract_id, &product_id, &owner);
         }
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let count = client.get_events_count(&product_id);
@@ -281,6 +288,7 @@ mod tests {
             for _ in 0..n {
                 client.add_tracking_event(
                     &product_id,
+                    &owner,
                     &String::from_str(&env, "Warehouse"),
                     &String::from_str(&env, "SHIPPING"),
                     &String::from_str(&env, "{}"),
@@ -335,6 +343,7 @@ mod tests {
             for _ in 0..n {
                 client.add_tracking_event(
                     &product_id,
+                    &owner,
                     &String::from_str(&env, "Warehouse"),
                     &String::from_str(&env, "SHIPPING"),
                     &String::from_str(&env, "{}"),
@@ -346,6 +355,7 @@ mod tests {
             // Add one more event
             client.add_tracking_event(
                 &product_id,
+                &owner,
                 &String::from_str(&env, "Warehouse"),
                 &String::from_str(&env, "SHIPPING"),
                 &String::from_str(&env, "{}"),
@@ -371,7 +381,7 @@ mod tests {
     /// Req 1.1 — registered product returns true
     #[test]
     fn test_product_exists_returns_true_after_register() {
-        let (env, contract_id, product_id) = setup();
+        let (env, contract_id, _owner, product_id) = setup();
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         assert!(client.product_exists(&product_id));
     }
@@ -444,6 +454,7 @@ mod tests {
             for _ in 0..n {
                 client.add_tracking_event(
                     &product_id,
+                    &owner,
                     &String::from_str(&env, "Warehouse"),
                     &String::from_str(&env, "SHIPPING"),
                     &String::from_str(&env, "{}"),
@@ -454,5 +465,69 @@ mod tests {
             let events = client.get_tracking_events(&product_id);
             prop_assert_eq!(count, events.len());
         }
+    }
+
+    // ── authorized-actor auth tests ──────────────────────────────────────────
+
+    /// Req: an authorized actor (not the owner) can add an event
+    #[test]
+    fn test_authorized_actor_can_add_event() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-actor-test");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Actor (not owner) submits an event — must succeed
+        let event = client.add_tracking_event(
+            &product_id,
+            &actor,
+            &String::from_str(&env, "Warehouse"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+        assert_eq!(event.actor, actor);
+        assert_eq!(client.get_events_count(&product_id), 1);
+    }
+
+    /// Req: an address that is neither owner nor authorized actor is rejected
+    #[test]
+    #[should_panic(expected = "caller is not authorized")]
+    fn test_unauthorized_caller_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let stranger = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-unauth-test");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        env.as_contract(&contract_id, || {
+            SupplyLinkContract::add_tracking_event(
+                env.clone(),
+                product_id.clone(),
+                stranger.clone(),
+                String::from_str(&env, "Warehouse"),
+                String::from_str(&env, "SHIPPING"),
+                String::from_str(&env, "{}"),
+            );
+        });
     }
 }
