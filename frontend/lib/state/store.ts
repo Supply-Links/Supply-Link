@@ -12,6 +12,7 @@ interface SupplyLinkStore {
   setProducts: (products: Product[]) => void;
   setEvents: (events: TrackingEvent[]) => void;
   setLastFetched: (ts: number) => void;
+  updateProductOwner: (productId: string, newOwner: string) => void;
 }
 
 export const useStore = create<SupplyLinkStore>((set) => ({
@@ -27,4 +28,10 @@ export const useStore = create<SupplyLinkStore>((set) => ({
   setProducts: (products) => set({ products }),
   setEvents: (events) => set({ events }),
   setLastFetched: (ts) => set({ lastFetched: ts }),
+  updateProductOwner: (productId, newOwner) =>
+    set((state) => ({
+      products: state.products.map((p) =>
+        p.id === productId ? { ...p, owner: newOwner } : p
+      ),
+    })),
 }));

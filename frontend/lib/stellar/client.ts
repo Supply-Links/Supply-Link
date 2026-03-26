@@ -24,6 +24,20 @@ export const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ?? "https://soroban-testnet.stellar.org";
 
 /**
+ * Stub: call transfer_ownership on the Soroban contract.
+ * Replace body with real StellarSdk contract invocation.
+ */
+export async function transferOwnership(
+  productId: string,
+  newOwner: string,
+  callerAddress: string
+): Promise<void> {
+  console.log("transferOwnership", { productId, newOwner, callerAddress });
+  // TODO: build + sign + submit Soroban transaction
+  await new Promise((r) => setTimeout(r, 1000)); // simulate network delay
+}
+
+/**
  * Stub: call add_authorized_actor on the Soroban contract.
  * Replace body with real StellarSdk contract invocation.
  */
