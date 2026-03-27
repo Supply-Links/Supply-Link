@@ -284,6 +284,16 @@ impl SupplyLinkContract {
         product
     }
 
+    /// Get the list of authorized actors for a product.
+    /// Returns an empty vec for unknown product IDs.
+    pub fn get_authorized_actors(env: Env, product_id: String) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Product>(&DataKey::Product(product_id))
+            .map(|p| p.authorized_actors)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
     /// Get the total number of registered products.
     pub fn get_product_count(env: Env) -> u64 {
         env.storage()
@@ -992,5 +1002,72 @@ mod tests {
         assert_eq!(updated.id, original.id);
         assert_eq!(updated.owner, original.owner);
         assert_eq!(updated.timestamp, original.timestamp);
+    }
+
+    // ── get_authorized_actors tests ──────────────────────────────────────────
+
+    /// Unknown product_id returns an empty vec
+    #[test]
+    fn test_get_authorized_actors_unknown_product_returns_empty() {
+        let env = Env::default();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let unknown = String::from_str(&env, "does-not-exist");
+        let actors = client.get_authorized_actors(&unknown);
+        assert_eq!(actors.len(), 0);
+    }
+
+    /// Single actor added → get_authorized_actors returns that actor
+    #[test]
+    fn test_get_authorized_actors_single_actor() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-single-actor");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+        client.add_authorized_actor(&product_id, &actor);
+
+        let actors = client.get_authorized_actors(&product_id);
+        assert_eq!(actors.len(), 1);
+        assert_eq!(actors.get(0).unwrap(), actor);
+    }
+
+    /// Multiple actors added → get_authorized_actors returns all of them in order
+    #[test]
+    fn test_get_authorized_actors_multiple_actors() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor1 = soroban_sdk::Address::generate(&env);
+        let actor2 = soroban_sdk::Address::generate(&env);
+        let actor3 = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-multi-actor");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+        client.add_authorized_actor(&product_id, &actor1);
+        client.add_authorized_actor(&product_id, &actor2);
+        client.add_authorized_actor(&product_id, &actor3);
+
+        let actors = client.get_authorized_actors(&product_id);
+        assert_eq!(actors.len(), 3);
+        assert_eq!(actors.get(0).unwrap(), actor1);
+        assert_eq!(actors.get(1).unwrap(), actor2);
+        assert_eq!(actors.get(2).unwrap(), actor3);
     }
 }
