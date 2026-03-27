@@ -57,7 +57,7 @@ Supply-Link/
 
 | Layer | Technology |
 |---|---|
-| Smart Contracts | Rust + Soroban SDK 20 |
+| Smart Contracts | Rust + Soroban SDK 22 |
 | Blockchain | Stellar (Testnet / Mainnet) |
 | Frontend | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS v4 |

@@ -323,7 +323,7 @@ mod tests {
     fn setup() -> (Env, soroban_sdk::Address, soroban_sdk::Address, String) {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let owner = soroban_sdk::Address::generate(&env);
         let product_id = String::from_str(&env, "prod-001");
         let client = SupplyLinkContractClient::new(&env, &contract_id);
@@ -351,7 +351,7 @@ mod tests {
     #[test]
     fn test_unknown_product_returns_zero() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let unknown = String::from_str(&env, "does-not-exist");
         assert_eq!(client.get_events_count(&unknown), 0);
@@ -411,7 +411,7 @@ mod tests {
         ) {
             let env = Env::default();
             env.mock_all_auths();
-            let contract_id = env.register_contract(None, SupplyLinkContract);
+            let contract_id = env.register(SupplyLinkContract, ());
             let client = SupplyLinkContractClient::new(&env, &contract_id);
             let owner = soroban_sdk::Address::generate(&env);
             let product_id = String::from_str(&env, &product_id_str);
@@ -446,7 +446,7 @@ mod tests {
             product_id_str in "[a-z]{1,20}",
         ) {
             let env = Env::default();
-            let contract_id = env.register_contract(None, SupplyLinkContract);
+            let contract_id = env.register(SupplyLinkContract, ());
             let client = SupplyLinkContractClient::new(&env, &contract_id);
             let product_id = String::from_str(&env, &product_id_str);
 
@@ -465,7 +465,7 @@ mod tests {
         ) {
             let env = Env::default();
             env.mock_all_auths();
-            let contract_id = env.register_contract(None, SupplyLinkContract);
+            let contract_id = env.register(SupplyLinkContract, ());
             let client = SupplyLinkContractClient::new(&env, &contract_id);
             let owner = soroban_sdk::Address::generate(&env);
             let product_id = String::from_str(&env, &product_id_str);
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn test_product_exists_returns_false_for_unknown() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let id = String::from_str(&env, "does-not-exist");
         assert!(!client.product_exists(&id));
@@ -534,7 +534,7 @@ mod tests {
         fn prop_exists_iff_registered(product_id_str in "[a-z]{1,20}") {
             let env = Env::default();
             env.mock_all_auths();
-            let contract_id = env.register_contract(None, SupplyLinkContract);
+            let contract_id = env.register(SupplyLinkContract, ());
             let client = SupplyLinkContractClient::new(&env, &contract_id);
             let owner = soroban_sdk::Address::generate(&env);
             let product_id = String::from_str(&env, &product_id_str);
@@ -559,7 +559,7 @@ mod tests {
         #[test]
         fn prop_exists_false_before_register(product_id_str in "[a-z]{1,20}") {
             let env = Env::default();
-            let contract_id = env.register_contract(None, SupplyLinkContract);
+            let contract_id = env.register(SupplyLinkContract, ());
             let client = SupplyLinkContractClient::new(&env, &contract_id);
             let product_id = String::from_str(&env, &product_id_str);
             prop_assert!(!client.product_exists(&product_id));
@@ -577,7 +577,7 @@ mod tests {
         ) {
             let env = Env::default();
             env.mock_all_auths();
-            let contract_id = env.register_contract(None, SupplyLinkContract);
+            let contract_id = env.register(SupplyLinkContract, ());
             let client = SupplyLinkContractClient::new(&env, &contract_id);
             let owner = soroban_sdk::Address::generate(&env);
             let product_id = String::from_str(&env, &product_id_str);
@@ -612,7 +612,7 @@ mod tests {
     fn test_authorized_actor_can_add_event() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let actor = soroban_sdk::Address::generate(&env);
@@ -644,7 +644,7 @@ mod tests {
     fn test_unauthorized_caller_is_rejected() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let stranger = soroban_sdk::Address::generate(&env);
@@ -676,7 +676,7 @@ mod tests {
     fn test_remove_authorized_actor_success() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let actor = soroban_sdk::Address::generate(&env);
@@ -708,7 +708,7 @@ mod tests {
     fn test_remove_nonexistent_actor_returns_false() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let actor = soroban_sdk::Address::generate(&env);
@@ -737,7 +737,7 @@ mod tests {
     #[should_panic(expected = "Auth")]
     fn test_unauthorized_caller_cannot_remove_actor() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let actor = soroban_sdk::Address::generate(&env);
@@ -776,7 +776,7 @@ mod tests {
     #[test]
     fn test_product_count_initial_zero() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         assert_eq!(client.get_product_count(), 0);
     }
@@ -786,7 +786,7 @@ mod tests {
     fn test_product_count_increments() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
 
@@ -814,7 +814,7 @@ mod tests {
     fn test_list_products_returns_all() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
 
@@ -838,7 +838,7 @@ mod tests {
     fn test_list_products_pagination_offset() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
 
@@ -862,7 +862,7 @@ mod tests {
     fn test_list_products_pagination_limit() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
 
@@ -886,7 +886,7 @@ mod tests {
     fn test_list_products_offset_beyond_count() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
 
@@ -909,7 +909,7 @@ mod tests {
     fn test_update_product_metadata_success() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let product_id = String::from_str(&env, "prod-update");
@@ -938,7 +938,7 @@ mod tests {
     #[should_panic(expected = "Auth")]
     fn test_unauthorized_caller_cannot_update_metadata() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let product_id = String::from_str(&env, "prod-unauth-update");
@@ -970,7 +970,7 @@ mod tests {
     fn test_update_preserves_immutable_fields() {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let contract_id = env.register(SupplyLinkContract, ());
         let client = SupplyLinkContractClient::new(&env, &contract_id);
         let owner = soroban_sdk::Address::generate(&env);
         let product_id = String::from_str(&env, "prod-immutable");
