@@ -1,4 +1,4 @@
-# Supply-Link
+﻿# Supply-Link
 
 > Decentralized supply chain provenance tracker built on [Stellar](https://stellar.org)'s Soroban smart contract platform.
 
@@ -33,15 +33,15 @@ Paper trails are forged. Databases are siloed. No single source of truth exists 
 
 ## The Solution
 
-Supply-Link provides a decentralized, immutable ledger where every product event — harvest, processing, shipping, quality check, retail receipt — is recorded on-chain and verifiable by anyone with a QR code scan.
+Supply-Link provides a decentralized, immutable ledger where every product event â€” harvest, processing, shipping, quality check, retail receipt â€” is recorded on-chain and verifiable by anyone with a QR code scan.
 
 ### Core Features
 
-- **Product Registration** — Register products at origin with cryptographic proof of authenticity and a unique blockchain ID
-- **Event Tracking** — Record every supply chain step with timestamp, location, actor address, and metadata
-- **QR Verification** — Consumers scan a QR code to see the complete, tamper-proof product journey
-- **Multi-party Authorization** — Farmers, processors, shippers, and retailers each sign their own events
-- **Ownership Transfer** — Transfer product custody on-chain with full audit trail
+- **Product Registration** â€” Register products at origin with cryptographic proof of authenticity and a unique blockchain ID
+- **Event Tracking** â€” Record every supply chain step with timestamp, location, actor address, and metadata
+- **QR Verification** â€” Consumers scan a QR code to see the complete, tamper-proof product journey
+- **Multi-party Authorization** â€” Farmers, processors, shippers, and retailers each sign their own events
+- **Ownership Transfer** â€” Transfer product custody on-chain with full audit trail
 
 ---
 
@@ -49,8 +49,8 @@ Supply-Link provides a decentralized, immutable ledger where every product event
 
 ```
 Supply-Link/
-├── frontend/          # Next.js 16 + React 19 + TypeScript web app
-└── smart-contract/    # Rust + Soroban smart contracts
+â”œâ”€â”€ frontend/          # Next.js 16 + React 19 + TypeScript web app
+â””â”€â”€ smart-contract/    # Rust + Soroban smart contracts
 ```
 
 ### Technology Stack
@@ -70,15 +70,15 @@ Supply-Link/
 ### Data Flow
 
 ```
-Producer → Register Product → Stellar Blockchain
-    ↓
-Processor → Add Event → Stellar Blockchain
-    ↓
-Shipper → Add Event → Stellar Blockchain
-    ↓
-Retailer → Add Event → Stellar Blockchain
-    ↓
-Consumer → Scan QR → View Full History
+Producer â†’ Register Product â†’ Stellar Blockchain
+    â†“
+Processor â†’ Add Event â†’ Stellar Blockchain
+    â†“
+Shipper â†’ Add Event â†’ Stellar Blockchain
+    â†“
+Retailer â†’ Add Event â†’ Stellar Blockchain
+    â†“
+Consumer â†’ Scan QR â†’ View Full History
 ```
 
 ---
@@ -135,25 +135,25 @@ pub struct TrackingEvent {
 
 ```
 frontend/
-├── app/
-│   ├── (marketing)/        Landing page
-│   ├── (app)/
-│   │   ├── dashboard/      Analytics & overview
-│   │   ├── products/       Product registration & list
-│   │   └── tracking/       Event tracking
-│   ├── verify/[id]/        Public QR verification page
-│   └── api/health/         Health check endpoint
-├── components/
-│   ├── ui/                 Reusable primitives (Button, Card, etc.)
-│   ├── layouts/            App shell (Navbar, Sidebar)
-│   ├── wallet/             Freighter wallet connect
-│   ├── products/           Product cards & registration form
-│   └── tracking/           Event timeline & add-event form
-└── lib/
-    ├── stellar/            Soroban SDK client & contract bindings
-    ├── state/              Zustand stores
-    ├── hooks/              Custom React hooks
-    └── types/              Shared TypeScript domain types
+â”œâ”€â”€ app/
+â”‚   â”œâ”€â”€ (marketing)/        Landing page
+â”‚   â”œâ”€â”€ (app)/
+â”‚   â”‚   â”œâ”€â”€ dashboard/      Analytics & overview
+â”‚   â”‚   â”œâ”€â”€ products/       Product registration & list
+â”‚   â”‚   â””â”€â”€ tracking/       Event tracking
+â”‚   â”œâ”€â”€ verify/[id]/        Public QR verification page
+â”‚   â””â”€â”€ api/health/         Health check endpoint
+â”œâ”€â”€ components/
+â”‚   â”œâ”€â”€ ui/                 Reusable primitives (Button, Card, etc.)
+â”‚   â”œâ”€â”€ layouts/            App shell (Navbar, Sidebar)
+â”‚   â”œâ”€â”€ wallet/             Freighter wallet connect
+â”‚   â”œâ”€â”€ products/           Product cards & registration form
+â”‚   â””â”€â”€ tracking/           Event timeline & add-event form
+â””â”€â”€ lib/
+    â”œâ”€â”€ stellar/            Soroban SDK client & contract bindings
+    â”œâ”€â”€ state/              Zustand stores
+    â”œâ”€â”€ hooks/              Custom React hooks
+    â””â”€â”€ types/              Shared TypeScript domain types
 ```
 
 ---
@@ -173,7 +173,7 @@ frontend/
 cd frontend
 npm install
 npm run dev
-# → http://localhost:3000
+# â†’ http://localhost:3000
 ```
 
 ### Smart Contract
@@ -196,7 +196,7 @@ stellar contract deploy \
 | Feature | Stellar | Ethereum | Bitcoin |
 |---|---|---|---|
 | Finality | ~5 seconds | Minutes | Hours |
-| Tx cost | ~$0.00001 | $10–100 | High |
+| Tx cost | ~$0.00001 | $10â€“100 | High |
 | Energy | Efficient PoA | PoS | PoW |
 | Cross-border | Native | Limited | Limited |
 
@@ -206,11 +206,11 @@ Stellar's speed and near-zero cost make it ideal for supply chain use cases wher
 
 ## Use Cases
 
-- **Food & Agriculture** — Track coffee from Ethiopian farm to Seattle café, verify organic/fair-trade claims
-- **Pharmaceuticals** — Verify medication authenticity from factory to pharmacy, prevent counterfeits
-- **Fashion** — Prove ethical sourcing and fair-wage manufacturing
-- **Electronics** — Verify conflict-free mineral sourcing
-- **Luxury Goods** — Authenticate high-value items, track resale ownership
+- **Food & Agriculture** â€” Track coffee from Ethiopian farm to Seattle cafÃ©, verify organic/fair-trade claims
+- **Pharmaceuticals** â€” Verify medication authenticity from factory to pharmacy, prevent counterfeits
+- **Fashion** â€” Prove ethical sourcing and fair-wage manufacturing
+- **Electronics** â€” Verify conflict-free mineral sourcing
+- **Luxury Goods** â€” Authenticate high-value items, track resale ownership
 
 ---
 
@@ -218,17 +218,17 @@ Stellar's speed and near-zero cost make it ideal for supply chain use cases wher
 
 | Phase | Status | Scope |
 |---|---|---|
-| Phase 1 – MVP | 🔄 In Progress | Product registration, event tracking, wallet integration, QR codes |
-| Phase 2 – Security | 📅 Q2 2026 | Access control, security audit, E2E tests |
-| Phase 3 – UX | 📅 Q3 2026 | Timeline visualization, analytics dashboard, mobile |
-| Phase 4 – Integrations | 📅 Q3 2026 | REST API, webhooks, SDK |
-| Phase 5 – Scale | 📅 Q4 2026 | Multi-language, enterprise features, mainnet launch |
+| Phase 1 â€“ MVP | ðŸ”„ In Progress | Product registration, event tracking, wallet integration, QR codes |
+| Phase 2 â€“ Security | ðŸ“… Q2 2026 | Access control, security audit, E2E tests |
+| Phase 3 â€“ UX | ðŸ“… Q3 2026 | Timeline visualization, analytics dashboard, mobile |
+| Phase 4 â€“ Integrations | ðŸ“… Q3 2026 | REST API, webhooks, SDK |
+| Phase 5 â€“ Scale | ðŸ“… Q4 2026 | Multi-language, enterprise features, mainnet launch |
 
 ---
 
 ## Contributing
 
-Contributions are welcome across all skill levels — smart contracts, frontend, docs, design, and testing.
+Contributions are welcome across all skill levels â€” smart contracts, frontend, docs, design, and testing.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
@@ -236,8 +236,56 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
 ## License
 
-MIT — free to use, modify, and distribute.
+MIT â€” free to use, modify, and distribute.
 
 ---
 
-*Built with ❤️ on [Stellar](https://stellar.org) & [Soroban](https://soroban.stellar.org)*
+
+
+---
+
+## Contract API Reference
+
+> Full HTML docs: run `cargo doc --open` inside `smart-contract/`.
+> Testnet contract: `CBUWSKT2UGOAXK4ZREVDJV5XHSYB42PZ3CERU2ZFUTUMAZLJEHNZIECA`
+
+### Functions
+
+| Function | Auth Required | Returns | Panics |
+|---|---|---|---|
+| `register_product(id, name, origin, owner)` | `owner` | `Product` | never (under normal conditions) |
+| `add_tracking_event(product_id, caller, location, event_type, metadata)` | `caller` (owner or authorized actor) | `TrackingEvent` | `"product not found"`, `"caller is not authorized"` |
+| `get_product(id)` | none | `Product` | `"product not found"` |
+| `get_tracking_events(product_id)` | none | `Vec<TrackingEvent>` | never |
+| `product_exists(id)` | none | `bool` | never |
+| `get_events_count(product_id)` | none | `u32` | never |
+| `transfer_ownership(product_id, new_owner)` | current `owner` | `bool` | `"product not found"` |
+| `add_authorized_actor(product_id, actor)` | `owner` | `bool` | `"product not found"` |
+| `remove_authorized_actor(product_id, actor)` | `owner` | `bool` (false if not found) | `"product not found"` |
+| `update_product_metadata(product_id, name, origin)` | `owner` | `Product` | `"product not found"` |
+| `get_authorized_actors(product_id)` | none | `Vec<Address>` | never |
+| `get_product_count()` | none | `u64` | never |
+| `list_products(offset, limit)` | none | `Vec<String>` | never |
+
+### Emitted Events
+
+| Topic | Body | Trigger |
+|---|---|---|
+| `("product_registered", id)` | `Product` | `register_product` |
+| `("event_added", product_id, event_type)` | `TrackingEvent` | `add_tracking_event` |
+| `("ownership_transferred", product_id)` | `Address` (new owner) | `transfer_ownership` |
+| `("actor_authorized", product_id)` | `Address` (actor) | `add_authorized_actor` |
+| `("product_updated", product_id)` | `Product` | `update_product_metadata` |
+
+### Storage Keys
+
+| Key | Type | Description |
+|---|---|---|
+| `Product(String)` | `Product` | Product record keyed by product ID |
+| `Events(String)` | `Vec<TrackingEvent>` | Append-only event log keyed by product ID |
+| `ProductCount` | `u64` | Global monotonic registration counter |
+| `ProductIndex(u64)` | `String` | Index-to-ID map for paginated listing |
+
+---
+
+*Built with â¤ï¸ on [Stellar](https://stellar.org) & [Soroban](https://soroban.stellar.org)*
