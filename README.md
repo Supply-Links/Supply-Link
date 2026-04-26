@@ -237,6 +237,71 @@ frontend/
 
 ---
 
+## DevOps
+
+### Health Check Endpoint
+
+`GET /api/health` returns a JSON payload for production monitoring:
+
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "network": "Test SDF Network ; September 2015",
+  "contractId": "CBUWSKT2UGOAXK4ZREVDJV5XHSYB42PZ3CERU2ZFUTUMAZLJEHNZIECA",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "contractReachable": true,
+  "uptime": 42,
+  "timestamp": "2026-04-26T10:00:00.000Z"
+}
+```
+
+`contractReachable` pings the Soroban RPC via `getHealth` with a 4-second timeout. `uptime` is seconds since the server process started.
+
+### Bundle Size Analysis
+
+Run the interactive bundle analyzer:
+
+```bash
+cd frontend
+npm run analyze
+# Opens .next/analyze/client.html and server.html in your browser
+```
+
+CI enforces size limits via `size-limit`. Thresholds (gzipped):
+
+| Path | Limit |
+|---|---|
+| `.next/static/chunks/pages/*.js` | 150 kB |
+| `.next/static/chunks/app/**/*.js` | 200 kB |
+
+Run locally:
+
+```bash
+cd frontend
+npm run build && npm run size
+```
+
+### Security Scanning (CodeQL)
+
+`.github/workflows/codeql.yml` runs CodeQL analysis for JavaScript/TypeScript:
+- On every push to `main`
+- On every pull request targeting `main`
+- Weekly on Mondays at 03:00 UTC
+
+Results appear in the repository's **Security → Code scanning** tab.
+
+### Dependency Updates (Dependabot)
+
+`.github/dependabot.yml` automates dependency updates weekly (Mondays):
+- `npm` — frontend packages
+- `cargo` — smart-contract crates
+- `github-actions` — workflow action versions
+
+Minor and patch updates are grouped into a single PR per ecosystem to reduce noise. All PRs are assigned and reviewed by the maintainer.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
