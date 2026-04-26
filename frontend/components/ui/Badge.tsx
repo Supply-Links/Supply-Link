@@ -1,33 +1,41 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { ReactNode } from "react";
 import { clsx } from "clsx";
+import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
+import type { EventType } from "@/lib/types";
 
 const badgeVariants = cva(
   "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
   {
     variants: {
       variant: {
-        harvest: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-        processing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-        shipping: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-        retail: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-        default: "bg-[var(--muted-bg)] text-[var(--foreground)]",
+        harvest:    EVENT_TYPE_CONFIG.HARVEST.badgeClass,
+        processing: EVENT_TYPE_CONFIG.PROCESSING.badgeClass,
+        shipping:   EVENT_TYPE_CONFIG.SHIPPING.badgeClass,
+        retail:     EVENT_TYPE_CONFIG.RETAIL.badgeClass,
+        default:    "bg-[var(--muted-bg)] text-[var(--foreground)]",
       },
     },
-    defaultVariants: {
-      variant: "default",
-    },
+    defaultVariants: { variant: "default" },
   }
 );
 
 interface BadgeProps extends VariantProps<typeof badgeVariants> {
   children: ReactNode;
   className?: string;
+  eventType?: EventType;
 }
 
-export function Badge({ variant, className, children }: BadgeProps) {
+export function Badge({ variant, eventType, className, children }: BadgeProps) {
+  const resolvedVariant = eventType
+    ? (eventType.toLowerCase() as "harvest" | "processing" | "shipping" | "retail")
+    : variant;
+  const cfg = eventType ? EVENT_TYPE_CONFIG[eventType] : null;
+  const Icon = cfg?.icon;
+
   return (
-    <span className={clsx(badgeVariants({ variant }), className)}>
+    <span className={clsx(badgeVariants({ variant: resolvedVariant }), "gap-1", className)}>
+      {Icon && <Icon size={11} />}
       {children}
     </span>
   );
