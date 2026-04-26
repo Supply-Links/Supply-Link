@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink } from "lucide-react";
-import { getWalletAddress } from "@/lib/stellar/client";
-import { getWalletNetwork, isNetworkMatching, getNetworkName } from "@/lib/stellar/network";
+import { ExternalLink, LogOut } from "lucide-react";
+import { getWalletAddress, FreighterNotInstalledError } from "@/lib/stellar/client";
+import { getWalletNetwork, isNetworkMatching } from "@/lib/stellar/network";
 import { getXlmBalance, formatBalance } from "@/lib/stellar/balance";
 import { accountUrl } from "@/lib/stellar/explorer";
 import { useStore } from "@/lib/state/store";
+import { FreighterNotInstalledModal } from "./FreighterNotInstalledModal";
 
 export function WalletConnect() {
-  const { walletAddress, setWalletAddress, xlmBalance, setXlmBalance, setNetworkMismatch } =
+  const { walletAddress, setWalletAddress, xlmBalance, setXlmBalance, setNetworkMismatch, disconnect } =
     useStore();
   const [loading, setLoading] = useState(false);
+  const [showFreighterModal, setShowFreighterModal] = useState(false);
 
   async function connect() {
     setLoading(true);
@@ -36,9 +38,19 @@ export function WalletConnect() {
           console.error("Failed to fetch balance:", error);
         }
       }
+    } catch (error) {
+      if (error instanceof FreighterNotInstalledError) {
+        setShowFreighterModal(true);
+      } else {
+        console.error("Failed to connect wallet:", error);
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleDisconnect() {
+    disconnect();
   }
 
   if (walletAddress) {
@@ -57,18 +69,32 @@ export function WalletConnect() {
             {formatBalance(xlmBalance)}
           </span>
         )}
+        <button
+          onClick={handleDisconnect}
+          className="p-2 rounded hover:bg-[var(--muted-bg)] text-[var(--foreground)]"
+          aria-label="Disconnect wallet"
+          title="Disconnect wallet"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     );
   }
 
   return (
-    <button
-      onClick={connect}
-      disabled={loading}
-      className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-violet-700 transition-colors"
-    >
-      {loading ? "Connecting…" : "Connect Freighter"}
-    </button>
+    <>
+      <button
+        onClick={connect}
+        disabled={loading}
+        className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-violet-700 transition-colors"
+      >
+        {loading ? "Connecting…" : "Connect Freighter"}
+      </button>
+      <FreighterNotInstalledModal
+        isOpen={showFreighterModal}
+        onClose={() => setShowFreighterModal(false)}
+      />
+    </>
   );
 }
 
