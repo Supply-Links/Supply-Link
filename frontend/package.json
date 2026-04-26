@@ -14,6 +14,10 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "prepare": "husky"
+    "lint": "eslint",
+    "test": "vitest run",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -28,6 +32,7 @@
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
+    "papaparse": "^5.4.1",
     "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -40,8 +45,16 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@chromatic-com/storybook": "^3",
+    "@storybook/addon-a11y": "^8",
+    "@storybook/addon-essentials": "^8",
+    "@storybook/addon-interactions": "^8",
+    "@storybook/nextjs": "^8",
+    "@storybook/react": "^8",
+    "@storybook/test": "^8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/papaparse": "^5.3.15",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -54,6 +67,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
+    "storybook": "^8",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite-tsconfig-paths": "^5.1.4",
@@ -64,4 +78,14 @@
       "./node_modules/.bin/prettier --write"
     ]
   }
+  "size-limit": [
+    {
+      "path": ".next/static/chunks/pages/*.js",
+      "limit": "150 kB"
+    },
+    {
+      "path": ".next/static/chunks/app/**/*.js",
+      "limit": "200 kB"
+    }
+  ]
 }
