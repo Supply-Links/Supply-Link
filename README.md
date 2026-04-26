@@ -5,14 +5,79 @@
 [![Built on Stellar](https://img.shields.io/badge/Built%20on-Stellar-7B2FBE?logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Smart%20Contracts-Soroban-blueviolet)](https://soroban.stellar.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/YOUR_ORG/supply-link/ci.yml?label=CI&logo=github)](https://github.com/YOUR_ORG/supply-link/actions)
+[![Coverage](https://img.shields.io/badge/coverage-coming%20soon-lightgrey)](https://github.com/YOUR_ORG/supply-link)
+[![Vercel](https://img.shields.io/badge/Vercel-not%20yet%20deployed-lightgrey?logo=vercel)](https://vercel.com)
+
+> **Live Demo:** _Not yet deployed — coming soon._
 
 ---
 
 ## Overview
 
-Supply-Link is an open-source, blockchain-based supply chain tracker that enables transparent, tamper-proof tracking of products from origin to consumer. It solves the trust and verification crisis in global supply chains by anchoring every product event immutably on the Stellar blockchain.
+Supply-Link is an open-source, blockchain-based supply chain tracker that enables transparent, tamper-proof tracking of products from origin to consumer. It anchors every product event immutably on the Stellar blockchain via Soroban smart contracts.
 
 **Contract Address (Testnet):** `CBUWSKT2UGOAXK4ZREVDJV5XHSYB42PZ3CERU2ZFUTUMAZLJEHNZIECA`
+
+> ⚠️ This address is a **placeholder** used during development. The contract has not been deployed to testnet yet. Update `NEXT_PUBLIC_CONTRACT_ID` in your `.env` once you deploy.
+
+---
+
+## Current Status
+
+This project is in active development (Phase 1 — MVP). Here's an honest breakdown of what works today:
+
+### ✅ Implemented
+
+**Smart Contract (`smart-contract/`)**
+- `register_product` — register a product on-chain with ID, name, origin, and owner
+- `add_tracking_event` — log supply chain events (HARVEST / PROCESSING / SHIPPING / RETAIL) with location and metadata
+- `get_product` / `get_tracking_events` — read product details and full event history
+- `transfer_ownership` — transfer product custody to a new owner
+- `add_authorized_actor` / `remove_authorized_actor` — manage who can log events
+- `get_authorized_actors` — list authorized actors for a product
+- `product_exists` — check if a product ID is registered
+- `get_product_count` / `list_products` — paginated product listing
+- Full unit test suite + property-based tests (proptest) covering all core invariants
+
+**Frontend (`frontend/`)**
+- Landing page with feature overview, how-it-works, and inline product verification widget
+- Dashboard page with stat cards, events-per-day line chart, event-type pie chart, and recent events table
+- Products list page with search, filter, skeleton loading, and empty state
+- Product detail page with QR code, authorized actors panel, ownership history, and action buttons
+- Tracking page with product selector and event timeline
+- Public verify page (`/verify/[id]`) — no wallet required, shows full product journey
+- Consumer guide page (`/docs/user-guide-consumer`)
+- Freighter wallet connect/disconnect with balance display and network mismatch detection
+- `RegisterProductForm` — modal form with Zod validation and auto-generated product IDs
+- `TransferOwnershipForm` — transfer product ownership
+- `AddEventModal` / `AddEventForm` — log new tracking events
+- `AuthorizedActorsPanel` — add/remove authorized actors
+- `ProductQRCode` — generates and displays QR codes linking to the verify page
+- `QRScanner` / `ScanQRButton` — scan QR codes via camera
+- `EventTimeline` — visual timeline of tracking events
+- Dark/light theme toggle
+- Zustand store with wallet state, product/event lists, and pagination
+- `contractClient` in `lib/stellar/contract.ts` — full Soroban SDK wiring for all contract methods
+
+### ⚠️ Partially Implemented / Stubs
+
+- **Frontend → contract integration:** `lib/stellar/client.ts` exports stub functions (`registerProduct`, `listProducts`, `transferOwnership`, `addAuthorizedActor`, `removeAuthorizedActor`) that simulate network delay and return mock data. The real Soroban calls are implemented in `lib/stellar/contract.ts` (`contractClient`) but the UI components still call the stubs in `client.ts`. Wiring the UI to `contractClient` is the next step.
+- **Dashboard data:** Loaded from `lib/mock/products.ts` (mock data), not from the contract.
+- **Tracking page:** Product list and events come from mock data; the `Add Event` modal creates local state only — not submitted on-chain.
+- **Product detail page:** Reads from mock data; ownership history is a local field not stored on-chain.
+- **Verify page:** Reads from mock data; does not query the Soroban RPC.
+
+### ❌ Not Yet Implemented
+
+- Contract deployment to testnet (no live contract address)
+- CI/CD pipeline (no `.github/workflows/` directory)
+- Test coverage reporting
+- Vercel / production deployment
+- E2E tests
+- REST API / webhooks
+- Mobile-optimized layout
+- Multi-language support
 
 ---
 
@@ -58,14 +123,16 @@ Supply-Link/
 | Layer | Technology |
 |---|---|
 | Smart Contracts | Rust + Soroban SDK 22 |
-| Blockchain | Stellar (Testnet / Mainnet) |
+| Blockchain | Stellar Testnet (Mainnet: future) |
 | Frontend | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS v4 |
-| Wallet | Freighter (`@stellar/freighter-api`) |
-| State | Zustand |
+| Wallet | Freighter (`@stellar/freighter-api` v6) |
+| State | Zustand v5 |
 | Forms | React Hook Form + Zod |
 | Charts | Recharts |
 | QR | `qrcode` + `html5-qrcode` |
+| Testing (contract) | `soroban-sdk` testutils + proptest |
+| Testing (frontend) | Vitest |
 
 ### Data Flow
 
@@ -85,26 +152,38 @@ Consumer â†’ Scan QR â†’ View Full History
 
 ## Smart Contract
 
-The Soroban contract exposes these core functions:
+The Soroban contract exposes these functions:
 
 ```rust
 // Register a new product
 register_product(env, id, name, origin, owner) -> Product
 
-// Add a tracking event
-add_tracking_event(env, product_id, location, event_type, metadata) -> Event
+// Add a tracking event (owner or authorized actor only)
+add_tracking_event(env, product_id, caller, location, event_type, metadata) -> TrackingEvent
 
 // Read product details
 get_product(env, id) -> Product
 
 // Read all events for a product
-get_tracking_events(env, product_id) -> Vec<Event>
+get_tracking_events(env, product_id) -> Vec<TrackingEvent>
+
+// Check if a product exists
+product_exists(env, id) -> bool
+
+// Get event count for a product
+get_events_count(env, product_id) -> u32
 
 // Transfer product ownership
 transfer_ownership(env, product_id, new_owner) -> bool
 
-// Authorize an actor to add events
+// Manage authorized actors
 add_authorized_actor(env, product_id, actor) -> bool
+remove_authorized_actor(env, product_id, actor) -> bool
+get_authorized_actors(env, product_id) -> Vec<Address>
+
+// Paginated product listing
+get_product_count(env) -> u64
+list_products(env, offset, limit) -> Vec<String>
 ```
 
 ### Data Models
@@ -162,32 +241,63 @@ frontend/
 
 ### Prerequisites
 
-- Node.js 20+
-- Rust + `cargo`
-- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli)
-- [Freighter Wallet](https://freighter.app) browser extension
+- **Node.js 20+** — [nodejs.org](https://nodejs.org)
+- **Rust + cargo** — [rustup.rs](https://rustup.rs)
+- **wasm32 target** — `rustup target add wasm32-unknown-unknown`
+- **Stellar CLI** — [installation guide](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli)
+- **Freighter Wallet** browser extension — [freighter.app](https://freighter.app)
 
-### Frontend
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/YOUR_ORG/supply-link.git
+cd supply-link
+```
+
+### 2. Frontend
 
 ```bash
 cd frontend
+
+# Copy environment variables
+cp .env.example .env
+# Edit .env and set NEXT_PUBLIC_CONTRACT_ID once you deploy the contract
+
 npm install
 npm run dev
 # â†’ http://localhost:3000
 ```
 
-### Smart Contract
+The app runs with mock data by default. No contract deployment is required to explore the UI.
+
+### 3. Smart Contract
 
 ```bash
 cd smart-contract
+
+# Run tests
+cargo test
+
+# Build the WASM binary
 cargo build --target wasm32-unknown-unknown --release
 
-# Deploy to testnet
-stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/supply_link.wasm \
-  --network testnet \
-  --source <YOUR_ACCOUNT>
+# Deploy to testnet (requires a funded Stellar account alias)
+SOURCE=my-account bash scripts/deploy.sh
+# Copy the printed contract address into frontend/.env as NEXT_PUBLIC_CONTRACT_ID
 ```
+
+### 4. Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `NEXT_PUBLIC_CONTRACT_ID` | Deployed Soroban contract address | Placeholder — update after deploy |
+| `NEXT_PUBLIC_STELLAR_NETWORK` | `testnet` or `mainnet` | `testnet` |
+
+---
+
+## Screenshots
+
+> Screenshots will be added once the app is deployed. To preview locally, run `npm run dev` inside `frontend/`.
 
 ---
 

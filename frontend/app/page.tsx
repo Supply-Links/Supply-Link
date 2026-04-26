@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Scan,
 } from "lucide-react";
+import { VerifyWidget } from "@/components/tracking/VerifyWidget";
 
 export default function HomePage() {
   return (
@@ -86,6 +87,45 @@ export default function HomePage() {
               )}
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Verify a Product ─────────────────────────────────────────────────── */}
+      <section
+        id="verify"
+        className="px-6 py-20 max-w-7xl mx-auto"
+        aria-labelledby="verify-heading"
+      >
+        <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-10 md:p-14 text-center">
+          {/* Icon */}
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 mb-6">
+            <Scan size={28} className="text-violet-400" aria-hidden="true" />
+          </div>
+
+          <h2
+            id="verify-heading"
+            className="text-3xl md:text-4xl font-bold mb-3"
+          >
+            Verify a Product
+          </h2>
+          <p className="text-[var(--muted)] mb-8 max-w-lg mx-auto text-sm md:text-base">
+            Scan the QR code on any Supply-Link product or enter its ID to see
+            the full journey and confirm it&apos;s genuine — no account needed.
+          </p>
+
+          {/* Widget (client component) */}
+          <VerifyWidget />
+
+          {/* Guide link */}
+          <p className="mt-6 text-xs text-[var(--muted)]">
+            Not sure how this works?{" "}
+            <Link
+              href="/docs/user-guide-consumer"
+              className="text-violet-400 hover:text-violet-300 underline underline-offset-2 transition-colors"
+            >
+              Read the consumer guide
+            </Link>
+          </p>
         </div>
       </section>
 
@@ -253,6 +293,12 @@ export default function HomePage() {
             >
               <CheckCircle size={15} /> Stellar
             </a>
+            <Link
+              href="/docs/user-guide-consumer"
+              className="flex items-center gap-1.5 hover:text-[var(--foreground)] transition-colors"
+            >
+              <BookOpen size={15} /> Consumer Guide
+            </Link>
           </div>
           <p className="text-xs text-[var(--muted)]">© {new Date().getFullYear()} Supply-Link. MIT License.</p>
         </div>
