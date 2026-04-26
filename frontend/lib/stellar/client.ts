@@ -1,10 +1,10 @@
-import { isConnected, signTransaction } from '@stellar/freighter-api';
-import getPublicKey from '@stellar/freighter-api';
+import { isConnected, signTransaction, getAddress } from '@stellar/freighter-api';
 
 export async function getWalletAddress(): Promise<string | null> {
   const connected = await isConnected();
   if (!connected) return null;
-  return getPublicKey();
+  const result = await getAddress();
+  return result.address ?? null;
 }
 
 export { signTransaction };
