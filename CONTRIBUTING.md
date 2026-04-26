@@ -48,7 +48,30 @@ stellar --version   # stellar 0.x
 
 ## Local Setup
 
-### Frontend
+### Docker (recommended for new contributors)
+
+The fastest way to get a consistent dev environment is Docker:
+
+```bash
+# 1. Copy env file
+cp frontend/.env.example frontend/.env.local
+
+# 2. Start the dev server with hot-reload
+docker compose up
+
+# → http://localhost:3000
+```
+
+Source files are mounted as a volume so edits on your host are reflected instantly inside the container — no rebuild needed.
+
+To run a production build locally:
+
+```bash
+docker build --target runner -t supply-link:prod ./frontend
+docker run -p 3000:3000 --env-file frontend/.env.local supply-link:prod
+```
+
+### Frontend (without Docker)
 
 ```bash
 cd Supply-Link/frontend
