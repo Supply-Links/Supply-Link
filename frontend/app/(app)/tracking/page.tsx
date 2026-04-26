@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect, type ChangeEvent } from "react";
-import { Plus } from "lucide-react";
+import { Plus, List, BarChart2 } from "lucide-react";
 import { MOCK_PRODUCTS, getEventsByProductId } from "@/lib/mock/products";
 import type { TrackingEvent } from "@/lib/types";
 import { EventTimeline } from "@/components/tracking/EventTimeline";
 import { EventTimelineSkeleton } from "@/components/tracking/EventTimelineSkeleton";
 import { AddEventModal } from "@/components/tracking/AddEventModal";
+import { TimelineChart } from "@/components/tracking/TimelineChart";
 
 export default function TrackingPage() {
   const [selectedId, setSelectedId] = useState(MOCK_PRODUCTS[0]?.id ?? "");
   const [events, setEvents] = useState<TrackingEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [view, setView] = useState<"list" | "chart">("list");
 
   useEffect(() => {
     if (!selectedId) return;
@@ -76,11 +78,35 @@ export default function TrackingPage() {
 
       {/* Timeline */}
       <div className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-[var(--foreground)] mb-5">
-          Event History
-          {!loading && <span className="ml-2 text-[var(--muted)] font-normal">({events.length})</span>}
-        </h2>
-        {loading ? <EventTimelineSkeleton /> : <EventTimeline events={events} />}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            Event History
+            {!loading && <span className="ml-2 text-[var(--muted)] font-normal">({events.length})</span>}
+          </h2>
+          <div className="flex items-center gap-1 border border-[var(--card-border)] rounded-lg p-0.5">
+            <button
+              onClick={() => setView("list")}
+              className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-violet-600 text-white" : "text-[var(--muted)] hover:text-[var(--foreground)]"}`}
+              title="List view"
+            >
+              <List size={14} />
+            </button>
+            <button
+              onClick={() => setView("chart")}
+              className={`p-1.5 rounded-md transition-colors ${view === "chart" ? "bg-violet-600 text-white" : "text-[var(--muted)] hover:text-[var(--foreground)]"}`}
+              title="Chart view"
+            >
+              <BarChart2 size={14} />
+            </button>
+          </div>
+        </div>
+        {loading ? (
+          <EventTimelineSkeleton />
+        ) : view === "list" ? (
+          <EventTimeline events={events} />
+        ) : (
+          <TimelineChart events={events} />
+        )}
       </div>
 
       {showModal && selectedId && (
