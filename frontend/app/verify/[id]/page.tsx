@@ -4,6 +4,7 @@ import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
+import { ShareButton } from "@/components/ui/ShareButton";
 
 interface Props {
   params: { id: string };
@@ -64,7 +65,7 @@ export default async function VerifyPage({ params }: Props) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h1 className="text-2xl font-bold text-[var(--foreground)]">{product.name}</h1>
             <span
               className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -75,6 +76,7 @@ export default async function VerifyPage({ params }: Props) {
             >
               {product.active ? "Active" : "Inactive"}
             </span>
+            <ShareButton productName={product.name} productId={product.id} />
           </div>
           <p className="text-sm text-[var(--muted)]">Origin: {product.origin}</p>
           <p className="text-xs text-[var(--muted)] mt-0.5">Registered: {registeredAt}</p>

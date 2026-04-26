@@ -4,6 +4,7 @@ import { getProductById } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
+import { ShareButton } from "@/components/ui/ShareButton";
 
 interface Props {
   params: { id: string };
@@ -23,7 +24,10 @@ export default function ProductDetailPage({ params }: Props) {
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">{p.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-[var(--foreground)]">{p.name}</h1>
+            <ShareButton productName={p.name} productId={p.id} />
+          </div>
           <p className="text-[var(--muted)] mt-1">Product ID: <span className="font-mono text-sm">{p.id}</span></p>
         </div>
         <ProductQRCode productId={p.id} size={160} />
