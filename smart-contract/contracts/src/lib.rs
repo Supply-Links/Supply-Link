@@ -483,9 +483,9 @@ impl SupplyLinkContract {
 
     /// Grant an address permission to add tracking events for a product.
     ///
-    /// Appends `actor` to `product.authorized_actors`. Duplicate entries are
-    /// not deduplicated by the contract — callers should check
-    /// [`Self::get_authorized_actors`] before calling if deduplication matters.
+    /// Appends `actor` to `product.authorized_actors` only if it is not already
+    /// present, preventing duplicate entries. The actor list is deduplicated on
+    /// every call, so membership checks and removal are always unambiguous.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -493,7 +493,7 @@ impl SupplyLinkContract {
     /// - `actor` — Stellar address to authorise.
     ///
     /// # Returns
-    /// `true` on success.
+    /// `true` if `actor` was added, `false` if `actor` was already in the list.
     ///
     /// # Authorization
     /// Requires `product.owner.require_auth()`. Only the current product owner
@@ -504,7 +504,7 @@ impl SupplyLinkContract {
     ///
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
-    /// the event body.
+    /// the event body only when the actor is newly added.
     pub fn add_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
         let mut product: Product = env
             .storage()
@@ -513,6 +513,12 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Deduplicate: return false without modifying storage if already present
+        if product.authorized_actors.contains(&actor) {
+            return false;
+        }
+
         product.authorized_actors.push_back(actor.clone());
         env.storage()
             .persistent()
@@ -529,9 +535,9 @@ impl SupplyLinkContract {
 
     /// Revoke an address's permission to add tracking events for a product.
     ///
-    /// Rebuilds `authorized_actors` without the first occurrence of `actor`.
-    /// If `actor` appears multiple times (due to duplicate `add_authorized_actor`
-    /// calls), only the first occurrence is removed.
+    /// Rebuilds `authorized_actors` without `actor`. Because
+    /// [`Self::add_authorized_actor`] prevents duplicates, at most one entry
+    /// will ever be removed.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -783,11 +789,11 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() {
             panic!("event index out of bounds");
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
         // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
@@ -795,7 +801,7 @@ impl SupplyLinkContract {
         }
 
         // Check if we have enough approvals
-        let is_finalized = pending_event.approvals.len() as u32 >= pending_event.required_signatures;
+        let is_finalized = pending_event.approvals.len() >= pending_event.required_signatures;
 
         if is_finalized {
             // Move event to finalized events
@@ -811,7 +817,7 @@ impl SupplyLinkContract {
                 .set(&DataKey::Events(product_id.clone()), &events);
 
             // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -835,7 +841,7 @@ impl SupplyLinkContract {
             true
         } else {
             // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
@@ -887,14 +893,14 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() {
             panic!("event index out of bounds");
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
         // Remove from pending
-        pending.remove(event_index as usize);
+        pending.remove(event_index);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
@@ -932,5 +938,143 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::{Env, String};
+
+    // ── add_authorized_actor deduplication ───────────────────────────────────
+
+    #[test]
+    fn add_actor_returns_true_on_first_add() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p1");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        assert!(c.add_authorized_actor(&id, &actor));
+    }
+
+    #[test]
+    fn add_actor_returns_false_on_duplicate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p2");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &actor);
+        // Second call with same actor must return false
+        assert!(!c.add_authorized_actor(&id, &actor));
+    }
+
+    #[test]
+    fn no_duplicate_entries_after_repeated_adds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p3");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &actor);
+        c.add_authorized_actor(&id, &actor);
+        c.add_authorized_actor(&id, &actor);
+
+        // List must contain exactly one entry
+        let actors = c.get_authorized_actors(&id);
+        assert_eq!(actors.len(), 1);
+    }
+
+    // ── remove_authorized_actor ───────────────────────────────────────────────
+
+    #[test]
+    fn remove_actor_returns_true_when_present() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p4");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &actor);
+        assert!(c.remove_authorized_actor(&id, &actor));
+        assert_eq!(c.get_authorized_actors(&id).len(), 0);
+    }
+
+    #[test]
+    fn remove_actor_returns_false_when_absent() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p5");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        assert!(!c.remove_authorized_actor(&id, &actor));
+    }
+
+    // ── add/remove cycle ──────────────────────────────────────────────────────
+
+    #[test]
+    fn add_remove_add_cycle_works_correctly() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p6");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        assert!(c.add_authorized_actor(&id, &actor));    // add → true
+        assert!(!c.add_authorized_actor(&id, &actor));   // dup → false
+        assert!(c.remove_authorized_actor(&id, &actor)); // remove → true
+        assert!(!c.remove_authorized_actor(&id, &actor));// absent → false
+        assert!(c.add_authorized_actor(&id, &actor));    // re-add → true
+        assert_eq!(c.get_authorized_actors(&id).len(), 1);
+    }
+
+    #[test]
+    fn membership_correct_after_multiple_actors_and_removals() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let a1 = soroban_sdk::Address::generate(&env);
+        let a2 = soroban_sdk::Address::generate(&env);
+        let a3 = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p7");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &a1);
+        c.add_authorized_actor(&id, &a2);
+        c.add_authorized_actor(&id, &a3);
+        assert_eq!(c.get_authorized_actors(&id).len(), 3);
+
+        c.remove_authorized_actor(&id, &a2);
+        let actors = c.get_authorized_actors(&id);
+        assert_eq!(actors.len(), 2);
+        assert!(!actors.contains(&a2));
+        assert!(actors.contains(&a1));
+        assert!(actors.contains(&a3));
     }
 }
