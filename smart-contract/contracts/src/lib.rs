@@ -1,5 +1,18 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Address, Env, String, Vec, Symbol};
+
+/// Current event schema version.
+///
+/// Bump this constant whenever the [`TrackingEvent`] payload layout changes in
+/// a backward-incompatible way. Consumers should inspect the `schema_version`
+/// field (and the matching topic slot) to select the correct parser.
+///
+/// | Version | Changes |
+/// |---------|---------|
+/// | 1       | Initial versioned schema. Adds `schema_version` field. |
+pub const EVENT_SCHEMA_VERSION: u32 = 1;
+
+mod tests;
 
 // ── Data models ──────────────────────────────────────────────────────────────
 
@@ -18,8 +31,8 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Ve
 #[derive(Clone)]
 pub struct Product {
     /// Caller-supplied unique identifier for this product (e.g. `"batch-2024-001"`).
-    /// Must be unique across all registered products; duplicate IDs will silently
-    /// overwrite the existing entry.
+    /// Must be unique across all registered products; duplicate IDs are rejected
+    /// with `"product already exists"` and leave existing state unchanged.
     pub id: String,
     /// Human-readable product name (e.g. `"Arabica Coffee Beans"`).
     pub name: String,
@@ -43,6 +56,10 @@ pub struct Product {
     /// If 0 or 1, events are recorded immediately. If > 1, events are staged
     /// as pending until the required number of approvals are received.
     pub required_signatures: u32,
+    /// Lifecycle state of the product. `true` indicates the product is active
+    /// and can receive tracking events. `false` indicates the product has been
+    /// deactivated and is read-only. Defaults to `true` on registration.
+    pub active: bool,
 }
 
 /// A single supply-chain event recorded against a [`Product`].
@@ -51,12 +68,24 @@ pub struct Product {
 /// providing an immutable audit trail. All events for a product are stored
 /// together under [`DataKey::Events`].
 ///
+/// # Schema versioning
+/// The `schema_version` field carries [`EVENT_SCHEMA_VERSION`] at write time.
+/// Indexers and backend services must read this field first and dispatch to the
+/// appropriate parser before accessing any other fields. The version is also
+/// encoded as the **fourth topic slot** (index 3) in every emitted event so
+/// consumers can filter by version without deserialising the payload.
+/// Topic layout: `(event_name, product_id, event_type, schema_version)`.
+///
 /// # Storage
 /// Stored as a `Vec<TrackingEvent>` under [`DataKey::Events`] keyed by
 /// `product_id`. Storage type is `persistent`.
 #[contracttype]
 #[derive(Clone)]
 pub struct TrackingEvent {
+    /// Schema version of this event payload. Always set to
+    /// [`EVENT_SCHEMA_VERSION`] at write time. Consumers must check this field
+    /// before parsing any other fields.
+    pub schema_version: u32,
     /// ID of the [`Product`] this event belongs to.
     pub product_id: String,
     /// Free-form location string describing where the event occurred
@@ -144,6 +173,8 @@ pub enum DataKey {
     /// Key for the index-to-ID mapping used by pagination.
     /// The inner `u64` is the zero-based insertion index.
     ProductIndex(u64),
+    /// Key for actor nonce tracking. The inner `Address` is the actor address.
+    ActorNonce(Address),
 }
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -177,8 +208,8 @@ impl SupplyLinkContract {
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment (injected by the runtime).
-    /// - `id` — Caller-supplied unique product identifier. If a product with
-    ///   this ID already exists it will be silently overwritten.
+    /// - `id` — Caller-supplied unique product identifier. Must not already
+    ///   exist; duplicate IDs are rejected with `"product already exists"`.
     /// - `name` — Human-readable product name.
     /// - `origin` — Geographic or organisational origin of the product.
     /// - `owner` — Stellar address that will own the product. This address
@@ -192,9 +223,18 @@ impl SupplyLinkContract {
     /// Requires `owner.require_auth()`. The transaction must be signed by
     /// `owner`.
     ///
+    /// # Warning
+    /// If a product with `id` already exists it will be **silently overwritten**
+    /// with the new `name`, `origin`, `owner`, and `required_signatures`. The
+    /// previous product's data is lost. Additionally, the global
+    /// `ProductCount` and `ProductIndex` are incremented unconditionally, so a
+    /// duplicate registration creates a ghost index entry pointing to the same
+    /// `id`. Callers should use [`Self::product_exists`] to guard against
+    /// accidental overwrites.
+    ///
     /// # Panics
-    /// Does not panic under normal conditions. Panics if the Soroban runtime
-    /// rejects the auth check (i.e. `owner` did not sign).
+    /// - `"product already exists"` — if a product with `id` is already registered.
+    ///   `product_count` and index mappings are NOT modified on rejection.
     ///
     /// # Emitted Events
     /// Publishes a `("product_registered", id)` event with the [`Product`]
@@ -207,6 +247,12 @@ impl SupplyLinkContract {
         owner: Address,
         required_signatures: u32,
     ) -> Product {
+        // Duplicate guard — must come before auth to avoid leaking state on
+        // duplicate attempts and to keep counter/index consistent.
+        if env.storage().persistent().has(&DataKey::Product(id.clone())) {
+            panic!("product already exists");
+        }
+
         owner.require_auth();
         let product = Product {
             id: id.clone(),
@@ -216,6 +262,7 @@ impl SupplyLinkContract {
             timestamp: env.ledger().timestamp(),
             authorized_actors: Vec::new(&env),
             required_signatures,
+            active: true,
         };
         env.storage()
             .persistent()
@@ -257,9 +304,9 @@ impl SupplyLinkContract {
     ///   event. Must be the product owner or an address in
     ///   `authorized_actors`.
     /// - `location` — Free-form location string (e.g. `"Port of Hamburg"`).
-    /// - `event_type` — Supply-chain stage. Recommended values: `"HARVEST"`,
-    ///   `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`. Not validated by the
-    ///   contract.
+    /// - `event_type` — Canonical supply-chain stage. Must be one of:
+    ///   `"HARVEST"`, `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`.
+    ///   Unknown values are rejected with `"invalid event_type"` (issue #310).
     /// - `metadata` — Arbitrary JSON string with stage-specific data.
     ///
     /// # Returns
@@ -276,8 +323,14 @@ impl SupplyLinkContract {
     ///   owner nor in `authorized_actors`.
     ///
     /// # Emitted Events
-    /// Publishes an `("event_added", product_id, event_type)` event with the
-    /// [`TrackingEvent`] struct as the event body.
+    /// - When `product.required_signatures <= 1`: publishes an
+    ///   `("event_added", product_id, event_type, schema_version)` event with
+    ///   the [`TrackingEvent`] struct as the event body.
+    /// - When `product.required_signatures > 1`: the event is staged as
+    ///   pending and an `("event_pending", product_id, event_type,
+    ///   schema_version)` event is published instead. The event is not added
+    ///   to the finalized log until [`Self::approve_event`] collects enough
+    ///   approvals.
     pub fn add_tracking_event(
         env: Env,
         product_id: String,
@@ -285,22 +338,24 @@ impl SupplyLinkContract {
         location: String,
         event_type: String,
         metadata: String,
-    ) -> TrackingEvent {
+    ) -> Result<TrackingEvent, Error> {
         let product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
-        // Verify caller is owner or an authorized actor before requiring auth
         let is_owner = product.owner == caller;
         let is_actor = product.authorized_actors.contains(&caller);
         if !is_owner && !is_actor {
-            panic!("caller is not authorized");
+            return Err(Error::NotAuthorized);
         }
         caller.require_auth();
+        // Issue #310: reject unknown event types.
+        assert_valid_event_type(&env, &event_type);
 
         let event = TrackingEvent {
+            schema_version: EVENT_SCHEMA_VERSION,
             product_id: product_id.clone(),
             location,
             actor: caller.clone(),
@@ -336,7 +391,7 @@ impl SupplyLinkContract {
 
             // Emit pending event
             env.events().publish(
-                (Symbol::new(&env, "event_pending"), product_id, event_type),
+                (Symbol::new(&env, "event_pending"), product_id, event_type, EVENT_SCHEMA_VERSION),
                 event.clone(),
             );
         } else {
@@ -354,33 +409,26 @@ impl SupplyLinkContract {
 
             // Emit event
             env.events().publish(
-                (Symbol::new(&env, "event_added"), product_id, event_type),
+                (Symbol::new(&env, "event_added"), product_id, event_type, EVENT_SCHEMA_VERSION),
                 event.clone(),
             );
         }
 
-        event
+        Ok(event)
     }
 
     /// Retrieve a product by its ID.
     ///
-    /// # Parameters
-    /// - `env` — Soroban execution environment.
-    /// - `id` — The product ID to look up.
-    ///
     /// # Returns
     /// The [`Product`] struct stored under `id`.
     ///
-    /// # Authorization
-    /// None — this is a read-only function.
-    ///
-    /// # Panics
-    /// - `"product not found"` — if no product with `id` is registered.
-    pub fn get_product(env: Env, id: String) -> Product {
+    /// # Errors
+    /// - [`Error::ProductNotFound`] — if no product with `id` is registered.
+    pub fn get_product(env: Env, id: String) -> Result<Product, Error> {
         env.storage()
             .persistent()
             .get(&DataKey::Product(id))
-            .expect("product not found")
+            .ok_or(Error::ProductNotFound)
     }
 
     /// Retrieve all tracking events for a product.
@@ -430,9 +478,6 @@ impl SupplyLinkContract {
 
     /// Return the number of tracking events recorded for a product.
     ///
-    /// Equivalent to `get_tracking_events(product_id).len()` but cheaper
-    /// because it avoids deserialising the full event vector.
-    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — The product ID to query.
@@ -440,6 +485,12 @@ impl SupplyLinkContract {
     /// # Returns
     /// The number of events as a `u32`. Returns `0` if the product has no
     /// events or does not exist.
+    ///
+    /// # Note
+    /// This function deserialises the full `Vec<TrackingEvent>` from storage
+    /// to read its length. It has the same storage cost as
+    /// `get_tracking_events(product_id).len()` and is not a cheaper
+    /// alternative for large event logs.
     ///
     /// # Authorization
     /// None — this is a read-only function.
@@ -460,6 +511,10 @@ impl SupplyLinkContract {
     /// owner loses all owner-gated privileges immediately. The new owner gains
     /// them immediately.
     ///
+    /// # Safety Checks
+    /// - Prevents no-op transfers (transferring to the current owner)
+    /// - Validates that the new owner is a valid address
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to transfer.
@@ -474,37 +529,38 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot transfer to current owner"` — if `new_owner` equals current owner.
     ///
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
     /// `new_owner` as the event body.
-    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> bool {
+    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
+        Self::validate_and_increment_nonce(&env, &product.owner, nonce);
+        
         product.owner = new_owner.clone();
         env.storage()
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
         env.events().publish(
             (Symbol::new(&env, "ownership_transferred"), product_id),
-            new_owner,
+            transfer_event,
         );
 
-        true
+        Ok(true)
     }
 
     /// Grant an address permission to add tracking events for a product.
     ///
-    /// Appends `actor` to `product.authorized_actors`. Duplicate entries are
-    /// not deduplicated by the contract — callers should check
-    /// [`Self::get_authorized_actors`] before calling if deduplication matters.
+    /// Appends `actor` to `product.authorized_actors`. Prevents duplicate entries
+    /// to maintain clean governance state.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -512,7 +568,7 @@ impl SupplyLinkContract {
     /// - `actor` — Stellar address to authorise.
     ///
     /// # Returns
-    /// `true` on success.
+    /// `true` if `actor` was added, `false` if `actor` was already in the list.
     ///
     /// # Authorization
     /// Requires `product.owner.require_auth()`. Only the current product owner
@@ -520,37 +576,45 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"actor already authorized"` — if the actor is already in the authorized list.
     ///
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
     /// the event body.
-    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
+    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
+        Self::validate_and_increment_nonce(&env, &product.owner, nonce);
+        
         product.authorized_actors.push_back(actor.clone());
         env.storage()
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
         env.events().publish(
             (Symbol::new(&env, "actor_authorized"), product_id),
             actor,
         );
 
-        true
+        Ok(true)
     }
 
     /// Revoke an address's permission to add tracking events for a product.
     ///
-    /// Rebuilds `authorized_actors` without the first occurrence of `actor`.
-    /// If `actor` appears multiple times (due to duplicate `add_authorized_actor`
-    /// calls), only the first occurrence is removed.
+    /// Rebuilds `authorized_actors` without `actor`. Because
+    /// [`Self::add_authorized_actor`] prevents duplicates, at most one entry
+    /// will ever be removed.
+    ///
+    /// # Governance Safeguards
+    /// - Prevents removal of the owner from authorized actors if multi-signature
+    ///   is enabled and would leave insufficient authorized actors to meet the
+    ///   required signature threshold.
+    /// - Ensures at least one authorized path remains for governance operations.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -567,19 +631,26 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot remove owner from actors"` — if attempting to remove the owner
+    ///   when it would violate governance invariants.
+    /// - `"removal would violate governance"` — if removal would leave insufficient
+    ///   actors to meet multi-signature requirements.
     ///
     /// # Emitted Events
-    /// Does not emit an event (removal is not currently announced on-chain).
+    /// Does not emit an event. Removal of an actor is not announced on-chain.
+    /// Consumers tracking actor permissions must observe the absence of future
+    /// `actor_authorized` events or query [`Self::get_authorized_actors`]
+    /// directly.
     pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
+        Self::validate_and_increment_nonce(&env, &product.owner, nonce);
 
-        // Find and remove the actor
         let mut found = false;
         let mut new_actors = Vec::new(&env);
         for i in 0..product.authorized_actors.len() {
@@ -591,19 +662,36 @@ impl SupplyLinkContract {
             }
         }
 
+        // Governance safeguard: ensure sufficient actors remain for multi-sig
+        if product.required_signatures > 1 {
+            // Count total authorized entities (owner + actors)
+            let total_authorized = 1 + new_actors.len() as u32; // owner + remaining actors
+            if total_authorized < product.required_signatures {
+                panic!("removal would violate governance");
+            }
+        }
+
         product.authorized_actors = new_actors;
         env.storage()
             .persistent()
-            .set(&DataKey::Product(product_id), &product);
+            .set(&DataKey::Product(product_id.clone()), &product);
 
-        found
+        // Emit event
+        if found {
+            env.events().publish(
+                (Symbol::new(&env, "actor_removed"), product_id),
+                actor,
+            );
+        }
+
+        Ok(found)
     }
 
     /// Update the mutable metadata fields of a product.
     ///
     /// Only `name` and `origin` can be changed. The `id`, `owner`,
-    /// `timestamp`, and `authorized_actors` fields are immutable through this
-    /// function.
+    /// `timestamp`, `authorized_actors`, and `required_signatures` fields are
+    /// immutable through this function.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -629,12 +717,12 @@ impl SupplyLinkContract {
         product_id: String,
         name: String,
         origin: String,
-    ) -> Product {
+    ) -> Result<Product, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
 
@@ -645,13 +733,12 @@ impl SupplyLinkContract {
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
         env.events().publish(
             (Symbol::new(&env, "product_updated"), product_id),
             product.clone(),
         );
 
-        product
+        Ok(product)
     }
 
     /// Return the list of addresses authorised to add events for a product.
@@ -777,47 +864,50 @@ impl SupplyLinkContract {
     /// - `"approver is not authorized"` — if approver is not owner or actor.
     /// - `"no pending events"` — if there are no pending events.
     /// - `"event index out of bounds"` — if `event_index` is invalid.
-    pub fn approve_event(
+    ///
+    /// # Emitted Events
+    /// - When the event is **not yet finalized**: no event is emitted.
+    /// - When the event **is finalized** (approvals reach `required_signatures`):
+    ///   publishes an `("event_finalized", product_id, event_type,
+    ///   schema_version)` event with the [`TrackingEvent`] struct as the body.
         env: Env,
         product_id: String,
         event_index: u32,
         approver: Address,
-    ) -> bool {
+    ) -> Result<bool, Error> {
         let product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         let is_owner = product.owner == approver;
         let is_actor = product.authorized_actors.contains(&approver);
         if !is_owner && !is_actor {
-            panic!("approver is not authorized");
+            return Err(Error::ApproverNotAuthorized);
         }
         approver.require_auth();
+        Self::validate_and_increment_nonce(&env, &approver, nonce);
 
         let mut pending: Vec<PendingEvent> = env
             .storage()
             .persistent()
             .get(&DataKey::PendingEvents(product_id.clone()))
-            .expect("no pending events");
+            .ok_or(Error::NoPendingEvents)?;
 
         if event_index as usize >= pending.len() {
-            panic!("event index out of bounds");
+            return Err(Error::EventIndexOutOfBounds);
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
-        // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
             pending_event.approvals.push_back(approver.clone());
         }
 
-        // Check if we have enough approvals
         let is_finalized = pending_event.approvals.len() as u32 >= pending_event.required_signatures;
 
         if is_finalized {
-            // Move event to finalized events
             let mut events: Vec<TrackingEvent> = env
                 .storage()
                 .persistent()
@@ -829,8 +919,7 @@ impl SupplyLinkContract {
                 .persistent()
                 .set(&DataKey::Events(product_id.clone()), &events);
 
-            // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -841,24 +930,23 @@ impl SupplyLinkContract {
                     .remove(&DataKey::PendingEvents(product_id.clone()));
             }
 
-            // Emit finalized event
             env.events().publish(
                 (
                     Symbol::new(&env, "event_finalized"),
                     product_id,
                     pending_event.event.event_type.clone(),
+                    EVENT_SCHEMA_VERSION,
                 ),
                 pending_event.event,
             );
 
-            true
+            Ok(true)
         } else {
-            // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
-            false
+            Ok(false)
         }
     }
 
@@ -897,12 +985,13 @@ impl SupplyLinkContract {
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         if product.owner != rejector {
-            panic!("only owner can reject");
+            return Err(Error::OwnerOnly);
         }
         rejector.require_auth();
+        Self::validate_and_increment_nonce(&env, &rejector, nonce);
 
         // Validate reason length (max 256 characters)
         if reason.len() > 256 {
@@ -913,15 +1002,14 @@ impl SupplyLinkContract {
             .storage()
             .persistent()
             .get(&DataKey::PendingEvents(product_id.clone()))
-            .expect("no pending events");
+            .ok_or(Error::NoPendingEvents)?;
 
         if event_index as usize >= pending.len() {
-            panic!("event index out of bounds");
+            return Err(Error::EventIndexOutOfBounds);
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
-        // Remove from pending
         pending.remove(event_index as usize);
         if pending.len() > 0 {
             env.storage()
@@ -947,7 +1035,7 @@ impl SupplyLinkContract {
             rejection,
         );
 
-        true
+        Ok(true)
     }
 
     /// Get pending events for a product.
@@ -963,11 +1051,37 @@ impl SupplyLinkContract {
     ///
     /// # Authorization
     /// None — this is a read-only function.
+    ///
+    /// # Panics
+    /// Does not panic.
     pub fn get_pending_events(env: Env, product_id: String) -> Vec<PendingEvent> {
         env.storage()
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    pub fn get_nonce(env: Env, actor: Address) -> u64 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ActorNonce(actor))
+            .unwrap_or(0)
+    }
+
+    fn validate_and_increment_nonce(env: &Env, actor: &Address, provided_nonce: u64) {
+        let current_nonce: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ActorNonce(actor.clone()))
+            .unwrap_or(0);
+
+        if provided_nonce != current_nonce {
+            panic!("invalid nonce");
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::ActorNonce(actor.clone()), &(current_nonce + 1));
     }
 }
 

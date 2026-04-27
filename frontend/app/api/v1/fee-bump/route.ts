@@ -1,64 +1,80 @@
-import { NextRequest, NextResponse } from "next/server";
-import { Keypair, TransactionBuilder, Networks, BASE_FEE } from "@stellar/base";
-import { withCors, handleOptions } from "@/lib/api/cors";
+import { NextRequest, NextResponse } from 'next/server';
+import { Keypair, TransactionBuilder, Networks, BASE_FEE } from '@stellar/base';
+import { withCors, handleOptions } from '@/lib/api/cors';
+import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
+import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
+import { withIdempotency } from '@/lib/api/idempotency';
 
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
 
 export async function POST(request: NextRequest) {
-  const respond = (body: unknown, init?: ResponseInit) =>
-    withCors(request, NextResponse.json(body, init));
-  try {
-    const body = await request.json();
-    const { innerTx } = body;
+  const limited = applyRateLimit(request, 'fee-bump', RATE_LIMIT_PRESETS.feeBump);
+  if (limited) return limited;
 
-    if (!innerTx || typeof innerTx !== "string") {
-      return respond({ error: "Missing or invalid 'innerTx' parameter" }, { status: 400 });
-    }
+  return withIdempotency(request, async (req, rawBody) => {
+    const respond = (body: unknown, init?: ResponseInit) =>
+      withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 
-    // Get the fee-bump account from environment
-    const feeBumpSecret = process.env.STELLAR_FEE_BUMP_SECRET;
-    if (!feeBumpSecret) {
-      return respond({ error: "Fee-bump account not configured" }, { status: 500 });
-    }
-
-    const feeBumpKeypair = Keypair.fromSecret(feeBumpSecret);
-
-    // Parse the inner transaction
-    let innerTransaction;
     try {
-      innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET_NETWORK_PASSPHRASE);
-    } catch {
-      return respond({ error: "Invalid transaction XDR" }, { status: 400 });
-    }
+      const body = JSON.parse(rawBody);
+      const { innerTx } = body;
 
-    // Create fee-bump transaction
-    // Fee: base fee (100 stroops) * (1 + number of operations)
-    const operationCount = innerTransaction.operations.length;
-    const feeBumpFee = BASE_FEE * (1 + operationCount);
+      if (!innerTx || typeof innerTx !== 'string') {
+        return withCors(
+          req,
+          apiError(req, 400, ErrorCode.MISSING_FIELDS, "Missing or invalid 'innerTx' parameter"),
+        );
+      }
 
-    const feeBumpTx = new TransactionBuilder(
-      await feeBumpKeypair.publicKey(),
-      {
+      const feeBumpSecret = process.env.STELLAR_FEE_BUMP_SECRET;
+      if (!feeBumpSecret) {
+        return withCors(
+          req,
+          apiError(req, 500, ErrorCode.DEPENDENCY_UNAVAILABLE, 'Fee-bump account not configured'),
+        );
+      }
+
+      const feeBumpKeypair = Keypair.fromSecret(feeBumpSecret);
+
+      let innerTransaction;
+      try {
+        innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET_NETWORK_PASSPHRASE);
+      } catch {
+        return withCors(
+          req,
+          apiError(req, 400, ErrorCode.INVALID_PAYLOAD, 'Invalid transaction XDR'),
+        );
+      }
+
+      const operationCount = innerTransaction.operations.length;
+      const feeBumpFee = BASE_FEE * (1 + operationCount);
+
+      const feeBumpTx = new TransactionBuilder(await feeBumpKeypair.publicKey(), {
         fee: feeBumpFee.toString(),
         networkPassphrase: Networks.TESTNET_NETWORK_PASSPHRASE,
-      }
-    )
-      .setBaseFee(BASE_FEE)
-      .addOperation(innerTransaction.operations[0])
-      .build();
+      })
+        .setBaseFee(BASE_FEE)
+        .addOperation(innerTransaction.operations[0])
+        .build();
 
-    // Sign with fee-bump account
-    feeBumpTx.sign(feeBumpKeypair);
+      feeBumpTx.sign(feeBumpKeypair);
 
-    return respond({
-      feeBumpTx: feeBumpTx.toXDR(),
-      cost: feeBumpFee.toString(),
-      message: "Fee-bump transaction created. Ready to submit to Stellar network.",
-    });
-  } catch (error) {
-    console.error("Fee-bump error:", error);
-    return respond({ error: "Failed to create fee-bump transaction" }, { status: 500 });
-  }
+      return respond({
+        feeBumpTx: feeBumpTx.toXDR(),
+        cost: feeBumpFee.toString(),
+        message: 'Fee-bump transaction created. Ready to submit to Stellar network.',
+      });
+    } catch (error) {
+      console.error('[fee-bump POST]', error);
+      return withCors(
+        req,
+        apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to create fee-bump transaction'),
+      );
+    }
+  });
 }
+
+// Access tier: internal – signs with STELLAR_FEE_BUMP_SECRET; never expose publicly
+export const POST = requirePolicy("internal", handler);

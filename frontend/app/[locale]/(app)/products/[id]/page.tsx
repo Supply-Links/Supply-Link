@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getProductById } from "@/lib/mock/products";
+import { getProductById, getEventsByProductId } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { DownloadBadgeButton } from "@/components/products/DownloadBadgeButton";
+import { DownloadCertificateButton } from "@/components/products/DownloadCertificateButton";
+import { LazyEventMap } from "@/components/lazy/LazyEventMap";
 
 interface Props {
   params: { id: string };
@@ -16,6 +18,7 @@ export default function ProductDetailPage({ params }: Props) {
   const product = getProductById(params.id);
   if (!product) notFound();
   const p = product!;
+  const events = getEventsByProductId(p.id);
   const registeredAt = new Date(p.timestamp).toLocaleString();
 
   return (
@@ -86,10 +89,19 @@ export default function ProductDetailPage({ params }: Props) {
         )}
       </section>
 
+      {/* Event Map */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Event Locations</h2>
+        <LazyEventMap events={events} />
+      </section>
+
       {/* Action Buttons */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Share & Download</h2>
-        <DownloadBadgeButton product={p} />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <DownloadBadgeButton product={p} />
+          <DownloadCertificateButton product={p} events={events} />
+        </div>
       </section>
 
       {/* Product Actions */}
