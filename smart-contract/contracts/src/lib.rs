@@ -43,6 +43,10 @@ pub struct Product {
     /// If 0 or 1, events are recorded immediately. If > 1, events are staged
     /// as pending until the required number of approvals are received.
     pub required_signatures: u32,
+    /// Lifecycle state of the product. `true` indicates the product is active
+    /// and can receive tracking events. `false` indicates the product has been
+    /// deactivated and is read-only. Defaults to `true` on registration.
+    pub active: bool,
 }
 
 /// A single supply-chain event recorded against a [`Product`].
@@ -197,6 +201,7 @@ impl SupplyLinkContract {
             timestamp: env.ledger().timestamp(),
             authorized_actors: Vec::new(&env),
             required_signatures,
+            active: true,
         };
         env.storage()
             .persistent()
@@ -272,6 +277,11 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
             .expect("product not found");
+
+        // Check if product is active
+        if !product.active {
+            panic!("product is not active");
+        }
 
         // Verify caller is owner or an authorized actor before requiring auth
         let is_owner = product.owner == caller;
@@ -932,5 +942,322 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Deactivate a product, preventing new tracking events.
+    ///
+    /// Sets the `active` field to `false`. Deactivated products remain readable
+    /// but cannot receive new tracking events until reactivated.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to deactivate.
+    ///
+    /// # Returns
+    /// `true` on success.
+    ///
+    /// # Authorization
+    /// Requires `product.owner.require_auth()`. Only the current product owner
+    /// may deactivate a product.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"product already inactive"` — if the product is already deactivated.
+    ///
+    /// # Emitted Events
+    /// Publishes a `("product_deactivated", product_id)` event.
+    pub fn deactivate_product(env: Env, product_id: String) -> bool {
+        let mut product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+
+        if !product.active {
+            panic!("product already inactive");
+        }
+
+        product.active = false;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        env.events().publish(
+            (Symbol::new(&env, "product_deactivated"), product_id),
+            product,
+        );
+
+        true
+    }
+
+    /// Reactivate a deactivated product.
+    ///
+    /// Sets the `active` field to `true`, allowing new tracking events again.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to reactivate.
+    ///
+    /// # Returns
+    /// `true` on success.
+    ///
+    /// # Authorization
+    /// Requires `product.owner.require_auth()`. Only the current product owner
+    /// may reactivate a product.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"product already active"` — if the product is already active.
+    ///
+    /// # Emitted Events
+    /// Publishes a `("product_reactivated", product_id)` event.
+    pub fn reactivate_product(env: Env, product_id: String) -> bool {
+        let mut product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+
+        if product.active {
+            panic!("product already active");
+        }
+
+        product.active = true;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        env.events().publish(
+            (Symbol::new(&env, "product_reactivated"), product_id),
+            product,
+        );
+
+        true
+    }
+
+    /// Return a paginated slice of product IDs filtered by active status.
+    ///
+    /// Similar to [`Self::list_products`] but allows filtering by lifecycle state.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `offset` — Zero-based index of the first product to return.
+    /// - `limit` — Maximum number of product IDs to return.
+    /// - `active_only` — If `true`, only return active products. If `false`, return all products.
+    ///
+    /// # Returns
+    /// A `Vec<String>` of product IDs matching the filter criteria.
+    ///
+    /// # Authorization
+    /// None — this is a read-only function.
+    ///
+    /// # Panics
+    /// Does not panic.
+    pub fn list_products_filtered(
+        env: Env,
+        offset: u64,
+        limit: u64,
+        active_only: bool,
+    ) -> Vec<String> {
+        let count: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ProductCount)
+            .unwrap_or(0);
+
+        let mut products = Vec::new(&env);
+        let mut collected = 0u64;
+        let mut skipped = 0u64;
+
+        for i in 0..count {
+            if collected >= limit {
+                break;
+            }
+
+            if let Some(product_id) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, String>(&DataKey::ProductIndex(i))
+            {
+                if let Some(product) = env
+                    .storage()
+                    .persistent()
+                    .get::<DataKey, Product>(&DataKey::Product(product_id.clone()))
+                {
+                    // Apply filter
+                    if !active_only || product.active {
+                        if skipped >= offset {
+                            products.push_back(product_id);
+                            collected += 1;
+                        } else {
+                            skipped += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        products
+    }
+
+    /// Check if a product is active.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to check.
+    ///
+    /// # Returns
+    /// `true` if the product exists and is active, `false` otherwise.
+    ///
+    /// # Authorization
+    /// None — this is a read-only function.
+    ///
+    /// # Panics
+    /// Does not panic.
+    pub fn is_product_active(env: Env, product_id: String) -> bool {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Product>(&DataKey::Product(product_id))
+            .map(|p| p.active)
+            .unwrap_or(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    fn test_product_deactivation_lifecycle() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        // Register product
+        env.mock_all_auths();
+        let product = client.register_product(&product_id, &name, &origin, &owner, &1);
+        assert_eq!(product.active, true);
+
+        // Deactivate product
+        client.deactivate_product(&product_id);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.active, false);
+
+        // Verify product is inactive
+        assert_eq!(client.is_product_active(&product_id), false);
+
+        // Reactivate product
+        client.reactivate_product(&product_id);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.active, true);
+        assert_eq!(client.is_product_active(&product_id), true);
+    }
+
+    #[test]
+    #[should_panic(expected = "product is not active")]
+    fn test_cannot_add_event_to_inactive_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+        let location = String::from_str(&env, "Test Location");
+        let event_type = String::from_str(&env, "HARVEST");
+        let metadata = String::from_str(&env, "{}");
+
+        env.mock_all_auths();
+
+        // Register and deactivate product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+        client.deactivate_product(&product_id);
+
+        // Try to add event to inactive product - should panic
+        client.add_tracking_event(&product_id, &owner, &location, &event_type, &metadata);
+    }
+
+    #[test]
+    fn test_list_products_filtered() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        env.mock_all_auths();
+
+        // Register 5 products
+        for i in 1..=5 {
+            let product_id = String::from_str(&env, &format!("product-{:03}", i));
+            let name = String::from_str(&env, &format!("Product {}", i));
+            let origin = String::from_str(&env, "Test Origin");
+            client.register_product(&product_id, &name, &origin, &owner, &1);
+        }
+
+        // Deactivate products 2 and 4
+        client.deactivate_product(&String::from_str(&env, "product-002"));
+        client.deactivate_product(&String::from_str(&env, "product-004"));
+
+        // List all products
+        let all_products = client.list_products_filtered(&0, &10, &false);
+        assert_eq!(all_products.len(), 5);
+
+        // List only active products
+        let active_products = client.list_products_filtered(&0, &10, &true);
+        assert_eq!(active_products.len(), 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "product already inactive")]
+    fn test_cannot_deactivate_inactive_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+        client.deactivate_product(&product_id);
+        
+        // Try to deactivate again - should panic
+        client.deactivate_product(&product_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "product already active")]
+    fn test_cannot_reactivate_active_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-004");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+        
+        // Try to reactivate an already active product - should panic
+        client.reactivate_product(&product_id);
     }
 }
