@@ -36,11 +36,11 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl p-6 w-full max-w-md shadow-xl">
+    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl p-5 w-full max-w-md shadow-xl my-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Add Tracking Event</h2>
-          <button onClick={onClose} aria-label="Close" className="p-1 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)]">
+          <button onClick={onClose} aria-label="Close" className="p-2 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)] min-h-[44px] min-w-[44px] flex items-center justify-center">
             <X size={16} />
           </button>
         </div>
@@ -83,11 +83,11 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
             {metaError && <p className="text-xs text-red-500 mt-1">{metaError}</p>}
           </div>
 
-          <div className="flex justify-end gap-3 mt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-1">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)] min-h-[44px]">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90">
+            <button type="submit" className="px-4 py-2.5 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 min-h-[44px]">
               Add Event
             </button>
           </div>

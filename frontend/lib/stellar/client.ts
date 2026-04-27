@@ -1,3 +1,4 @@
+import { isConnected, signTransaction, getAddress } from '@stellar/freighter-api';
 import {
   getAddress,
   isConnected,
@@ -46,6 +47,10 @@ export class FreighterNotInstalledError extends Error {
 }
 
 export async function getWalletAddress(): Promise<string | null> {
+  const connected = await isConnected();
+  if (!connected) return null;
+  const result = await getAddress();
+  return result.address ?? null;
   try {
     const result = await isConnected();
     if (!result.isConnected) return null;
@@ -85,9 +90,12 @@ export async function safeSignTransaction(
 export { signTransaction };
 
 export const CONTRACT_ID =
-  process.env.NEXT_PUBLIC_CONTRACT_ID ??
-  "CBUWSKT2UGOAXK4ZREVDJV5XHSYB42PZ3CERU2ZFUTUMAZLJEHNZIECA";
+  process.env.NEXT_PUBLIC_CONTRACT_ID ?? 'CBUWSKT2UGOAXK4ZREVDJV5XHSYB42PZ3CERU2ZFUTUMAZLJEHNZIECA';
 
+export const NETWORK_PASSPHRASE =
+  process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
+
+export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 export const NETWORK_PASSPHRASE = NETWORK_CONFIG.passphrase;
 
 export const RPC_URL = NETWORK_CONFIG.rpcUrl;
@@ -142,9 +150,9 @@ export async function transferOwnership(
 export async function addAuthorizedActor(
   productId: string,
   actor: string,
-  callerAddress: string
+  callerAddress: string,
 ): Promise<void> {
-  console.log("addAuthorizedActor", { productId, actor, callerAddress });
+  console.log('addAuthorizedActor', { productId, actor, callerAddress });
   // TODO: build + sign + submit Soroban transaction
   await new Promise((r) => setTimeout(r, 1000)); // simulate network delay
 }
@@ -156,9 +164,9 @@ export async function addAuthorizedActor(
 export async function removeAuthorizedActor(
   productId: string,
   actor: string,
-  callerAddress: string
+  callerAddress: string,
 ): Promise<void> {
-  console.log("removeAuthorizedActor", { productId, actor, callerAddress });
+  console.log('removeAuthorizedActor', { productId, actor, callerAddress });
   // TODO: build + sign + submit Soroban transaction
   await new Promise((r) => setTimeout(r, 1000)); // simulate network delay
 }
