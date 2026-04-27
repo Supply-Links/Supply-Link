@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product, TrackingEvent } from "../types";
+import type { Product, TrackingEvent, Notification } from "../types";
 import { isConnected } from "@stellar/freighter-api";
 
 interface SupplyLinkStore {
@@ -16,6 +16,7 @@ interface SupplyLinkStore {
   eventPage: number;
   eventPageSize: number;
   eventTotal: number;
+  notifications: Notification[];
   setWalletAddress: (address: string | null) => void;
   setXlmBalance: (balance: string | null) => void;
   setNetworkMismatch: (mismatch: boolean) => void;
@@ -33,6 +34,9 @@ interface SupplyLinkStore {
   setEventPageSize: (size: number) => void;
   setEventTotal: (total: number) => void;
   disconnect: () => void;
+  addNotifications: (notifications: Notification[]) => void;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
 }
 
 export const useStore = create<SupplyLinkStore>()(
@@ -50,6 +54,7 @@ export const useStore = create<SupplyLinkStore>()(
       eventPage: 0,
       eventPageSize: 20,
       eventTotal: 0,
+      notifications: [],
       setWalletAddress: (address) => set({ walletAddress: address }),
       setXlmBalance: (balance) => set({ xlmBalance: balance }),
       setNetworkMismatch: (mismatch) => set({ networkMismatch: mismatch }),
@@ -87,11 +92,29 @@ export const useStore = create<SupplyLinkStore>()(
           productPage: 0,
           eventPage: 0,
         }),
+      addNotifications: (incoming) =>
+        set((state) => {
+          const existingIds = new Set(state.notifications.map((n) => n.id));
+          const fresh = incoming.filter((n) => !existingIds.has(n.id));
+          if (!fresh.length) return state;
+          return { notifications: [...fresh, ...state.notifications].slice(0, 50) };
+        }),
+      markNotificationRead: (id) =>
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, read: true } : n
+          ),
+        })),
+      markAllNotificationsRead: () =>
+        set((state) => ({
+          notifications: state.notifications.map((n) => ({ ...n, read: true })),
+        })),
     }),
     {
       name: "supply-link-store",
       partialize: (state) => ({
         walletAddress: state.walletAddress,
+        notifications: state.notifications,
       }),
     }
   )
