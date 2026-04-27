@@ -24,3 +24,14 @@ export interface TrackingEvent {
   eventType: EventType;
   metadata: string; // JSON string
 }
+
+export interface Notification {
+  id: string; // `${productId}-${timestamp}`
+  productId: string;
+  productName: string;
+  eventType: EventType;
+  location: string;
+  actor: string;
+  timestamp: number;
+  read: boolean;
+}
