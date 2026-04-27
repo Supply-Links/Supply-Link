@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { useStore } from "@/lib/state/store";
 import { MOCK_EVENTS } from "@/lib/mock/products";
+import { notifyWebhooksOfNewEvent } from "@/lib/webhooks/client";
 import type { TrackingEvent } from "@/lib/types";
 
 const CACHE_TTL_MS = 60_000;
@@ -68,6 +69,14 @@ export function useEvents() {
       try {
         await txFn();
         confirmOptimisticEvent(event.productId, event.timestamp);
+
+        // Notify webhooks of the new event
+        try {
+          await notifyWebhooksOfNewEvent(event);
+        } catch (webhookErr) {
+          console.error("Webhook notification error (non-blocking):", webhookErr);
+          // Don't fail the event confirmation if webhooks fail
+        }
       } catch (err) {
         removeOptimisticEvent(event.productId, event.timestamp);
         onError(err instanceof Error ? err.message : "Transaction failed");
