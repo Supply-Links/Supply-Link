@@ -55,20 +55,16 @@ export function AppNavbar({ onMenuClick }: AppNavbarProps) {
 
         <div className="ml-auto flex items-center gap-2">
           <NetworkBadge />
-<<<<<<< feat/notification-system
           <NotificationDropdown
             notifications={notifications}
             unreadCount={unreadCount}
             onMarkRead={markNotificationRead}
             onMarkAllRead={markAllNotificationsRead}
           />
-          <WalletConnect />
-=======
           {/* WalletConnect truncates address on small screens */}
           <div className="max-w-[140px] sm:max-w-none overflow-hidden">
             <WalletConnect />
           </div>
->>>>>>> main
           <ThemeToggle />
         </div>
       </header>
