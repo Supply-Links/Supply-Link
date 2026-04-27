@@ -178,6 +178,49 @@ Thanks for your interest in contributing. Supply-Link is an open-source project 
 
 ---
 
+## VS Code Setup
+
+The repository ships with recommended VS Code settings and extensions in `.vscode/`.
+
+### Installing recommended extensions
+
+VS Code will automatically prompt you to install the recommended extensions when you open the workspace. To install them manually, run:
+
+```bash
+code --install-extension dbaeumer.vscode-eslint
+code --install-extension esbenp.prettier-vscode
+code --install-extension bradlc.vscode-tailwindcss
+code --install-extension rust-lang.rust-analyzer
+code --install-extension tamasfe.even-better-toml
+code --install-extension eamodio.gitlens
+```
+
+Or open the Extensions panel (`Ctrl+Shift+X`), search for `@recommended`, and click **Install All**.
+
+### What each extension does
+
+| Extension | Purpose |
+|---|---|
+| `dbaeumer.vscode-eslint` | Runs ESLint inline and surfaces lint errors as you type |
+| `esbenp.prettier-vscode` | Formats files on save using the project's Prettier config |
+| `bradlc.vscode-tailwindcss` | Tailwind CSS IntelliSense — class name autocomplete and hover previews |
+| `rust-lang.rust-analyzer` | Rust language server — type hints, go-to-definition, inline errors |
+| `tamasfe.even-better-toml` | Syntax highlighting and validation for `Cargo.toml` |
+| `eamodio.gitlens` | Enhanced Git history, blame annotations, and branch visualisation |
+
+### Workspace settings (`.vscode/settings.json`)
+
+| Setting | Value | Why |
+|---|---|---|
+| `editor.formatOnSave` | `true` | Automatically formats every file on save so you never need to run `npm run format` manually |
+| `editor.defaultFormatter` | `esbenp.prettier-vscode` | Ensures Prettier (not the built-in formatter) is used for all supported file types |
+| `editor.codeActionsOnSave` → `source.fixAll.eslint` | `"explicit"` | Auto-fixes ESLint violations on save (only when you explicitly save, not on auto-save) |
+| `tailwindCSS.includeLanguages` | `typescript`/`typescriptreact` → `html` | Enables Tailwind IntelliSense inside `.ts` and `.tsx` files |
+| `rust-analyzer.checkOnSave.command` | `clippy` | Runs `cargo clippy` instead of `cargo check` on save for stricter Rust linting |
+| `rust-analyzer.cargo.allFeatures` | `true` | Analyses the smart contract with all Cargo features enabled so no code paths are hidden |
+
+---
+
 ## Code of Conduct
 
 This project follows the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). By participating you agree to uphold it. Report unacceptable behaviour to the maintainers via a private GitHub issue or email.
