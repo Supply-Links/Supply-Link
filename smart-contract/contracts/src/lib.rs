@@ -1109,3 +1109,6 @@ mod tests {
         assert_eq!(pending.get(0).unwrap().event.schema_version, EVENT_SCHEMA_VERSION);
     }
 }
+
+#[cfg(test)]
+mod profiling;
