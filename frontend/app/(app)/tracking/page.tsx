@@ -33,7 +33,7 @@ export default function TrackingPage() {
   const selectedProduct = MOCK_PRODUCTS.find((p) => p.id === selectedId);
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Tracking</h1>
         <div className="flex gap-2">
@@ -41,14 +41,14 @@ export default function TrackingPage() {
           <button
             onClick={refresh}
             title="Refresh events"
-            className="flex items-center gap-2 px-3 py-2 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm transition-colors"
+            className="flex items-center gap-2 px-3 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm transition-colors min-h-[44px]"
           >
             <RefreshCw size={15} />
           </button>
           <button
             onClick={() => setShowModal(true)}
             disabled={!selectedId}
-            className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 disabled:opacity-40 transition-opacity"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 disabled:opacity-40 transition-opacity min-h-[44px]"
           >
             <Plus size={15} />
             Add Event

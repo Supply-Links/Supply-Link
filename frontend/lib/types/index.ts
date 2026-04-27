@@ -14,6 +14,8 @@ export interface Product {
   active: boolean;
   authorizedActors: string[];
   ownershipHistory?: OwnershipRecord[];
+  /** Number of signatures required for events (0 or 1 = immediate, >1 = multi-sig) */
+  requiredSignatures?: number;
   /** true while an on-chain transaction is in-flight (#49) */
   pending?: boolean;
 }
@@ -27,4 +29,23 @@ export interface TrackingEvent {
   metadata: string;
   /** true while an on-chain transaction is in-flight (#49) */
   pending?: boolean;
+}
+
+export interface PendingEvent {
+  productId: string;
+  event: TrackingEvent;
+  approvals: string[];
+  requiredSignatures: number;
+  createdAt: number;
+}
+
+export interface Notification {
+  id: string; // `${productId}-${timestamp}`
+  productId: string;
+  productName: string;
+  eventType: EventType;
+  location: string;
+  actor: string;
+  timestamp: number;
+  read: boolean;
 }
