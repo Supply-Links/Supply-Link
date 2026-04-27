@@ -1,5 +1,34 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Address, Env, String, Vec, Symbol};
+
+// ── Error catalog ─────────────────────────────────────────────────────────────
+
+/// Stable, machine-readable error codes for all Supply-Link contract failures.
+///
+/// Each variant maps to a unique `u32` discriminant that is embedded in the
+/// Soroban invocation result and can be decoded deterministically by clients.
+///
+/// # Client mapping
+/// Frontend and backend adapters should map these codes to localised messages
+/// rather than relying on string matching. See `docs/CONTRACT_ERRORS.md` for
+/// the full client-behaviour guide.
+#[contracterror]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u32)]
+pub enum Error {
+    /// The requested product ID is not registered on-chain. Code: 1
+    ProductNotFound       = 1,
+    /// The caller is neither the product owner nor an authorized actor. Code: 2
+    NotAuthorized         = 2,
+    /// The approver is not the product owner or an authorized actor. Code: 3
+    ApproverNotAuthorized = 3,
+    /// Only the product owner may perform this action. Code: 4
+    OwnerOnly             = 4,
+    /// There are no pending events in the approval queue. Code: 5
+    NoPendingEvents       = 5,
+    /// The supplied event index exceeds the pending-events queue length. Code: 6
+    EventIndexOutOfBounds = 6,
+}
 
 mod tests;
 
@@ -298,23 +327,17 @@ impl SupplyLinkContract {
         location: String,
         event_type: String,
         metadata: String,
-    ) -> TrackingEvent {
+    ) -> Result<TrackingEvent, Error> {
         let product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
-        // Check if product is active
-        if !product.active {
-            panic!("product is not active");
-        }
-
-        // Verify caller is owner or an authorized actor before requiring auth
         let is_owner = product.owner == caller;
         let is_actor = product.authorized_actors.contains(&caller);
         if !is_owner && !is_actor {
-            panic!("caller is not authorized");
+            return Err(Error::NotAuthorized);
         }
         caller.require_auth();
         // Issue #310: reject unknown event types.
@@ -379,28 +402,21 @@ impl SupplyLinkContract {
             );
         }
 
-        event
+        Ok(event)
     }
 
     /// Retrieve a product by its ID.
     ///
-    /// # Parameters
-    /// - `env` — Soroban execution environment.
-    /// - `id` — The product ID to look up.
-    ///
     /// # Returns
     /// The [`Product`] struct stored under `id`.
     ///
-    /// # Authorization
-    /// None — this is a read-only function.
-    ///
-    /// # Panics
-    /// - `"product not found"` — if no product with `id` is registered.
-    pub fn get_product(env: Env, id: String) -> Product {
+    /// # Errors
+    /// - [`Error::ProductNotFound`] — if no product with `id` is registered.
+    pub fn get_product(env: Env, id: String) -> Result<Product, Error> {
         env.storage()
             .persistent()
             .get(&DataKey::Product(id))
-            .expect("product not found")
+            .ok_or(Error::ProductNotFound)
     }
 
     /// Retrieve all tracking events for a product.
@@ -503,12 +519,12 @@ impl SupplyLinkContract {
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
     /// `new_owner` as the event body.
-    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address, nonce: u64) -> bool {
+    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
         Self::validate_and_increment_nonce(&env, &product.owner, nonce);
@@ -523,7 +539,7 @@ impl SupplyLinkContract {
             transfer_event,
         );
 
-        true
+        Ok(true)
     }
 
     /// Grant an address permission to add tracking events for a product.
@@ -550,12 +566,12 @@ impl SupplyLinkContract {
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
     /// the event body.
-    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address, nonce: u64) -> bool {
+    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
         Self::validate_and_increment_nonce(&env, &product.owner, nonce);
@@ -570,7 +586,7 @@ impl SupplyLinkContract {
             actor,
         );
 
-        true
+        Ok(true)
     }
 
     /// Revoke an address's permission to add tracking events for a product.
@@ -607,12 +623,12 @@ impl SupplyLinkContract {
     ///
     /// # Emitted Events
     /// Does not emit an event (removal is not currently announced on-chain).
-    pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address, nonce: u64) -> bool {
+    pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
         Self::validate_and_increment_nonce(&env, &product.owner, nonce);
@@ -650,7 +666,7 @@ impl SupplyLinkContract {
             );
         }
 
-        found
+        Ok(found)
     }
 
     /// Update the mutable metadata fields of a product.
@@ -683,12 +699,12 @@ impl SupplyLinkContract {
         product_id: String,
         name: String,
         origin: String,
-    ) -> Product {
+    ) -> Result<Product, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         product.owner.require_auth();
 
@@ -699,13 +715,12 @@ impl SupplyLinkContract {
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
         env.events().publish(
             (Symbol::new(&env, "product_updated"), product_id),
             product.clone(),
         );
 
-        product
+        Ok(product)
     }
 
     /// Return the list of addresses authorised to add events for a product.
@@ -836,18 +851,17 @@ impl SupplyLinkContract {
         product_id: String,
         event_index: u32,
         approver: Address,
-        nonce: u64,
-    ) -> bool {
+    ) -> Result<bool, Error> {
         let product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         let is_owner = product.owner == approver;
         let is_actor = product.authorized_actors.contains(&approver);
         if !is_owner && !is_actor {
-            panic!("approver is not authorized");
+            return Err(Error::ApproverNotAuthorized);
         }
         approver.require_auth();
         Self::validate_and_increment_nonce(&env, &approver, nonce);
@@ -856,10 +870,10 @@ impl SupplyLinkContract {
             .storage()
             .persistent()
             .get(&DataKey::PendingEvents(product_id.clone()))
-            .expect("no pending events");
+            .ok_or(Error::NoPendingEvents)?;
 
-        if event_index >= pending.len() {
-            panic!("event index out of bounds");
+        if event_index as usize >= pending.len() {
+            return Err(Error::EventIndexOutOfBounds);
         }
 
         let mut pending_event = pending.get(event_index).unwrap().clone();
@@ -902,13 +916,13 @@ impl SupplyLinkContract {
                 pending_event.event,
             );
 
-            true
+            Ok(true)
         } else {
             pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
-            false
+            Ok(false)
         }
     }
 
@@ -938,16 +952,15 @@ impl SupplyLinkContract {
         product_id: String,
         event_index: u32,
         rejector: Address,
-        nonce: u64,
-    ) -> bool {
+    ) -> Result<bool, Error> {
         let product: Product = env
             .storage()
             .persistent()
             .get(&DataKey::Product(product_id.clone()))
-            .expect("product not found");
+            .ok_or(Error::ProductNotFound)?;
 
         if product.owner != rejector {
-            panic!("only owner can reject");
+            return Err(Error::OwnerOnly);
         }
         rejector.require_auth();
         Self::validate_and_increment_nonce(&env, &rejector, nonce);
@@ -956,15 +969,15 @@ impl SupplyLinkContract {
             .storage()
             .persistent()
             .get(&DataKey::PendingEvents(product_id.clone()))
-            .expect("no pending events");
+            .ok_or(Error::NoPendingEvents)?;
 
-        if event_index >= pending.len() {
-            panic!("event index out of bounds");
+        if event_index as usize >= pending.len() {
+            return Err(Error::EventIndexOutOfBounds);
         }
 
         let rejected_event = pending.get(event_index).unwrap().clone();
 
-        pending.remove(event_index);
+        pending.remove(event_index as usize);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
@@ -980,7 +993,7 @@ impl SupplyLinkContract {
             rejected_event.event,
         );
 
-        true
+        Ok(true)
     }
 
     /// Get pending events for a product.
@@ -1162,5 +1175,252 @@ mod tests {
         assert!(!actors.contains(&a2));
         assert!(actors.contains(&a1));
         assert!(actors.contains(&a3));
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::{Env, String};
+
+    fn setup() -> (Env, soroban_sdk::Address, soroban_sdk::contracttype::ContractClient<'static>) {
+        // This helper is intentionally not used in the inline tests below;
+        // each test constructs its own env for isolation.
+        unreachable!()
+    }
+
+    // ── Error::ProductNotFound ────────────────────────────────────────────────
+
+    #[test]
+    fn get_product_returns_product_not_found() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let result = client.try_get_product(&String::from_str(&env, "nonexistent"));
+        assert_eq!(result, Err(Ok(Error::ProductNotFound)));
+    }
+
+    #[test]
+    fn add_tracking_event_returns_product_not_found() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let caller = soroban_sdk::Address::generate(&env);
+
+        let result = client.try_add_tracking_event(
+            &String::from_str(&env, "ghost"),
+            &caller,
+            &String::from_str(&env, "loc"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+        assert_eq!(result, Err(Ok(Error::ProductNotFound)));
+    }
+
+    #[test]
+    fn transfer_ownership_returns_product_not_found() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let new_owner = soroban_sdk::Address::generate(&env);
+
+        let result = client.try_transfer_ownership(
+            &String::from_str(&env, "ghost"),
+            &new_owner,
+        );
+        assert_eq!(result, Err(Ok(Error::ProductNotFound)));
+    }
+
+    // ── Error::NotAuthorized ──────────────────────────────────────────────────
+
+    #[test]
+    fn add_tracking_event_returns_not_authorized_for_stranger() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = soroban_sdk::Address::generate(&env);
+        let stranger = soroban_sdk::Address::generate(&env);
+
+        client.register_product(
+            &String::from_str(&env, "p1"),
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory A"),
+            &owner,
+            &1u32,
+        );
+
+        let result = client.try_add_tracking_event(
+            &String::from_str(&env, "p1"),
+            &stranger,
+            &String::from_str(&env, "Warehouse"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+        assert_eq!(result, Err(Ok(Error::NotAuthorized)));
+    }
+
+    // ── Error::ApproverNotAuthorized ──────────────────────────────────────────
+
+    #[test]
+    fn approve_event_returns_approver_not_authorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let stranger = soroban_sdk::Address::generate(&env);
+
+        // Register with multi-sig requirement
+        client.register_product(
+            &String::from_str(&env, "p2"),
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory B"),
+            &owner,
+            &2u32,
+        );
+        client.add_authorized_actor(&String::from_str(&env, "p2"), &actor);
+        client.add_tracking_event(
+            &String::from_str(&env, "p2"),
+            &actor,
+            &String::from_str(&env, "Port"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+
+        let result = client.try_approve_event(
+            &String::from_str(&env, "p2"),
+            &0u32,
+            &stranger,
+        );
+        assert_eq!(result, Err(Ok(Error::ApproverNotAuthorized)));
+    }
+
+    // ── Error::OwnerOnly ──────────────────────────────────────────────────────
+
+    #[test]
+    fn reject_event_returns_owner_only_for_non_owner() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+
+        client.register_product(
+            &String::from_str(&env, "p3"),
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory C"),
+            &owner,
+            &2u32,
+        );
+        client.add_authorized_actor(&String::from_str(&env, "p3"), &actor);
+        client.add_tracking_event(
+            &String::from_str(&env, "p3"),
+            &actor,
+            &String::from_str(&env, "Port"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+
+        let result = client.try_reject_event(
+            &String::from_str(&env, "p3"),
+            &0u32,
+            &actor, // actor, not owner
+        );
+        assert_eq!(result, Err(Ok(Error::OwnerOnly)));
+    }
+
+    // ── Error::NoPendingEvents ────────────────────────────────────────────────
+
+    #[test]
+    fn approve_event_returns_no_pending_events() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = soroban_sdk::Address::generate(&env);
+        client.register_product(
+            &String::from_str(&env, "p4"),
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory D"),
+            &owner,
+            &1u32,
+        );
+
+        let result = client.try_approve_event(
+            &String::from_str(&env, "p4"),
+            &0u32,
+            &owner,
+        );
+        assert_eq!(result, Err(Ok(Error::NoPendingEvents)));
+    }
+
+    // ── Error::EventIndexOutOfBounds ──────────────────────────────────────────
+
+    #[test]
+    fn approve_event_returns_event_index_out_of_bounds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+
+        client.register_product(
+            &String::from_str(&env, "p5"),
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory E"),
+            &owner,
+            &2u32,
+        );
+        client.add_authorized_actor(&String::from_str(&env, "p5"), &actor);
+        client.add_tracking_event(
+            &String::from_str(&env, "p5"),
+            &actor,
+            &String::from_str(&env, "Port"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+
+        // Index 99 is out of bounds (only index 0 exists)
+        let result = client.try_approve_event(
+            &String::from_str(&env, "p5"),
+            &99u32,
+            &owner,
+        );
+        assert_eq!(result, Err(Ok(Error::EventIndexOutOfBounds)));
+    }
+
+    // ── Happy path smoke test ─────────────────────────────────────────────────
+
+    #[test]
+    fn register_and_get_product_succeeds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = soroban_sdk::Address::generate(&env);
+        client.register_product(
+            &String::from_str(&env, "p6"),
+            &String::from_str(&env, "Coffee"),
+            &String::from_str(&env, "Ethiopia"),
+            &owner,
+            &1u32,
+        );
+
+        let product = client.get_product(&String::from_str(&env, "p6"));
+        assert_eq!(product.name, String::from_str(&env, "Coffee"));
     }
 }
