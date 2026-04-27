@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Keypair, TransactionBuilder, Networks, BASE_FEE } from "@stellar/base";
+import { Keypair, TransactionBuilder, Networks, BASE_FEE, Account } from "@stellar/stellar-base";
 import { withCors, handleOptions } from "@/lib/api/cors";
 
 export function OPTIONS(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Parse the inner transaction
     let innerTransaction;
     try {
-      innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET_NETWORK_PASSPHRASE);
+      innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET);
     } catch {
       return respond({ error: "Invalid transaction XDR" }, { status: 400 });
     }
@@ -36,17 +36,17 @@ export async function POST(request: NextRequest) {
     // Create fee-bump transaction
     // Fee: base fee (100 stroops) * (1 + number of operations)
     const operationCount = innerTransaction.operations.length;
-    const feeBumpFee = BASE_FEE * (1 + operationCount);
+    const feeBumpFee = Number(BASE_FEE) * (1 + operationCount);
 
     const feeBumpTx = new TransactionBuilder(
-      await feeBumpKeypair.publicKey(),
+      new Account(feeBumpKeypair.publicKey(), "0"),
       {
         fee: feeBumpFee.toString(),
-        networkPassphrase: Networks.TESTNET_NETWORK_PASSPHRASE,
+        networkPassphrase: Networks.TESTNET,
       }
     )
-      .setBaseFee(BASE_FEE)
-      .addOperation(innerTransaction.operations[0])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .addOperation(innerTransaction.operations[0] as any)
       .build();
 
     // Sign with fee-bump account
