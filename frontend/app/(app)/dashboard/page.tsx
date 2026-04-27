@@ -33,11 +33,11 @@ export default function DashboardPage() {
   const { stats, dailyCounts, eventTypeCounts, recentEvents } = useDashboardData();
 
   return (
-    <main className="p-6 space-y-8 max-w-7xl mx-auto">
+    <main className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Dashboard</h1>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Products" value={stats.totalProducts} icon={Package} />
         <StatCard label="Total Events" value={stats.totalEvents} icon={Activity} />
         <StatCard label="Active Products" value={stats.activeProducts} icon={CheckCircle} />
@@ -61,7 +61,7 @@ export default function DashboardPage() {
               <tr className="text-left text-[var(--muted)] border-b border-[var(--card-border)]">
                 <th className="px-5 py-3 font-medium">Product</th>
                 <th className="px-5 py-3 font-medium">Type</th>
-                <th className="px-5 py-3 font-medium">Location</th>
+                <th className="px-5 py-3 font-medium hidden sm:table-cell">Location</th>
                 <th className="px-5 py-3 font-medium">Time</th>
               </tr>
             </thead>
@@ -93,7 +93,7 @@ export default function DashboardPage() {
                         );
                       })()}
                     </td>
-                    <td className="px-5 py-3 text-[var(--foreground)]">{e.location}</td>
+                    <td className="px-5 py-3 text-[var(--foreground)] hidden sm:table-cell">{e.location}</td>
                     <td className="px-5 py-3 text-[var(--muted)]">
                       {new Date(e.timestamp).toLocaleString()}
                     </td>
