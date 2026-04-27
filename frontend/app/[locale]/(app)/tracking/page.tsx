@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { Plus, List, BarChart2, RefreshCw } from "lucide-react";
+import { Plus, List, BarChart2, RefreshCw, Download } from "lucide-react";
+import { exportToCSV, exportToJSON } from "@/lib/utils/export";
 import { MOCK_PRODUCTS } from "@/lib/mock/products";
 import type { TrackingEvent } from "@/lib/types";
 import { useEvents } from "@/lib/hooks/useEvents";
@@ -44,6 +45,20 @@ export default function TrackingPage() {
             className="flex items-center gap-2 px-3 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm transition-colors min-h-[44px]"
           >
             <RefreshCw size={15} />
+          </button>
+          <button
+            onClick={() => exportToCSV(events, `events-${selectedId}.csv`)}
+            disabled={events.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm transition-colors min-h-[44px] disabled:opacity-40"
+          >
+            <Download size={15} /> Export CSV
+          </button>
+          <button
+            onClick={() => exportToJSON(events, `events-${selectedId}.json`)}
+            disabled={events.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm transition-colors min-h-[44px] disabled:opacity-40"
+          >
+            <Download size={15} /> Export JSON
           </button>
           <button
             onClick={() => setShowModal(true)}
