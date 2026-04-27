@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Search, Plus, Package, ChevronDown, Upload, RefreshCw } from "lucide-react";
+import { Search, Plus, Package, ChevronDown, Upload, RefreshCw, Download } from "lucide-react";
+import { exportToCSV, exportToJSON } from "@/lib/utils/export";
 import * as Select from "@radix-ui/react-select";
 import { useStore, selectFilteredProducts } from "@/lib/state/store";
 import { useProducts } from "@/lib/hooks/useProducts";
@@ -64,6 +65,7 @@ export default function ProductsPage() {
     setSortOrder,
   } = useStore();
   const filtered = useStore(selectFilteredProducts);
+  const events = useStore((s) => s.events);
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
@@ -115,6 +117,18 @@ export default function ProductsPage() {
             className="flex items-center gap-2 px-3 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors min-h-[44px]"
           >
             <RefreshCw size={15} />
+          </button>
+          <button
+            onClick={() => exportToCSV(events, "products-events.csv")}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors min-h-[44px]"
+          >
+            <Download size={16} /> Export CSV
+          </button>
+          <button
+            onClick={() => exportToJSON(events, "products-events.json")}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors min-h-[44px]"
+          >
+            <Download size={16} /> Export JSON
           </button>
           <button
             onClick={() => setBatchOpen(true)}
