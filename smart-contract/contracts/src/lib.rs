@@ -1,6 +1,8 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
 
+mod tests;
+
 // ── Data models ──────────────────────────────────────────────────────────────
 
 /// Represents a product registered on the Supply-Link blockchain.
@@ -125,6 +127,8 @@ pub enum DataKey {
     /// Key for the index-to-ID mapping used by pagination.
     /// The inner `u64` is the zero-based insertion index.
     ProductIndex(u64),
+    /// Key for actor nonce tracking. The inner `Address` is the actor address.
+    ActorNonce(Address),
 }
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -459,7 +463,7 @@ impl SupplyLinkContract {
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
     /// `new_owner` as the event body.
-    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> bool {
+    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address, nonce: u64) -> bool {
         let mut product: Product = env
             .storage()
             .persistent()
@@ -467,12 +471,13 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+        Self::validate_and_increment_nonce(&env, &product.owner, nonce);
+        
         product.owner = new_owner.clone();
         env.storage()
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
         env.events().publish(
             (Symbol::new(&env, "ownership_transferred"), product_id),
             new_owner,
@@ -505,7 +510,7 @@ impl SupplyLinkContract {
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
     /// the event body.
-    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
+    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address, nonce: u64) -> bool {
         let mut product: Product = env
             .storage()
             .persistent()
@@ -513,12 +518,13 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+        Self::validate_and_increment_nonce(&env, &product.owner, nonce);
+        
         product.authorized_actors.push_back(actor.clone());
         env.storage()
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
         env.events().publish(
             (Symbol::new(&env, "actor_authorized"), product_id),
             actor,
@@ -551,7 +557,7 @@ impl SupplyLinkContract {
     ///
     /// # Emitted Events
     /// Does not emit an event (removal is not currently announced on-chain).
-    pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
+    pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address, nonce: u64) -> bool {
         let mut product: Product = env
             .storage()
             .persistent()
@@ -559,8 +565,8 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+        Self::validate_and_increment_nonce(&env, &product.owner, nonce);
 
-        // Find and remove the actor
         let mut found = false;
         let mut new_actors = Vec::new(&env);
         for i in 0..product.authorized_actors.len() {
@@ -763,6 +769,7 @@ impl SupplyLinkContract {
         product_id: String,
         event_index: u32,
         approver: Address,
+        nonce: u64,
     ) -> bool {
         let product: Product = env
             .storage()
@@ -776,6 +783,7 @@ impl SupplyLinkContract {
             panic!("approver is not authorized");
         }
         approver.require_auth();
+        Self::validate_and_increment_nonce(&env, &approver, nonce);
 
         let mut pending: Vec<PendingEvent> = env
             .storage()
@@ -783,22 +791,19 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() {
             panic!("event index out of bounds");
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
-        // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
             pending_event.approvals.push_back(approver.clone());
         }
 
-        // Check if we have enough approvals
         let is_finalized = pending_event.approvals.len() as u32 >= pending_event.required_signatures;
 
         if is_finalized {
-            // Move event to finalized events
             let mut events: Vec<TrackingEvent> = env
                 .storage()
                 .persistent()
@@ -810,8 +815,7 @@ impl SupplyLinkContract {
                 .persistent()
                 .set(&DataKey::Events(product_id.clone()), &events);
 
-            // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -822,7 +826,6 @@ impl SupplyLinkContract {
                     .remove(&DataKey::PendingEvents(product_id.clone()));
             }
 
-            // Emit finalized event
             env.events().publish(
                 (
                     Symbol::new(&env, "event_finalized"),
@@ -834,8 +837,7 @@ impl SupplyLinkContract {
 
             true
         } else {
-            // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
@@ -869,6 +871,7 @@ impl SupplyLinkContract {
         product_id: String,
         event_index: u32,
         rejector: Address,
+        nonce: u64,
     ) -> bool {
         let product: Product = env
             .storage()
@@ -880,6 +883,7 @@ impl SupplyLinkContract {
             panic!("only owner can reject");
         }
         rejector.require_auth();
+        Self::validate_and_increment_nonce(&env, &rejector, nonce);
 
         let mut pending: Vec<PendingEvent> = env
             .storage()
@@ -887,14 +891,13 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() {
             panic!("event index out of bounds");
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
-        // Remove from pending
-        pending.remove(event_index as usize);
+        pending.remove(event_index);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
@@ -905,7 +908,6 @@ impl SupplyLinkContract {
                 .remove(&DataKey::PendingEvents(product_id.clone()));
         }
 
-        // Emit rejection event
         env.events().publish(
             (Symbol::new(&env, "event_rejected"), product_id),
             rejected_event.event,
@@ -932,5 +934,28 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    pub fn get_nonce(env: Env, actor: Address) -> u64 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ActorNonce(actor))
+            .unwrap_or(0)
+    }
+
+    fn validate_and_increment_nonce(env: &Env, actor: &Address, provided_nonce: u64) {
+        let current_nonce: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ActorNonce(actor.clone()))
+            .unwrap_or(0);
+
+        if provided_nonce != current_nonce {
+            panic!("invalid nonce");
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::ActorNonce(actor.clone()), &(current_nonce + 1));
     }
 }
