@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { X } from "lucide-react";
 import type { EventType, TrackingEvent } from "@/lib/types";
+import { FileUpload } from "@/components/ui";
 
 const EVENT_TYPES: EventType[] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
 
@@ -17,20 +18,24 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
   const [location, setLocation] = useState("");
   const [metadata, setMetadata] = useState("");
   const [metaError, setMetaError] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    let parsed: Record<string, unknown> = {};
     if (metadata) {
-      try { JSON.parse(metadata); }
+      try { parsed = JSON.parse(metadata); }
       catch { setMetaError("Invalid JSON"); return; }
     }
+    if (attachmentUrl) parsed.attachmentUrl = attachmentUrl;
+
     onAdd({
       productId,
       eventType,
       location,
       actor: "GCONNECTED_WALLET_ADDRESS",
       timestamp: Date.now(),
-      metadata: metadata || "{}",
+      metadata: JSON.stringify(parsed),
     });
     onClose();
   }

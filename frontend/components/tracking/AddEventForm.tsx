@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button, Input, Select, SelectItem } from "@/components/ui";
+import { Button, Input, Select, SelectItem, FileUpload } from "@/components/ui";
 import { useToast } from "@/lib/hooks/useToast";
 import { EventType } from "@/lib/types";
 import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
@@ -37,12 +37,14 @@ interface AddEventFormProps {
 export function AddEventForm({ productId: initialProductId, onSuccess }: AddEventFormProps) {
   const toast = useToast();
   const [pending, setPending] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -61,13 +63,22 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
     const toastId = toast.loading("Adding tracking event…");
 
     try {
-      // TODO: call add_tracking_event via Soroban client
+      // Merge attachmentUrl into metadata if present
+      let finalMetadata = values.metadata;
+      if (attachmentUrl) {
+        const parsed = JSON.parse(values.metadata || "{}");
+        parsed.attachmentUrl = attachmentUrl;
+        finalMetadata = JSON.stringify(parsed);
+      }
+
+      // TODO: call add_tracking_event via Soroban client with finalMetadata
       await new Promise((r) => setTimeout(r, 1200));
       const txHash = `mock_tx_${Date.now()}`;
 
       toast.dismiss(toastId);
       toast.success("Event added successfully", txHash);
       reset();
+      setAttachmentUrl(null);
       onSuccess?.();
     } catch (err) {
       toast.dismiss(toastId);
@@ -103,7 +114,7 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
       {/* Event Type */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium">Event Type</label>
-        <Select value={eventType} onValueChange={(val) => register("eventType").onChange({ target: { value: val } })}>
+        <Select value={eventType} onValueChange={(val) => setValue("eventType", val as EventType)}>
           {(["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"] as EventType[]).map((t) => {
             const cfg = EVENT_TYPE_CONFIG[t];
             const Icon = cfg.icon;
@@ -133,6 +144,12 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
         />
         {errors.metadata && <p className="text-xs text-red-500">{errors.metadata.message}</p>}
       </div>
+
+      {/* File Attachment */}
+      <FileUpload
+        onUpload={(url) => setAttachmentUrl(url)}
+        onClear={() => setAttachmentUrl(null)}
+      />
 
       <Button type="submit" disabled={pending}>
         {pending ? "Adding…" : "Add Event"}
