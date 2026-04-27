@@ -154,7 +154,7 @@ export default function ProductsPage() {
           value={filterEventType ?? "ALL"}
           onValueChange={(v) => handleFilter(v === "ALL" ? null : (v as EventType))}
         >
-          <Select.Trigger className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-violet-500">
+          <Select.Trigger aria-label="Filter by event type" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-violet-500">
             <Select.Value placeholder="Filter by event" />
             <Select.Icon><ChevronDown size={14} /></Select.Icon>
           </Select.Trigger>
@@ -191,7 +191,7 @@ export default function ProductsPage() {
             setSortOrder(order);
           }}
         >
-          <Select.Trigger className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-violet-500">
+          <Select.Trigger aria-label="Sort products" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-violet-500">
             <Select.Value placeholder="Sort" />
             <Select.Icon><ChevronDown size={14} /></Select.Icon>
           </Select.Trigger>
