@@ -1,6 +1,18 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
 
+// ── Canonical event type registry (issue #310) ───────────────────────────────
+// Accepted values for event_type in add_tracking_event.
+// Migration: free-form strings are no longer accepted.
+const VALID_EVENT_TYPES: [&str; 4] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
+
+fn assert_valid_event_type(env: &Env, event_type: &String) {
+    for valid in VALID_EVENT_TYPES.iter() {
+        if *event_type == String::from_str(env, valid) { return; }
+    }
+    panic!("invalid event_type");
+}
+
 // ── Data models ──────────────────────────────────────────────────────────────
 
 /// Represents a product registered on the Supply-Link blockchain.
@@ -238,9 +250,9 @@ impl SupplyLinkContract {
     ///   event. Must be the product owner or an address in
     ///   `authorized_actors`.
     /// - `location` — Free-form location string (e.g. `"Port of Hamburg"`).
-    /// - `event_type` — Supply-chain stage. Recommended values: `"HARVEST"`,
-    ///   `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`. Not validated by the
-    ///   contract.
+    /// - `event_type` — Canonical supply-chain stage. Must be one of:
+    ///   `"HARVEST"`, `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`.
+    ///   Unknown values are rejected with `"invalid event_type"` (issue #310).
     /// - `metadata` — Arbitrary JSON string with stage-specific data.
     ///
     /// # Returns
@@ -280,6 +292,8 @@ impl SupplyLinkContract {
             panic!("caller is not authorized");
         }
         caller.require_auth();
+        // Issue #310: reject unknown event types.
+        assert_valid_event_type(&env, &event_type);
 
         let event = TrackingEvent {
             product_id: product_id.clone(),
@@ -783,11 +797,11 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
         // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
@@ -811,7 +825,7 @@ impl SupplyLinkContract {
                 .set(&DataKey::Events(product_id.clone()), &events);
 
             // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -835,7 +849,7 @@ impl SupplyLinkContract {
             true
         } else {
             // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
@@ -887,14 +901,14 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
         // Remove from pending
-        pending.remove(event_index as usize);
+        pending.remove(event_index);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
