@@ -3,6 +3,7 @@ import { verifySignature } from '@/lib/stellar/verify';
 import { kv } from '@vercel/kv';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
+import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 
 interface RatingSubmission {
   productId: string;
@@ -18,6 +19,9 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = applyRateLimit(request, 'ratings', RATE_LIMIT_PRESETS.ratings);
+  if (limited) return limited;
+
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(request, withCorrelationId(request, NextResponse.json(body, init)));
 
@@ -90,6 +94,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = applyRateLimit(request, 'ratings', RATE_LIMIT_PRESETS.default);
+  if (limited) return limited;
+
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(request, withCorrelationId(request, NextResponse.json(body, init)));
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
+import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -11,6 +12,9 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = applyRateLimit(req, 'upload', RATE_LIMIT_PRESETS.upload);
+  if (limited) return limited;
+
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 

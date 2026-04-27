@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Keypair, TransactionBuilder, Networks, BASE_FEE } from '@stellar/base';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
+import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
 
 export async function POST(request: NextRequest) {
+  const limited = applyRateLimit(request, 'fee-bump', RATE_LIMIT_PRESETS.feeBump);
+  if (limited) return limited;
+
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(request, withCorrelationId(request, NextResponse.json(body, init)));
 

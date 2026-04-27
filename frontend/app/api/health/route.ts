@@ -2,23 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CONTRACT_ID, NETWORK_PASSPHRASE, RPC_URL } from '@/lib/stellar/client';
 import { version } from '@/package.json';
 import { withCors, handleOptions } from '@/lib/api/cors';
-import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
+import { withCorrelationId } from '@/lib/api/errors';
+import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 
 const startedAt = Date.now();
-
-// In-memory rate limiter: max 10 requests per IP per 60 seconds
-const rateLimitMap = new Map<string, number[]>();
-const RATE_LIMIT = 10;
-const WINDOW_MS = 60_000;
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const timestamps = (rateLimitMap.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (timestamps.length >= RATE_LIMIT) return true;
-  timestamps.push(now);
-  rateLimitMap.set(ip, timestamps);
-  return false;
-}
 
 async function pingRpc(url: string): Promise<boolean> {
   try {
@@ -39,17 +26,8 @@ export function OPTIONS(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
-    request.headers.get('x-real-ip') ??
-    'unknown';
-
-  if (isRateLimited(ip)) {
-    return withCors(
-      request,
-      apiError(request, 429, ErrorCode.RATE_LIMITED, 'Too many requests', { 'Retry-After': '60' }),
-    );
-  }
+  const limited = applyRateLimit(request, 'health', RATE_LIMIT_PRESETS.health);
+  if (limited) return limited;
 
   const contractReachable = await pingRpc(RPC_URL);
 
