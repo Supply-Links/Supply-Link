@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifySignature } from "@/lib/stellar/verify";
-import { kv } from "@vercel/kv";
-import { withCors, handleOptions } from "@/lib/api/cors";
+import { NextRequest, NextResponse } from 'next/server';
+import { verifySignature } from '@/lib/stellar/verify';
+import { kv } from '@vercel/kv';
+import { withCors, handleOptions } from '@/lib/api/cors';
+import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
 
 interface RatingSubmission {
   productId: string;
@@ -18,27 +19,49 @@ export function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const respond = (body: unknown, init?: ResponseInit) =>
-    withCors(request, NextResponse.json(body, init));
+    withCors(request, withCorrelationId(request, NextResponse.json(body, init)));
 
   try {
     const data: RatingSubmission = await request.json();
     const { productId, walletAddress, stars, comment, message, signature } = data;
 
     if (!productId || !walletAddress || !stars || !message || !signature) {
-      return respond({ error: "Missing required fields" }, { status: 400 });
+      return withCors(
+        request,
+        apiError(request, 400, ErrorCode.MISSING_FIELDS, 'Missing required fields'),
+      );
     }
 
     if (stars < 1 || stars > 5 || !Number.isInteger(stars)) {
-      return respond({ error: "Stars must be an integer between 1 and 5" }, { status: 400 });
+      return withCors(
+        request,
+        apiError(
+          request,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'Stars must be an integer between 1 and 5',
+        ),
+      );
     }
 
     if (comment && comment.length > 500) {
-      return respond({ error: "Comment must be 500 characters or less" }, { status: 400 });
+      return withCors(
+        request,
+        apiError(
+          request,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'Comment must be 500 characters or less',
+        ),
+      );
     }
 
     const isValid = await verifySignature(walletAddress, message, signature);
     if (!isValid) {
-      return respond({ error: "Invalid signature" }, { status: 401 });
+      return withCors(
+        request,
+        apiError(request, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'),
+      );
     }
 
     const rating = {
@@ -58,20 +81,26 @@ export async function POST(request: NextRequest) {
 
     return respond(rating, { status: 201 });
   } catch (error) {
-    console.error("Rating submission error:", error);
-    return respond({ error: "Failed to submit rating" }, { status: 500 });
+    console.error('[ratings POST]', error);
+    return withCors(
+      request,
+      apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'),
+    );
   }
 }
 
 export async function GET(request: NextRequest) {
   const respond = (body: unknown, init?: ResponseInit) =>
-    withCors(request, NextResponse.json(body, init));
+    withCors(request, withCorrelationId(request, NextResponse.json(body, init)));
 
   try {
-    const productId = request.nextUrl.searchParams.get("productId");
+    const productId = request.nextUrl.searchParams.get('productId');
 
     if (!productId) {
-      return respond({ error: "Missing productId parameter" }, { status: 400 });
+      return withCors(
+        request,
+        apiError(request, 400, ErrorCode.MISSING_FIELDS, 'Missing productId parameter'),
+      );
     }
 
     const key = `ratings:${productId}`;
@@ -89,7 +118,10 @@ export async function GET(request: NextRequest) {
       recentRatings: sortedRatings,
     });
   } catch (error) {
-    console.error("Fetch ratings error:", error);
-    return respond({ error: "Failed to fetch ratings" }, { status: 500 });
+    console.error('[ratings GET]', error);
+    return withCors(
+      request,
+      apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch ratings'),
+    );
   }
 }

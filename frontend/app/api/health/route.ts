@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { CONTRACT_ID, NETWORK_PASSPHRASE, RPC_URL } from "@/lib/stellar/client";
-import { version } from "@/package.json";
-import { withCors, handleOptions } from "@/lib/api/cors";
+import { NextRequest, NextResponse } from 'next/server';
+import { CONTRACT_ID, NETWORK_PASSPHRASE, RPC_URL } from '@/lib/stellar/client';
+import { version } from '@/package.json';
+import { withCors, handleOptions } from '@/lib/api/cors';
+import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
 
 const startedAt = Date.now();
 
@@ -22,9 +23,9 @@ function isRateLimited(ip: string): boolean {
 async function pingRpc(url: string): Promise<boolean> {
   try {
     const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getHealth", params: [] }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getHealth', params: [] }),
       signal: AbortSignal.timeout(4000),
     });
     return res.ok;
@@ -39,17 +40,14 @@ export function OPTIONS(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown";
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown';
 
   if (isRateLimited(ip)) {
     return withCors(
       request,
-      NextResponse.json(
-        { error: "Too many requests" },
-        { status: 429, headers: { "Retry-After": "60" } }
-      )
+      apiError(request, 429, ErrorCode.RATE_LIMITED, 'Too many requests', { 'Retry-After': '60' }),
     );
   }
 
@@ -57,15 +55,18 @@ export async function GET(request: NextRequest) {
 
   return withCors(
     request,
-    NextResponse.json({
-      status: "ok",
-      version,
-      network: NETWORK_PASSPHRASE,
-      contractId: CONTRACT_ID,
-      rpcUrl: RPC_URL,
-      contractReachable,
-      uptime: Math.floor((Date.now() - startedAt) / 1000),
-      timestamp: new Date().toISOString(),
-    })
+    withCorrelationId(
+      request,
+      NextResponse.json({
+        status: 'ok',
+        version,
+        network: NETWORK_PASSPHRASE,
+        contractId: CONTRACT_ID,
+        rpcUrl: RPC_URL,
+        contractReachable,
+        uptime: Math.floor((Date.now() - startedAt) / 1000),
+        timestamp: new Date().toISOString(),
+      }),
+    ),
   );
 }
