@@ -39,6 +39,10 @@ pub struct Product {
     /// to the owner. Managed via [`SupplyLinkContract::add_authorized_actor`]
     /// and [`SupplyLinkContract::remove_authorized_actor`].
     pub authorized_actors: Vec<Address>,
+    /// Number of signatures required to approve events for this product.
+    /// If 0 or 1, events are recorded immediately. If > 1, events are staged
+    /// as pending until the required number of approvals are received.
+    pub required_signatures: u32,
 }
 
 /// A single supply-chain event recorded against a [`Product`].
@@ -75,6 +79,25 @@ pub struct TrackingEvent {
     pub metadata: String,
 }
 
+/// A pending event awaiting multi-signature approval.
+///
+/// For high-value products, events are staged until the required number of
+/// authorized actors have approved them.
+#[contracttype]
+#[derive(Clone)]
+pub struct PendingEvent {
+    /// ID of the product this event is for.
+    pub product_id: String,
+    /// The event data awaiting approval.
+    pub event: TrackingEvent,
+    /// Addresses that have approved this event.
+    pub approvals: Vec<Address>,
+    /// Number of approvals required before the event is finalized.
+    pub required_signatures: u32,
+    /// Timestamp when the pending event was created.
+    pub created_at: u64,
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 /// Enumeration of all persistent storage keys used by the contract.
@@ -94,6 +117,9 @@ pub enum DataKey {
     Product(String),
     /// Key for the event log of a product. The inner `String` is the product ID.
     Events(String),
+    /// Key for pending events awaiting multi-signature approval.
+    /// The inner `String` is the product ID.
+    PendingEvents(String),
     /// Key for the global product registration counter.
     ProductCount,
     /// Key for the index-to-ID mapping used by pagination.
@@ -138,6 +164,7 @@ impl SupplyLinkContract {
     /// - `origin` — Geographic or organisational origin of the product.
     /// - `owner` — Stellar address that will own the product. This address
     ///   must sign the transaction.
+    /// - `required_signatures` — Number of approvals required for events (0 or 1 = immediate, >1 = multi-sig).
     ///
     /// # Returns
     /// The newly created [`Product`] struct.
@@ -159,6 +186,7 @@ impl SupplyLinkContract {
         name: String,
         origin: String,
         owner: Address,
+        required_signatures: u32,
     ) -> Product {
         owner.require_auth();
         let product = Product {
@@ -168,6 +196,7 @@ impl SupplyLinkContract {
             owner,
             timestamp: env.ledger().timestamp(),
             authorized_actors: Vec::new(&env),
+            required_signatures,
         };
         env.storage()
             .persistent()
@@ -255,28 +284,61 @@ impl SupplyLinkContract {
         let event = TrackingEvent {
             product_id: product_id.clone(),
             location,
-            actor: caller,
+            actor: caller.clone(),
             timestamp: env.ledger().timestamp(),
             event_type: event_type.clone(),
             metadata,
         };
 
-        let mut events: Vec<TrackingEvent> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::Events(product_id.clone()))
-            .unwrap_or_else(|| Vec::new(&env));
+        // Check if multi-signature is required
+        if product.required_signatures > 1 {
+            // Stage event as pending
+            let mut pending: Vec<PendingEvent> = env
+                .storage()
+                .persistent()
+                .get(&DataKey::PendingEvents(product_id.clone()))
+                .unwrap_or_else(|| Vec::new(&env));
 
-        events.push_back(event.clone());
-        env.storage()
-            .persistent()
-            .set(&DataKey::Events(product_id.clone()), &events);
+            let mut approvals = Vec::new(&env);
+            approvals.push_back(caller);
 
-        // Emit event
-        env.events().publish(
-            (Symbol::new(&env, "event_added"), product_id, event_type),
-            event.clone(),
-        );
+            let pending_event = PendingEvent {
+                product_id: product_id.clone(),
+                event: event.clone(),
+                approvals,
+                required_signatures: product.required_signatures,
+                created_at: env.ledger().timestamp(),
+            };
+
+            pending.push_back(pending_event);
+            env.storage()
+                .persistent()
+                .set(&DataKey::PendingEvents(product_id.clone()), &pending);
+
+            // Emit pending event
+            env.events().publish(
+                (Symbol::new(&env, "event_pending"), product_id, event_type),
+                event.clone(),
+            );
+        } else {
+            // Immediately finalize event
+            let mut events: Vec<TrackingEvent> = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Events(product_id.clone()))
+                .unwrap_or_else(|| Vec::new(&env));
+
+            events.push_back(event.clone());
+            env.storage()
+                .persistent()
+                .set(&DataKey::Events(product_id.clone()), &events);
+
+            // Emit event
+            env.events().publish(
+                (Symbol::new(&env, "event_added"), product_id, event_type),
+                event.clone(),
+            );
+        }
 
         event
     }
@@ -669,5 +731,206 @@ impl SupplyLinkContract {
         }
 
         products
+    }
+
+    /// Approve a pending event for a high-value product.
+    ///
+    /// For products with `required_signatures > 1`, events are staged as pending
+    /// until the required number of approvals are received. This function allows
+    /// authorized actors to approve a pending event.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product.
+    /// - `event_index` — Index of the pending event in the pending queue.
+    /// - `approver` — Address of the actor approving the event.
+    ///
+    /// # Returns
+    /// `true` if the event was finalized (all signatures received), `false` if
+    /// more approvals are needed.
+    ///
+    /// # Authorization
+    /// Requires `approver.require_auth()`. The approver must be the owner or
+    /// an authorized actor.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"approver is not authorized"` — if approver is not owner or actor.
+    /// - `"no pending events"` — if there are no pending events.
+    /// - `"event index out of bounds"` — if `event_index` is invalid.
+    pub fn approve_event(
+        env: Env,
+        product_id: String,
+        event_index: u32,
+        approver: Address,
+    ) -> bool {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        let is_owner = product.owner == approver;
+        let is_actor = product.authorized_actors.contains(&approver);
+        if !is_owner && !is_actor {
+            panic!("approver is not authorized");
+        }
+        approver.require_auth();
+
+        let mut pending: Vec<PendingEvent> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingEvents(product_id.clone()))
+            .expect("no pending events");
+
+        if event_index as usize >= pending.len() {
+            panic!("event index out of bounds");
+        }
+
+        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+
+        // Check if approver already approved
+        if !pending_event.approvals.contains(&approver) {
+            pending_event.approvals.push_back(approver.clone());
+        }
+
+        // Check if we have enough approvals
+        let is_finalized = pending_event.approvals.len() as u32 >= pending_event.required_signatures;
+
+        if is_finalized {
+            // Move event to finalized events
+            let mut events: Vec<TrackingEvent> = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Events(product_id.clone()))
+                .unwrap_or_else(|| Vec::new(&env));
+
+            events.push_back(pending_event.event.clone());
+            env.storage()
+                .persistent()
+                .set(&DataKey::Events(product_id.clone()), &events);
+
+            // Remove from pending
+            pending.remove(event_index as usize);
+            if pending.len() > 0 {
+                env.storage()
+                    .persistent()
+                    .set(&DataKey::PendingEvents(product_id.clone()), &pending);
+            } else {
+                env.storage()
+                    .persistent()
+                    .remove(&DataKey::PendingEvents(product_id.clone()));
+            }
+
+            // Emit finalized event
+            env.events().publish(
+                (
+                    Symbol::new(&env, "event_finalized"),
+                    product_id,
+                    pending_event.event.event_type.clone(),
+                ),
+                pending_event.event,
+            );
+
+            true
+        } else {
+            // Update pending event with new approval
+            pending.set(event_index as usize, pending_event);
+            env.storage()
+                .persistent()
+                .set(&DataKey::PendingEvents(product_id), &pending);
+            false
+        }
+    }
+
+    /// Reject a pending event for a high-value product.
+    ///
+    /// Removes a pending event from the approval queue without finalizing it.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product.
+    /// - `event_index` — Index of the pending event to reject.
+    /// - `rejector` — Address of the actor rejecting the event.
+    ///
+    /// # Returns
+    /// `true` on success.
+    ///
+    /// # Authorization
+    /// Requires `rejector.require_auth()`. The rejector must be the owner.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"only owner can reject"` — if rejector is not the owner.
+    /// - `"no pending events"` — if there are no pending events.
+    /// - `"event index out of bounds"` — if `event_index` is invalid.
+    pub fn reject_event(
+        env: Env,
+        product_id: String,
+        event_index: u32,
+        rejector: Address,
+    ) -> bool {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        if product.owner != rejector {
+            panic!("only owner can reject");
+        }
+        rejector.require_auth();
+
+        let mut pending: Vec<PendingEvent> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingEvents(product_id.clone()))
+            .expect("no pending events");
+
+        if event_index as usize >= pending.len() {
+            panic!("event index out of bounds");
+        }
+
+        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+
+        // Remove from pending
+        pending.remove(event_index as usize);
+        if pending.len() > 0 {
+            env.storage()
+                .persistent()
+                .set(&DataKey::PendingEvents(product_id.clone()), &pending);
+        } else {
+            env.storage()
+                .persistent()
+                .remove(&DataKey::PendingEvents(product_id.clone()));
+        }
+
+        // Emit rejection event
+        env.events().publish(
+            (Symbol::new(&env, "event_rejected"), product_id),
+            rejected_event.event,
+        );
+
+        true
+    }
+
+    /// Get pending events for a product.
+    ///
+    /// Returns all events awaiting multi-signature approval.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product.
+    ///
+    /// # Returns
+    /// A `Vec<PendingEvent>` containing all pending events for the product.
+    ///
+    /// # Authorization
+    /// None — this is a read-only function.
+    pub fn get_pending_events(env: Env, product_id: String) -> Vec<PendingEvent> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PendingEvents(product_id))
+            .unwrap_or_else(|| Vec::new(&env))
     }
 }

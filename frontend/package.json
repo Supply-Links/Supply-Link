@@ -8,6 +8,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "prepare": "husky"
     "lint": "eslint",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
@@ -20,6 +26,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^14.5.0",
+    "@tanstack/react-query": "^5.100.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
@@ -31,6 +38,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",
+    "react-is": "^19.2.5",
     "recharts": "^3.7.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
@@ -41,6 +49,7 @@
   "devDependencies": {
     "@axe-core/react": "^4.11.2",
     "@chromatic-com/storybook": "^3",
+    "@next/bundle-analyzer": "^16.2.4",
     "@storybook/addon-a11y": "^8",
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
@@ -57,18 +66,26 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitest/coverage-v8": "^4.1.5",
-    "axe-core": "^4.11.3",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "jest-axe": "^10.0.0",
-    "jsdom": "^29.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
     "storybook": "^8",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   },
+  "lint-staged": {
+    "**/*.{ts,tsx,json,css,md}": [
+      "./node_modules/.bin/prettier --write"
+    ]
+  }
   "size-limit": [
     {
       "path": ".next/static/chunks/pages/*.js",

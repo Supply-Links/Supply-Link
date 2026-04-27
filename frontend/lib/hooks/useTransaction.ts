@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { SorobanRpc } from "@stellar/stellar-sdk";
+import { rpc } from "@stellar/stellar-sdk";
 import { RPC_URL, getNetwork } from "@/lib/stellar/client";
 
-const server = new SorobanRpc.Server(RPC_URL);
+const server = new rpc.Server(RPC_URL);
 
 interface TransactionStatus {
   status: "pending" | "confirmed" | "failed";
@@ -39,7 +39,7 @@ export function useTransaction(txHash: string | null) {
           setStatus({
             status: "failed",
             hash: txHash,
-            error: tx.resultXdr || "Transaction failed",
+            error: typeof tx.resultXdr === "string" ? tx.resultXdr : "Transaction failed",
           });
           setIsPolling(false);
           return;
