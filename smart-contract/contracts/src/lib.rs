@@ -529,9 +529,8 @@ impl SupplyLinkContract {
 
     /// Grant an address permission to add tracking events for a product.
     ///
-    /// Appends `actor` to `product.authorized_actors`. Duplicate entries are
-    /// not deduplicated by the contract — callers should check
-    /// [`Self::get_authorized_actors`] before calling if deduplication matters.
+    /// Appends `actor` to `product.authorized_actors`. Prevents duplicate entries
+    /// to maintain clean governance state.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -547,6 +546,7 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"actor already authorized"` — if the actor is already in the authorized list.
     ///
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
@@ -559,6 +559,12 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Prevent duplicate actors
+        if product.authorized_actors.contains(&actor) {
+            panic!("actor already authorized");
+        }
+
         product.authorized_actors.push_back(actor.clone());
         env.storage()
             .persistent()
@@ -579,6 +585,12 @@ impl SupplyLinkContract {
     /// If `actor` appears multiple times (due to duplicate `add_authorized_actor`
     /// calls), only the first occurrence is removed.
     ///
+    /// # Governance Safeguards
+    /// - Prevents removal of the owner from authorized actors if multi-signature
+    ///   is enabled and would leave insufficient authorized actors to meet the
+    ///   required signature threshold.
+    /// - Ensures at least one authorized path remains for governance operations.
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to update.
@@ -594,9 +606,13 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot remove owner from actors"` — if attempting to remove the owner
+    ///   when it would violate governance invariants.
+    /// - `"removal would violate governance"` — if removal would leave insufficient
+    ///   actors to meet multi-signature requirements.
     ///
     /// # Emitted Events
-    /// Does not emit an event (removal is not currently announced on-chain).
+    /// Publishes an `("actor_removed", product_id)` event with the removed actor address.
     pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
         let mut product: Product = env
             .storage()
@@ -605,6 +621,11 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Governance safeguard: prevent removing owner from actors if multi-sig is enabled
+        if actor == product.owner && product.required_signatures > 1 {
+            panic!("cannot remove owner from actors");
+        }
 
         // Find and remove the actor
         let mut found = false;
@@ -618,10 +639,27 @@ impl SupplyLinkContract {
             }
         }
 
+        // Governance safeguard: ensure sufficient actors remain for multi-sig
+        if product.required_signatures > 1 {
+            // Count total authorized entities (owner + actors)
+            let total_authorized = 1 + new_actors.len() as u32; // owner + remaining actors
+            if total_authorized < product.required_signatures {
+                panic!("removal would violate governance");
+            }
+        }
+
         product.authorized_actors = new_actors;
         env.storage()
             .persistent()
-            .set(&DataKey::Product(product_id), &product);
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        if found {
+            env.events().publish(
+                (Symbol::new(&env, "actor_removed"), product_id),
+                actor,
+            );
+        }
 
         found
     }
@@ -1394,5 +1432,181 @@ mod ownership_transfer_tests {
 
         // Try to transfer nonexistent product - should panic
         client.transfer_ownership(&product_id, &new_owner);
+    }
+}
+
+#[cfg(test)]
+mod governance_safeguard_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    #[should_panic(expected = "actor already authorized")]
+    fn test_cannot_add_duplicate_actor() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Add actor
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Try to add same actor again - should panic
+        client.add_authorized_actor(&product_id, &actor);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot remove owner from actors")]
+    fn test_cannot_remove_owner_from_multisig_actors() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner, &2);
+
+        // Add owner as actor
+        client.add_authorized_actor(&product_id, &owner);
+
+        // Try to remove owner from actors - should panic
+        client.remove_authorized_actor(&product_id, &owner);
+    }
+
+    #[test]
+    #[should_panic(expected = "removal would violate governance")]
+    fn test_cannot_remove_actor_below_threshold() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor1 = Address::generate(&env);
+        let actor2 = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product requiring 3 signatures
+        client.register_product(&product_id, &name, &origin, &owner, &3);
+
+        // Add 2 actors (total authorized: owner + 2 actors = 3)
+        client.add_authorized_actor(&product_id, &actor1);
+        client.add_authorized_actor(&product_id, &actor2);
+
+        // Try to remove an actor - would leave only 2 authorized (owner + 1 actor)
+        // This violates the requirement of 3 signatures - should panic
+        client.remove_authorized_actor(&product_id, &actor1);
+    }
+
+    #[test]
+    fn test_can_remove_actor_above_threshold() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor1 = Address::generate(&env);
+        let actor2 = Address::generate(&env);
+        let actor3 = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-004");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product requiring 3 signatures
+        client.register_product(&product_id, &name, &origin, &owner, &3);
+
+        // Add 3 actors (total authorized: owner + 3 actors = 4)
+        client.add_authorized_actor(&product_id, &actor1);
+        client.add_authorized_actor(&product_id, &actor2);
+        client.add_authorized_actor(&product_id, &actor3);
+
+        // Remove one actor - still leaves 3 authorized (owner + 2 actors)
+        // This meets the requirement of 3 signatures - should succeed
+        let result = client.remove_authorized_actor(&product_id, &actor1);
+        assert_eq!(result, true);
+
+        // Verify actor was removed
+        let actors = client.get_authorized_actors(&product_id);
+        assert_eq!(actors.len(), 2);
+    }
+
+    #[test]
+    fn test_can_remove_actor_single_sig() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-005");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with single signature (no multi-sig)
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Add actor
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Remove actor - should succeed since no multi-sig governance
+        let result = client.remove_authorized_actor(&product_id, &actor);
+        assert_eq!(result, true);
+
+        // Verify actor was removed
+        let actors = client.get_authorized_actors(&product_id);
+        assert_eq!(actors.len(), 0);
+    }
+
+    #[test]
+    fn test_governance_invariant_after_ownership_transfer() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner1 = Address::generate(&env);
+        let owner2 = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-006");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner1, &2);
+
+        // Add actor
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Transfer ownership
+        client.transfer_ownership(&product_id, &owner2);
+
+        // Verify governance still intact - should still have 2 authorized (new owner + actor)
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, owner2);
+        assert_eq!(product.authorized_actors.len(), 1);
     }
 }
