@@ -2,23 +2,13 @@
  * GET /api/jobs/admin?id=<jobId>   – inspect a specific job
  * GET /api/jobs/admin              – queue depth + DLQ list
  *
- * Protected by ADMIN_SECRET.
+ * Access tier: internal (requires x-api-key: INTERNAL_API_KEY; blocked in prod)
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getJob, queueStats, listDlq } from "@/lib/jobs/queue";
+import { requirePolicy } from "@/lib/api/policy";
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET;
-
-function authorized(req: NextRequest): boolean {
-  if (!ADMIN_SECRET) return true; // open in local dev
-  return req.headers.get("authorization") === `Bearer ${ADMIN_SECRET}`;
-}
-
-export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function handler(req: NextRequest): Promise<NextResponse> {
   const id = req.nextUrl.searchParams.get("id");
 
   if (id) {
@@ -30,3 +20,5 @@ export async function GET(req: NextRequest) {
   const [stats, dlq] = await Promise.all([queueStats(), listDlq(20)]);
   return NextResponse.json({ ...stats, dlqJobs: dlq });
 }
+
+export const GET = requirePolicy("internal", handler);

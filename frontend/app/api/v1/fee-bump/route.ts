@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Keypair, TransactionBuilder, Networks, BASE_FEE } from "@stellar/base";
 import { withCors, handleOptions } from "@/lib/api/cors";
+import { requirePolicy } from "@/lib/api/policy";
 
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest): Promise<NextResponse> {
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(request, NextResponse.json(body, init));
   try {
@@ -62,3 +63,6 @@ export async function POST(request: NextRequest) {
     return respond({ error: "Failed to create fee-bump transaction" }, { status: 500 });
   }
 }
+
+// Access tier: internal – signs with STELLAR_FEE_BUMP_SECRET; never expose publicly
+export const POST = requirePolicy("internal", handler);
