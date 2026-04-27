@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Keypair, TransactionBuilder, Networks, BASE_FEE } from "@stellar/base";
 import { withCors, handleOptions } from "@/lib/api/cors";
+import { requireSecret, SecretMissingError, SecretInvalidError, redactSecrets } from "@/lib/secrets";
 
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
@@ -9,6 +10,7 @@ export function OPTIONS(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(request, NextResponse.json(body, init));
+
   try {
     const body = await request.json();
     const { innerTx } = body;
@@ -17,15 +19,20 @@ export async function POST(request: NextRequest) {
       return respond({ error: "Missing or invalid 'innerTx' parameter" }, { status: 400 });
     }
 
-    // Get the fee-bump account from environment
-    const feeBumpSecret = process.env.STELLAR_FEE_BUMP_SECRET;
-    if (!feeBumpSecret) {
-      return respond({ error: "Fee-bump account not configured" }, { status: 500 });
+    // Validated accessor — throws SecretMissingError / SecretInvalidError
+    // without leaking the value into the error message
+    let feeBumpKeypair: Keypair;
+    try {
+      feeBumpKeypair = Keypair.fromSecret(requireSecret("STELLAR_FEE_BUMP_SECRET"));
+    } catch (e) {
+      if (e instanceof SecretMissingError || e instanceof SecretInvalidError) {
+        // Safe: e.message never contains the secret value
+        console.error("Fee-bump secret error:", e.message);
+        return respond({ error: "Fee-bump account not configured" }, { status: 503 });
+      }
+      throw e;
     }
 
-    const feeBumpKeypair = Keypair.fromSecret(feeBumpSecret);
-
-    // Parse the inner transaction
     let innerTransaction;
     try {
       innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET_NETWORK_PASSPHRASE);
@@ -33,8 +40,6 @@ export async function POST(request: NextRequest) {
       return respond({ error: "Invalid transaction XDR" }, { status: 400 });
     }
 
-    // Create fee-bump transaction
-    // Fee: base fee (100 stroops) * (1 + number of operations)
     const operationCount = innerTransaction.operations.length;
     const feeBumpFee = BASE_FEE * (1 + operationCount);
 
@@ -49,7 +54,6 @@ export async function POST(request: NextRequest) {
       .addOperation(innerTransaction.operations[0])
       .build();
 
-    // Sign with fee-bump account
     feeBumpTx.sign(feeBumpKeypair);
 
     return respond({
@@ -58,7 +62,9 @@ export async function POST(request: NextRequest) {
       message: "Fee-bump transaction created. Ready to submit to Stellar network.",
     });
   } catch (error) {
-    console.error("Fee-bump error:", error);
+    // Redact any secret values that may have leaked into the error string
+    const safeMessage = redactSecrets(String(error));
+    console.error("Fee-bump error:", safeMessage);
     return respond({ error: "Failed to create fee-bump transaction" }, { status: 500 });
   }
 }
