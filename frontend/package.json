@@ -8,6 +8,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "prepare": "husky"
     "lint": "eslint",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
@@ -41,28 +47,45 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.11.2",
     "@chromatic-com/storybook": "^3",
     "@next/bundle-analyzer": "^16.2.4",
     "@storybook/addon-a11y": "^8",
     "@storybook/addon-essentials": "^8",
     "@storybook/addon-interactions": "^8",
-    "@storybook/nextjs": "^8",
+    "@storybook/nextjs": "^10",
     "@storybook/react": "^8",
     "@storybook/test": "^8",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest-axe": "^3.5.9",
+    "@types/node": "^25",
     "@types/papaparse": "^5.3.15",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10",
     "eslint-config-next": "16.2.4",
-    "storybook": "^8",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "storybook": "^10",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   },
+  "lint-staged": {
+    "**/*.{ts,tsx,json,css,md}": [
+      "./node_modules/.bin/prettier --write"
+    ]
+  }
   "size-limit": [
     {
       "path": ".next/static/chunks/pages/*.js",
