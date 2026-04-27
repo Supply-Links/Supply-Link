@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { getProductById, getEventsByProductId } from "@/lib/mock/products";
 import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
+import { RatingWidget } from "@/components/tracking/RatingWidget";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
 import { ShareButton } from "@/components/ui/ShareButton";
@@ -116,6 +118,13 @@ export default async function VerifyPage({ params }: Props) {
         Verified on Stellar · View Contract
       </a>
 
+      {/* Product image (#112) */}
+      {product.imageUrl && (
+        <div className="relative w-full h-56 rounded-xl overflow-hidden mb-6 border border-[var(--card-border)]">
+          <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
+        </div>
+      )}
+
       {/* Event Timeline */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
@@ -123,6 +132,12 @@ export default async function VerifyPage({ params }: Props) {
           <ProvenanceScoreGauge events={events} />
         </div>
         <EventTimeline events={events} />
+      </section>
+
+      {/* Rating Widget */}
+      <section className="mt-6">
+        <h2 className="text-base font-semibold text-[var(--foreground)] mb-4">Community Ratings</h2>
+        <RatingWidget productId={product.id} />
       </section>
 
       <div className="mt-6 flex justify-center">

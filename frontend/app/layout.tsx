@@ -13,9 +13,15 @@ export const metadata: Metadata = {
     "Transparent, tamper-proof product tracking from origin to consumer, powered by Stellar & Soroban.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html suppressHydrationWarning>
       <body className={geist.className}>
         <QueryProvider>
           <ThemeProvider

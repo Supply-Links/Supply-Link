@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Search, Plus, Package, ChevronDown, Upload, RefreshCw } from "lucide-react";
 import * as Select from "@radix-ui/react-select";
@@ -98,7 +99,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <main className="p-6 md:p-8 max-w-7xl mx-auto">
+    <main className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-[var(--foreground)]">Products</h1>
@@ -106,24 +107,24 @@ export default function ProductsPage() {
             {loading ? "Loading…" : `${filtered.length} product${filtered.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <div className="flex gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
           {/* Refresh button — clears cache and re-fetches (#48) */}
           <button
             onClick={refresh}
             title="Refresh products"
-            className="flex items-center gap-2 px-3 py-2 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors min-h-[44px]"
           >
             <RefreshCw size={15} />
           </button>
           <button
             onClick={() => setBatchOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors min-h-[44px]"
           >
             <Upload size={16} /> Import CSV
           </button>
           <button
             onClick={() => setRegisterOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors min-h-[44px]"
           >
             <Plus size={16} /> Register New Product
           </button>
@@ -154,7 +155,7 @@ export default function ProductsPage() {
           value={filterEventType ?? "ALL"}
           onValueChange={(v) => handleFilter(v === "ALL" ? null : (v as EventType))}
         >
-          <Select.Trigger className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-violet-500">
+          <Select.Trigger aria-label="Filter by event type" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-violet-500">
             <Select.Value placeholder="Filter by event" />
             <Select.Icon><ChevronDown size={14} /></Select.Icon>
           </Select.Trigger>
@@ -191,7 +192,7 @@ export default function ProductsPage() {
             setSortOrder(order);
           }}
         >
-          <Select.Trigger className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-violet-500">
+          <Select.Trigger aria-label="Sort products" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-violet-500">
             <Select.Value placeholder="Sort" />
             <Select.Icon><ChevronDown size={14} /></Select.Icon>
           </Select.Trigger>
@@ -236,7 +237,6 @@ export default function ProductsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="text-lg font-semibold text-[var(--foreground)] leading-tight">{product.name}</h2>
                   <div className="flex gap-1 shrink-0">
-                    {/* Pending badge (#49) */}
                     {product.pending && (
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-violet-500/10 text-violet-500">
                         Pending
@@ -250,8 +250,13 @@ export default function ProductsPage() {
                 <p className="text-sm text-[var(--muted)] mt-1">Origin: {product.origin}</p>
                 <p className="text-xs text-[var(--muted)] mt-1 font-mono truncate">ID: {product.id}</p>
               </div>
-              <ProductQRCode productId={product.id} size={160} />
-            </Link>
+              {/* Product image (#112) */}
+              {product.imageUrl && (
+                <div className="relative w-full h-36 rounded-lg overflow-hidden">
+                  <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
+                </div>
+              )}
+              <ProductQRCode productId={product.id} size={160} />            </Link>
           ))}
         </div>
       )}

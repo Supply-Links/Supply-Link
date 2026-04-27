@@ -1,0 +1,79 @@
+name: Smart Contract CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --check
+        working-directory: smart-contract
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: clippy-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: smart-contract
+
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: test-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Run tests
+        run: cargo test
+        working-directory: smart-contract
+
+  build:
+    name: cargo build (wasm32)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: build-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Build WASM
+        run: cargo build --target wasm32-unknown-unknown --release
+        working-directory: smart-contract

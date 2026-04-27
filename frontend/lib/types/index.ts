@@ -23,8 +23,8 @@ export interface Product {
   requiredSignatures?: number;
   /** true while an on-chain transaction is in-flight (#49) */
   pending?: boolean;
-  /** Ordered supply chain stages chosen at registration */
-  templateStages?: TemplateStage[];
+  /** Off-chain image URL stored in product metadata (#112) */
+  imageUrl?: string;
 }
 
 export interface TrackingEvent {
@@ -44,4 +44,24 @@ export interface PendingEvent {
   approvals: string[];
   requiredSignatures: number;
   createdAt: number;
+}
+
+export interface Notification {
+  id: string; // `${productId}-${timestamp}`
+  productId: string;
+  productName: string;
+  eventType: EventType;
+  location: string;
+  actor: string;
+  timestamp: number;
+  read: boolean;
+}
+
+export interface Rating {
+  id: string;
+  productId: string;
+  walletAddress: string;
+  stars: number;
+  comment: string | null;
+  timestamp: number;
 }

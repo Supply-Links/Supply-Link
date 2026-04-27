@@ -1,7 +1,7 @@
-import { SorobanRpc } from "@stellar/stellar-sdk";
-import { RPC_URL } from "./client";
+import { rpc as rpc, TransactionBuilder, Networks } from "@stellar/stellar-sdk";
+import { RPC_URL, NETWORK_PASSPHRASE } from "./client";
 
-const server = new SorobanRpc.Server(RPC_URL);
+const server = new rpc.Server(RPC_URL);
 
 export interface SimulationResult {
   success: boolean;
@@ -48,10 +48,11 @@ export async function simulateTransaction(
   transactionXdr: string
 ): Promise<SimulationResult> {
   try {
-    const response = await server.simulateTransaction(transactionXdr);
+    const tx = TransactionBuilder.fromXDR(transactionXdr, NETWORK_PASSPHRASE);
+    const response = await server.simulateTransaction(tx);
 
     // Check if simulation was successful
-    if (response.error) {
+    if ("error" in response && response.error) {
       return {
         success: false,
         error: response.error,
@@ -59,10 +60,7 @@ export async function simulateTransaction(
       };
     }
 
-    // Extract fee from simulation result
-    const fee = response.latestLedgerCloseTime
-      ? response.minFee?.toString()
-      : undefined;
+    const fee = "minResourceFee" in response ? response.minResourceFee : undefined;
 
     return {
       success: true,
