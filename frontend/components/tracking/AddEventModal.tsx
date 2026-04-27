@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { X } from "lucide-react";
 import type { EventType, TrackingEvent } from "@/lib/types";
+import { FileUpload } from "@/components/ui";
 
 const EVENT_TYPES: EventType[] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
 
@@ -17,20 +18,24 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
   const [location, setLocation] = useState("");
   const [metadata, setMetadata] = useState("");
   const [metaError, setMetaError] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    let parsed: Record<string, unknown> = {};
     if (metadata) {
-      try { JSON.parse(metadata); }
+      try { parsed = JSON.parse(metadata); }
       catch { setMetaError("Invalid JSON"); return; }
     }
+    if (attachmentUrl) parsed.attachmentUrl = attachmentUrl;
+
     onAdd({
       productId,
       eventType,
       location,
       actor: "GCONNECTED_WALLET_ADDRESS",
       timestamp: Date.now(),
-      metadata: metadata || "{}",
+      metadata: JSON.stringify(parsed),
     });
     onClose();
   }
@@ -82,6 +87,11 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
             />
             {metaError && <p className="text-xs text-red-500 mt-1">{metaError}</p>}
           </div>
+
+          <FileUpload
+            onUpload={(url) => setAttachmentUrl(url)}
+            onClear={() => setAttachmentUrl(null)}
+          />
 
           <div className="flex justify-end gap-3 mt-1">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]">

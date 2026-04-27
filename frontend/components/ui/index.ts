@@ -4,3 +4,4 @@ export { Badge } from "./Badge";
 export { Input } from "./Input";
 export { Select, SelectItem } from "./Select";
 export { ShareButton } from "./ShareButton";
+export { FileUpload } from "./FileUpload";
