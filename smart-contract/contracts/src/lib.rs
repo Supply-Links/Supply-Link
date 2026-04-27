@@ -1,6 +1,18 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
 
+// ── Canonical event type registry (issue #310) ───────────────────────────────
+// Accepted values for event_type in add_tracking_event.
+// Migration: free-form strings are no longer accepted.
+const VALID_EVENT_TYPES: [&str; 4] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
+
+fn assert_valid_event_type(env: &Env, event_type: &String) {
+    for valid in VALID_EVENT_TYPES.iter() {
+        if *event_type == String::from_str(env, valid) { return; }
+    }
+    panic!("invalid event_type");
+}
+
 // ── Data models ──────────────────────────────────────────────────────────────
 
 /// Represents a product registered on the Supply-Link blockchain.
@@ -266,9 +278,9 @@ impl SupplyLinkContract {
     ///   event. Must be the product owner or an address in
     ///   `authorized_actors`.
     /// - `location` — Free-form location string (e.g. `"Port of Hamburg"`).
-    /// - `event_type` — Supply-chain stage. Recommended values: `"HARVEST"`,
-    ///   `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`. Not validated by the
-    ///   contract.
+    /// - `event_type` — Canonical supply-chain stage. Must be one of:
+    ///   `"HARVEST"`, `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`.
+    ///   Unknown values are rejected with `"invalid event_type"` (issue #310).
     /// - `metadata` — Arbitrary JSON string with stage-specific data.
     ///
     /// # Returns
@@ -313,6 +325,8 @@ impl SupplyLinkContract {
             panic!("caller is not authorized");
         }
         caller.require_auth();
+        // Issue #310: reject unknown event types.
+        assert_valid_event_type(&env, &event_type);
 
         let event = TrackingEvent {
             product_id: product_id.clone(),
