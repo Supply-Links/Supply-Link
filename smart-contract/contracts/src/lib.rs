@@ -98,6 +98,25 @@ pub struct PendingEvent {
     pub created_at: u64,
 }
 
+/// Event rejection data with optional reason context.
+///
+/// Emitted when a pending event is rejected, providing audit trail
+/// and optional explanation for the rejection decision.
+#[contracttype]
+#[derive(Clone)]
+pub struct EventRejection {
+    /// The product ID the rejected event was for.
+    pub product_id: String,
+    /// The rejected event data.
+    pub event: TrackingEvent,
+    /// Address of the actor who rejected the event.
+    pub rejector: Address,
+    /// Optional reason for rejection (max 256 characters).
+    pub reason: String,
+    /// Timestamp of the rejection.
+    pub timestamp: u64,
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 /// Enumeration of all persistent storage keys used by the contract.
@@ -846,12 +865,14 @@ impl SupplyLinkContract {
     /// Reject a pending event for a high-value product.
     ///
     /// Removes a pending event from the approval queue without finalizing it.
+    /// Optionally accepts a reason for the rejection for audit purposes.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product.
     /// - `event_index` — Index of the pending event to reject.
     /// - `rejector` — Address of the actor rejecting the event.
+    /// - `reason` — Optional reason for rejection (max 256 characters).
     ///
     /// # Returns
     /// `true` on success.
@@ -864,11 +885,13 @@ impl SupplyLinkContract {
     /// - `"only owner can reject"` — if rejector is not the owner.
     /// - `"no pending events"` — if there are no pending events.
     /// - `"event index out of bounds"` — if `event_index` is invalid.
+    /// - `"rejection reason too long"` — if reason exceeds 256 characters.
     pub fn reject_event(
         env: Env,
         product_id: String,
         event_index: u32,
         rejector: Address,
+        reason: String,
     ) -> bool {
         let product: Product = env
             .storage()
@@ -880,6 +903,11 @@ impl SupplyLinkContract {
             panic!("only owner can reject");
         }
         rejector.require_auth();
+
+        // Validate reason length (max 256 characters)
+        if reason.len() > 256 {
+            panic!("rejection reason too long");
+        }
 
         let mut pending: Vec<PendingEvent> = env
             .storage()
@@ -905,10 +933,18 @@ impl SupplyLinkContract {
                 .remove(&DataKey::PendingEvents(product_id.clone()));
         }
 
-        // Emit rejection event
+        // Emit enriched rejection event with reason
+        let rejection = EventRejection {
+            product_id: product_id.clone(),
+            event: rejected_event.event,
+            rejector,
+            reason,
+            timestamp: env.ledger().timestamp(),
+        };
+
         env.events().publish(
             (Symbol::new(&env, "event_rejected"), product_id),
-            rejected_event.event,
+            rejection,
         );
 
         true
@@ -932,5 +968,143 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+}
+
+#[cfg(test)]
+mod rejection_reason_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    fn test_reject_event_with_reason() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+        let location = String::from_str(&env, "Test Location");
+        let event_type = String::from_str(&env, "HARVEST");
+        let metadata = String::from_str(&env, "{}");
+        let reason = String::from_str(&env, "Invalid metadata format");
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner, &2);
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Add pending event
+        client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
+
+        // Verify pending event exists
+        let pending = client.get_pending_events(&product_id);
+        assert_eq!(pending.len(), 1);
+
+        // Reject with reason
+        let result = client.reject_event(&product_id, &0, &owner, &reason);
+        assert_eq!(result, true);
+
+        // Verify pending event was removed
+        let pending = client.get_pending_events(&product_id);
+        assert_eq!(pending.len(), 0);
+    }
+
+    #[test]
+    fn test_reject_event_with_empty_reason() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+        let location = String::from_str(&env, "Test Location");
+        let event_type = String::from_str(&env, "HARVEST");
+        let metadata = String::from_str(&env, "{}");
+        let reason = String::from_str(&env, "");
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner, &2);
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Add pending event
+        client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
+
+        // Reject with empty reason (should work)
+        let result = client.reject_event(&product_id, &0, &owner, &reason);
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    #[should_panic(expected = "rejection reason too long")]
+    fn test_reject_event_reason_too_long() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+        let location = String::from_str(&env, "Test Location");
+        let event_type = String::from_str(&env, "HARVEST");
+        let metadata = String::from_str(&env, "{}");
+        
+        // Create a reason longer than 256 characters
+        let long_reason = String::from_str(&env, &"x".repeat(257));
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner, &2);
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Add pending event
+        client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
+
+        // Try to reject with too long reason - should panic
+        client.reject_event(&product_id, &0, &owner, &long_reason);
+    }
+
+    #[test]
+    fn test_reject_event_max_length_reason() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-004");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+        let location = String::from_str(&env, "Test Location");
+        let event_type = String::from_str(&env, "HARVEST");
+        let metadata = String::from_str(&env, "{}");
+        
+        // Create a reason exactly 256 characters (should work)
+        let max_reason = String::from_str(&env, &"x".repeat(256));
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner, &2);
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Add pending event
+        client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
+
+        // Reject with max length reason (should work)
+        let result = client.reject_event(&product_id, &0, &owner, &max_reason);
+        assert_eq!(result, true);
     }
 }
