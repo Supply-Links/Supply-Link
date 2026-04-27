@@ -10,6 +10,7 @@ import { useStore, selectFilteredProducts } from "@/lib/state/store";
 import { useProducts } from "@/lib/hooks/useProducts";
 import { RegisterProductForm } from "@/components/products/RegisterProductForm";
 import { BatchImportForm } from "@/components/products/BatchImportForm";
+import { CompareBar } from "@/components/products/CompareBar";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import type { EventType } from "@/lib/types";
 import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
@@ -58,6 +59,8 @@ export default function ProductsPage() {
     filterEventType,
     sortBy,
     sortOrder,
+    compareIds,
+    toggleCompare,
     setSearchQuery,
     setFilterEventType,
     setSortBy,
@@ -223,46 +226,71 @@ export default function ProductsPage() {
         <EmptyState hasSearch={searchQuery !== ""} onRegister={() => setRegisterOpen(true)} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((product) => (
-            <Link
-              key={product.id}
-              href={`/products/${product.id}`}
-              className={`border bg-[var(--card)] rounded-xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md transition-all ${
-                product.pending
-                  ? "border-violet-400 animate-pulse"
-                  : "border-[var(--card-border)] hover:border-violet-500/40"
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-[var(--foreground)] leading-tight">{product.name}</h2>
-                  <div className="flex gap-1 shrink-0">
-                    {product.pending && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-violet-500/10 text-violet-500">
-                        Pending
-                      </span>
-                    )}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${product.active ? "bg-green-500/10 text-green-500" : "bg-[var(--muted-bg)] text-[var(--muted)]"}`}>
-                      {product.active ? "Active" : "Inactive"}
-                    </span>
+          {filtered.map((product) => {
+            const isSelected = compareIds.includes(product.id);
+            return (
+              <div key={product.id} className="relative group">
+                {/* Compare checkbox */}
+                <label
+                  className="absolute top-3 right-3 z-10 flex items-center gap-1.5 cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleCompare(product.id)}
+                    disabled={!isSelected && compareIds.length >= 4}
+                    className="w-4 h-4 accent-violet-600 cursor-pointer"
+                    aria-label={`Select ${product.name} for comparison`}
+                  />
+                  <span className="text-xs text-[var(--muted)] select-none hidden group-hover:inline">
+                    Compare
+                  </span>
+                </label>
+
+                <Link
+                  href={`/products/${product.id}`}
+                  className={`block border bg-[var(--card)] rounded-xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md transition-all ${
+                    isSelected
+                      ? "border-violet-500 ring-2 ring-violet-500/30"
+                      : product.pending
+                      ? "border-violet-400 animate-pulse"
+                      : "border-[var(--card-border)] hover:border-violet-500/40"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 pr-6">
+                      <h2 className="text-lg font-semibold text-[var(--foreground)] leading-tight">{product.name}</h2>
+                      <div className="flex gap-1 shrink-0">
+                        {product.pending && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-violet-500/10 text-violet-500">
+                            Pending
+                          </span>
+                        )}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${product.active ? "bg-green-500/10 text-green-500" : "bg-[var(--muted-bg)] text-[var(--muted)]"}`}>
+                          {product.active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-[var(--muted)] mt-1">Origin: {product.origin}</p>
+                    <p className="text-xs text-[var(--muted)] mt-1 font-mono truncate">ID: {product.id}</p>
                   </div>
-                </div>
-                <p className="text-sm text-[var(--muted)] mt-1">Origin: {product.origin}</p>
-                <p className="text-xs text-[var(--muted)] mt-1 font-mono truncate">ID: {product.id}</p>
+                  {product.imageUrl && (
+                    <div className="relative w-full h-36 rounded-lg overflow-hidden">
+                      <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
+                    </div>
+                  )}
+                  <ProductQRCode productId={product.id} size={160} />
+                </Link>
               </div>
-              {/* Product image (#112) */}
-              {product.imageUrl && (
-                <div className="relative w-full h-36 rounded-lg overflow-hidden">
-                  <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
-                </div>
-              )}
-              <ProductQRCode productId={product.id} size={160} />            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 
       <RegisterProductForm open={registerOpen} onOpenChange={setRegisterOpen} />
       <BatchImportForm open={batchOpen} onOpenChange={setBatchOpen} />
+      <CompareBar />
     </main>
   );
 }
