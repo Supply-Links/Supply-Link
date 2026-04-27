@@ -10,6 +10,7 @@ import { LowBalanceWarning } from "@/components/wallet/LowBalanceWarning";
 import { NetworkBadge } from "@/components/NetworkBadge";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useStore } from "@/lib/state/store";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -61,6 +62,7 @@ export function AppNavbar({ onMenuClick }: AppNavbarProps) {
 
         <div className="ml-auto flex items-center gap-3">
           <NetworkBadge />
+          <LanguageSwitcher />
           <NotificationDropdown
             notifications={notifications}
             unreadCount={unreadCount}
