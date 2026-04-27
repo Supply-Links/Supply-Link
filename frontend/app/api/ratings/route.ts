@@ -4,6 +4,7 @@ import { kv } from '@vercel/kv';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
+import { withIdempotency } from '@/lib/api/idempotency';
 
 interface RatingSubmission {
   productId: string;
@@ -22,75 +23,66 @@ export async function POST(request: NextRequest) {
   const limited = applyRateLimit(request, 'ratings', RATE_LIMIT_PRESETS.ratings);
   if (limited) return limited;
 
-  const respond = (body: unknown, init?: ResponseInit) =>
-    withCors(request, withCorrelationId(request, NextResponse.json(body, init)));
+  return withIdempotency(request, async (req, rawBody) => {
+    const respond = (body: unknown, init?: ResponseInit) =>
+      withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 
-  try {
-    const data: RatingSubmission = await request.json();
-    const { productId, walletAddress, stars, comment, message, signature } = data;
+    try {
+      const data: RatingSubmission = JSON.parse(rawBody);
+      const { productId, walletAddress, stars, comment, message, signature } = data;
 
-    if (!productId || !walletAddress || !stars || !message || !signature) {
-      return withCors(
-        request,
-        apiError(request, 400, ErrorCode.MISSING_FIELDS, 'Missing required fields'),
-      );
+      if (!productId || !walletAddress || !stars || !message || !signature) {
+        return withCors(
+          req,
+          apiError(req, 400, ErrorCode.MISSING_FIELDS, 'Missing required fields'),
+        );
+      }
+
+      if (stars < 1 || stars > 5 || !Number.isInteger(stars)) {
+        return withCors(
+          req,
+          apiError(
+            req,
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            'Stars must be an integer between 1 and 5',
+          ),
+        );
+      }
+
+      if (comment && comment.length > 500) {
+        return withCors(
+          req,
+          apiError(req, 400, ErrorCode.VALIDATION_ERROR, 'Comment must be 500 characters or less'),
+        );
+      }
+
+      const isValid = await verifySignature(walletAddress, message, signature);
+      if (!isValid) {
+        return withCors(req, apiError(req, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'));
+      }
+
+      const rating = {
+        id: `${productId}_${walletAddress}_${Date.now()}`,
+        productId,
+        walletAddress,
+        stars,
+        comment: comment || null,
+        timestamp: Date.now(),
+      };
+
+      const key = `ratings:${productId}`;
+      const existing = await kv.get<any[]>(key);
+      const ratings = existing || [];
+      ratings.push(rating);
+      await kv.set(key, ratings);
+
+      return respond(rating, { status: 201 });
+    } catch (error) {
+      console.error('[ratings POST]', error);
+      return withCors(req, apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'));
     }
-
-    if (stars < 1 || stars > 5 || !Number.isInteger(stars)) {
-      return withCors(
-        request,
-        apiError(
-          request,
-          400,
-          ErrorCode.VALIDATION_ERROR,
-          'Stars must be an integer between 1 and 5',
-        ),
-      );
-    }
-
-    if (comment && comment.length > 500) {
-      return withCors(
-        request,
-        apiError(
-          request,
-          400,
-          ErrorCode.VALIDATION_ERROR,
-          'Comment must be 500 characters or less',
-        ),
-      );
-    }
-
-    const isValid = await verifySignature(walletAddress, message, signature);
-    if (!isValid) {
-      return withCors(
-        request,
-        apiError(request, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'),
-      );
-    }
-
-    const rating = {
-      id: `${productId}_${walletAddress}_${Date.now()}`,
-      productId,
-      walletAddress,
-      stars,
-      comment: comment || null,
-      timestamp: Date.now(),
-    };
-
-    const key = `ratings:${productId}`;
-    const existing = await kv.get<any[]>(key);
-    const ratings = existing || [];
-    ratings.push(rating);
-    await kv.set(key, ratings);
-
-    return respond(rating, { status: 201 });
-  } catch (error) {
-    console.error('[ratings POST]', error);
-    return withCors(
-      request,
-      apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'),
-    );
-  }
+  });
 }
 
 export async function GET(request: NextRequest) {
