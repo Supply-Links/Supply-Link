@@ -1,4 +1,5 @@
 export type EventType = "HARVEST" | "PROCESSING" | "SHIPPING" | "RETAIL";
+export type ProductStatus = "active" | "inactive";
 
 export interface TemplateStage {
   label: string;
@@ -17,6 +18,7 @@ export interface Product {
   owner: string;
   timestamp: number;
   active: boolean;
+  status?: ProductStatus;
   authorizedActors: string[];
   ownershipHistory?: OwnershipRecord[];
   /** Number of signatures required for events (0 or 1 = immediate, >1 = multi-sig) */
@@ -55,6 +57,25 @@ export interface Notification {
   actor: string;
   timestamp: number;
   read: boolean;
+}
+
+export interface TransactionResult {
+  hash: string;
+  status: "success" | "failed" | "pending";
+  fee: string;
+  timestamp: number;
+}
+
+export interface ContractError {
+  code: number;
+  message: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  offset: number;
+  limit: number;
 }
 
 export interface Rating {
