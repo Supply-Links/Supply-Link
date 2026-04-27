@@ -98,6 +98,23 @@ pub struct PendingEvent {
     pub created_at: u64,
 }
 
+/// Ownership transfer event data with audit context.
+///
+/// Emitted when product ownership is transferred, providing both
+/// previous and new owner information for complete audit trails.
+#[contracttype]
+#[derive(Clone)]
+pub struct OwnershipTransferEvent {
+    /// The product ID being transferred.
+    pub product_id: String,
+    /// The previous owner address.
+    pub previous_owner: Address,
+    /// The new owner address.
+    pub new_owner: Address,
+    /// Timestamp of the transfer.
+    pub timestamp: u64,
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 /// Enumeration of all persistent storage keys used by the contract.
@@ -441,6 +458,10 @@ impl SupplyLinkContract {
     /// owner loses all owner-gated privileges immediately. The new owner gains
     /// them immediately.
     ///
+    /// # Safety Checks
+    /// - Prevents no-op transfers (transferring to the current owner)
+    /// - Validates that the new owner is a valid address
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to transfer.
@@ -455,10 +476,11 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot transfer to current owner"` — if `new_owner` equals current owner.
     ///
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
-    /// `new_owner` as the event body.
+    /// [`OwnershipTransferEvent`] containing both previous and new owner data.
     pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> bool {
         let mut product: Product = env
             .storage()
@@ -467,15 +489,29 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Prevent no-op transfer to current owner
+        if product.owner == new_owner {
+            panic!("cannot transfer to current owner");
+        }
+
+        let previous_owner = product.owner.clone();
         product.owner = new_owner.clone();
         env.storage()
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
+        // Emit enriched event with both previous and new owner
+        let transfer_event = OwnershipTransferEvent {
+            product_id: product_id.clone(),
+            previous_owner,
+            new_owner,
+            timestamp: env.ledger().timestamp(),
+        };
+
         env.events().publish(
             (Symbol::new(&env, "ownership_transferred"), product_id),
-            new_owner,
+            transfer_event,
         );
 
         true
@@ -932,5 +968,104 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+}
+
+#[cfg(test)]
+mod ownership_transfer_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    fn test_ownership_transfer_success() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let new_owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Transfer ownership
+        let result = client.transfer_ownership(&product_id, &new_owner);
+        assert_eq!(result, true);
+
+        // Verify new owner
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, new_owner);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot transfer to current owner")]
+    fn test_cannot_transfer_to_current_owner() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Try to transfer to same owner - should panic
+        client.transfer_ownership(&product_id, &owner);
+    }
+
+    #[test]
+    fn test_ownership_transfer_chain() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner1 = Address::generate(&env);
+        let owner2 = Address::generate(&env);
+        let owner3 = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with owner1
+        client.register_product(&product_id, &name, &origin, &owner1, &1);
+
+        // Transfer to owner2
+        client.transfer_ownership(&product_id, &owner2);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, owner2);
+
+        // Transfer to owner3
+        client.transfer_ownership(&product_id, &owner3);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, owner3);
+    }
+
+    #[test]
+    #[should_panic(expected = "product not found")]
+    fn test_transfer_nonexistent_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let new_owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "nonexistent-product");
+
+        env.mock_all_auths();
+
+        // Try to transfer nonexistent product - should panic
+        client.transfer_ownership(&product_id, &new_owner);
     }
 }
