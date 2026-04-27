@@ -3,7 +3,16 @@
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Search, QrCode } from "lucide-react";
-import { QRScanner } from "./QRScanner";
+import dynamic from "next/dynamic";
+import { QRScannerSkeleton } from "@/components/skeletons/LoadingSkeletons";
+
+const LazyQRScanner = dynamic(
+  () => import("@/components/tracking/QRScanner").then(mod => ({ default: mod.QRScanner })),
+  {
+    loading: () => <QRScannerSkeleton />,
+    ssr: false,
+  }
+);
 
 export function VerifyWidget() {
   const router = useRouter();
@@ -75,7 +84,7 @@ export function VerifyWidget() {
         </form>
       </div>
 
-      {scannerOpen && <QRScanner onClose={() => setScannerOpen(false)} />}
+      {scannerOpen && <LazyQRScanner onClose={() => setScannerOpen(false)} />}
     </>
   );
 }

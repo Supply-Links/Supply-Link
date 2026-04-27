@@ -1,7 +1,7 @@
-import { SorobanRpc } from "@stellar/stellar-sdk";
+import { rpc } from "@stellar/stellar-sdk";
 import { RPC_URL } from "./client";
 
-const server = new SorobanRpc.Server(RPC_URL);
+const server = new rpc.Server(RPC_URL);
 
 const MIN_BALANCE_THRESHOLD = 1; // 1 XLM
 

@@ -78,6 +78,10 @@ export function getProductById(id: string): Product | undefined {
   return MOCK_PRODUCTS.find((p) => p.id === id);
 }
 
+export function getAllProducts(): Product[] {
+  return MOCK_PRODUCTS;
+}
+
 export function getEventsByProductId(id: string): TrackingEvent[] {
   return MOCK_EVENTS.filter((e) => e.productId === id);
 }
