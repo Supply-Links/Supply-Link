@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { Plus, List, BarChart2, RefreshCw, Download } from "lucide-react";
+import { Plus, List, BarChart2, RefreshCw, Download, Map } from "lucide-react";
 import { exportToCSV, exportToJSON } from "@/lib/utils/export";
 import { MOCK_PRODUCTS } from "@/lib/mock/products";
 import type { TrackingEvent } from "@/lib/types";
@@ -10,11 +10,12 @@ import { EventTimeline } from "@/components/tracking/EventTimeline";
 import { EventTimelineSkeleton } from "@/components/tracking/EventTimelineSkeleton";
 import { AddEventModal } from "@/components/tracking/AddEventModal";
 import { TimelineChart } from "@/components/tracking/TimelineChart";
+import { LazyEventMap } from "@/components/lazy/LazyEventMap";
 
 export default function TrackingPage() {
   const [selectedId, setSelectedId] = useState(MOCK_PRODUCTS[0]?.id ?? "");
   const [showModal, setShowModal] = useState(false);
-  const [view, setView] = useState<"list" | "chart">("list");
+  const [view, setView] = useState<"list" | "chart" | "map">("list");
 
   const { events: allEvents, loading, error, refresh, addEventOptimistic } = useEvents();
 
@@ -129,14 +130,23 @@ export default function TrackingPage() {
             >
               <BarChart2 size={14} />
             </button>
+            <button
+              onClick={() => setView("map")}
+              className={`p-1.5 rounded-md transition-colors ${view === "map" ? "bg-violet-600 text-white" : "text-[var(--muted)] hover:text-[var(--foreground)]"}`}
+              title="Map view"
+            >
+              <Map size={14} />
+            </button>
           </div>
         </div>
         {loading ? (
           <EventTimelineSkeleton />
         ) : view === "list" ? (
           <EventTimeline events={events} />
-        ) : (
+        ) : view === "chart" ? (
           <TimelineChart events={events} />
+        ) : (
+          <LazyEventMap events={events} />
         )}
       </div>
 
