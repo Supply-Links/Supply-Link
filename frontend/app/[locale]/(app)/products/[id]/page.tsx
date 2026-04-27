@@ -8,6 +8,7 @@ import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPan
 import { ShareButton } from "@/components/ui/ShareButton";
 import { DownloadBadgeButton } from "@/components/products/DownloadBadgeButton";
 import { DownloadCertificateButton } from "@/components/products/DownloadCertificateButton";
+import { LazyEventMap } from "@/components/lazy/LazyEventMap";
 
 interface Props {
   params: { id: string };
@@ -86,6 +87,12 @@ export default function ProductDetailPage({ params }: Props) {
             ))}
           </ol>
         )}
+      </section>
+
+      {/* Event Map */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Event Locations</h2>
+        <LazyEventMap events={events} />
       </section>
 
       {/* Action Buttons */}
