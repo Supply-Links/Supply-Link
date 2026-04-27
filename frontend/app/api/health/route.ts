@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CONTRACT_ID, NETWORK_PASSPHRASE, RPC_URL } from "@/lib/stellar/client";
 import { version } from "@/package.json";
 import { withCors, handleOptions } from "@/lib/api/cors";
+import { checkNetworkConfig } from "@/lib/network-config";
 
 const startedAt = Date.now();
 
@@ -100,6 +101,21 @@ export function probeEnvConfig(): ProbeResult {
   return { status: "degraded", latencyMs: 0, error: `Missing env vars: ${missing.join(", ")}` };
 }
 
+/** Validate network/contract configuration parity against the expected matrix. */
+export function probeNetworkConfig(): ProbeResult & { effectiveConfig?: object; drifts?: string[] } {
+  const result = checkNetworkConfig();
+  if (result.valid) {
+    return { status: "ok", latencyMs: 0, effectiveConfig: result.effectiveConfig };
+  }
+  return {
+    status: "degraded",
+    latencyMs: 0,
+    error: `Configuration drift: ${result.drifts.length} issue(s) detected`,
+    drifts: result.drifts,
+    effectiveConfig: result.effectiveConfig,
+  };
+}
+
 // ── Aggregate helpers ─────────────────────────────────────────────────────────
 
 function worstStatus(...statuses: ProbeStatus[]): ProbeStatus {
@@ -137,12 +153,13 @@ export async function GET(request: NextRequest) {
     probeKv(),
   ]);
   const env = probeEnvConfig();
+  const config = probeNetworkConfig();
 
   // Liveness: the process is alive (always ok if we reach here)
   const liveness: ProbeStatus = "ok";
 
-  // Readiness: all critical dependencies must be ok/degraded (not down)
-  const readiness: ProbeStatus = worstStatus(rpc.status, env.status);
+  // Readiness: RPC, env, and config parity must not be down
+  const readiness: ProbeStatus = worstStatus(rpc.status, env.status, config.status);
 
   const httpStatus = readiness === "down" ? 503 : 200;
 
@@ -157,7 +174,7 @@ export async function GET(request: NextRequest) {
         contractId: CONTRACT_ID,
         uptime: Math.floor((Date.now() - startedAt) / 1000),
         timestamp: new Date().toISOString(),
-        dependencies: { rpc, blob, kv, env },
+        dependencies: { rpc, blob, kv, env, config },
       },
       { status: httpStatus }
     )
