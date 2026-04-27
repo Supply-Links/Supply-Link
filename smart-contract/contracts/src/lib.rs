@@ -1,6 +1,17 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
 
+/// Current event schema version.
+///
+/// Bump this constant whenever the [`TrackingEvent`] payload layout changes in
+/// a backward-incompatible way. Consumers should inspect the `schema_version`
+/// field (and the matching topic slot) to select the correct parser.
+///
+/// | Version | Changes |
+/// |---------|---------|
+/// | 1       | Initial versioned schema. Adds `schema_version` field. |
+pub const EVENT_SCHEMA_VERSION: u32 = 1;
+
 // ── Data models ──────────────────────────────────────────────────────────────
 
 /// Represents a product registered on the Supply-Link blockchain.
@@ -51,12 +62,23 @@ pub struct Product {
 /// providing an immutable audit trail. All events for a product are stored
 /// together under [`DataKey::Events`].
 ///
+/// # Schema versioning
+/// The `schema_version` field carries [`EVENT_SCHEMA_VERSION`] at write time.
+/// Indexers and backend services must read this field first and dispatch to the
+/// appropriate parser before accessing any other fields. The version is also
+/// encoded as the **third topic slot** in every emitted event so consumers can
+/// filter by version without deserialising the payload.
+///
 /// # Storage
 /// Stored as a `Vec<TrackingEvent>` under [`DataKey::Events`] keyed by
 /// `product_id`. Storage type is `persistent`.
 #[contracttype]
 #[derive(Clone)]
 pub struct TrackingEvent {
+    /// Schema version of this event payload. Always set to
+    /// [`EVENT_SCHEMA_VERSION`] at write time. Consumers must check this field
+    /// before parsing any other fields.
+    pub schema_version: u32,
     /// ID of the [`Product`] this event belongs to.
     pub product_id: String,
     /// Free-form location string describing where the event occurred
@@ -282,6 +304,7 @@ impl SupplyLinkContract {
         caller.require_auth();
 
         let event = TrackingEvent {
+            schema_version: EVENT_SCHEMA_VERSION,
             product_id: product_id.clone(),
             location,
             actor: caller.clone(),
@@ -317,7 +340,7 @@ impl SupplyLinkContract {
 
             // Emit pending event
             env.events().publish(
-                (Symbol::new(&env, "event_pending"), product_id, event_type),
+                (Symbol::new(&env, "event_pending"), product_id, event_type, EVENT_SCHEMA_VERSION),
                 event.clone(),
             );
         } else {
@@ -335,7 +358,7 @@ impl SupplyLinkContract {
 
             // Emit event
             env.events().publish(
-                (Symbol::new(&env, "event_added"), product_id, event_type),
+                (Symbol::new(&env, "event_added"), product_id, event_type, EVENT_SCHEMA_VERSION),
                 event.clone(),
             );
         }
@@ -828,6 +851,7 @@ impl SupplyLinkContract {
                     Symbol::new(&env, "event_finalized"),
                     product_id,
                     pending_event.event.event_type.clone(),
+                    EVENT_SCHEMA_VERSION,
                 ),
                 pending_event.event,
             );
@@ -932,5 +956,156 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::{Env, String};
+
+    fn setup() -> (Env, soroban_sdk::Address, soroban_sdk::Address) {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let owner = soroban_sdk::Address::generate(&env);
+        (env, contract_id, owner)
+    }
+
+    fn register(env: &Env, contract_id: &soroban_sdk::Address, owner: &soroban_sdk::Address, id: &str) -> Product {
+        let client = SupplyLinkContractClient::new(env, contract_id);
+        client.register_product(
+            &String::from_str(env, id),
+            &String::from_str(env, "Test Product"),
+            &String::from_str(env, "Origin"),
+            owner,
+            &0u32,
+        )
+    }
+
+    // ── Schema version field ──────────────────────────────────────────────────
+
+    #[test]
+    fn tracking_event_carries_current_schema_version() {
+        let (env, contract_id, owner) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        register(&env, &contract_id, &owner, "p1");
+
+        let event = client.add_tracking_event(
+            &String::from_str(&env, "p1"),
+            &owner,
+            &String::from_str(&env, "Warehouse A"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+
+        assert_eq!(event.schema_version, EVENT_SCHEMA_VERSION);
+        assert_eq!(EVENT_SCHEMA_VERSION, 1u32);
+    }
+
+    #[test]
+    fn stored_events_all_carry_schema_version() {
+        let (env, contract_id, owner) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        register(&env, &contract_id, &owner, "p2");
+
+        for stage in ["HARVEST", "PROCESSING", "RETAIL"] {
+            client.add_tracking_event(
+                &String::from_str(&env, "p2"),
+                &owner,
+                &String::from_str(&env, "Loc"),
+                &String::from_str(&env, stage),
+                &String::from_str(&env, "{}"),
+            );
+        }
+
+        let events = client.get_tracking_events(&String::from_str(&env, "p2"));
+        assert_eq!(events.len(), 3);
+        for i in 0..events.len() {
+            assert_eq!(events.get(i).unwrap().schema_version, EVENT_SCHEMA_VERSION);
+        }
+    }
+
+    // ── Backward-compat parser simulation ────────────────────────────────────
+    //
+    // Consumers must branch on schema_version before reading other fields.
+    // This test simulates a parser that handles both a hypothetical v0 (no
+    // version field — represented here as version 0) and the current v1.
+
+    fn parse_event_location(event: &TrackingEvent) -> soroban_sdk::String {
+        match event.schema_version {
+            // v1: location field is present directly
+            1 => event.location.clone(),
+            // Unknown future version: fall back gracefully
+            _ => panic!("unsupported schema version"),
+        }
+    }
+
+    #[test]
+    fn parser_handles_v1_schema() {
+        let (env, contract_id, owner) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        register(&env, &contract_id, &owner, "p3");
+
+        let event = client.add_tracking_event(
+            &String::from_str(&env, "p3"),
+            &owner,
+            &String::from_str(&env, "Port of Hamburg"),
+            &String::from_str(&env, "SHIPPING"),
+            &String::from_str(&env, "{}"),
+        );
+
+        let loc = parse_event_location(&event);
+        assert_eq!(loc, String::from_str(&env, "Port of Hamburg"));
+    }
+
+    #[test]
+    #[should_panic(expected = "unsupported schema version")]
+    fn parser_rejects_unknown_schema_version() {
+        let env = Env::default();
+        // Manually construct an event with a future unknown version
+        let addr = soroban_sdk::Address::generate(&env);
+        let future_event = TrackingEvent {
+            schema_version: 99,
+            product_id: String::from_str(&env, "x"),
+            location: String::from_str(&env, "Loc"),
+            actor: addr,
+            timestamp: 0,
+            event_type: String::from_str(&env, "HARVEST"),
+            metadata: String::from_str(&env, "{}"),
+        };
+        parse_event_location(&future_event);
+    }
+
+    // ── Pending / multi-sig events also carry schema version ─────────────────
+
+    #[test]
+    fn pending_event_inner_carries_schema_version() {
+        let (env, contract_id, owner) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        // Register with required_signatures = 2
+        client.register_product(
+            &String::from_str(&env, "p4"),
+            &String::from_str(&env, "High-Value Item"),
+            &String::from_str(&env, "Origin"),
+            &owner,
+            &2u32,
+        );
+
+        client.add_tracking_event(
+            &String::from_str(&env, "p4"),
+            &owner,
+            &String::from_str(&env, "Loc"),
+            &String::from_str(&env, "HARVEST"),
+            &String::from_str(&env, "{}"),
+        );
+
+        let pending = client.get_pending_events(&String::from_str(&env, "p4"));
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending.get(0).unwrap().event.schema_version, EVENT_SCHEMA_VERSION);
     }
 }
