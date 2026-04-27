@@ -1112,3 +1112,6 @@ mod tests {
 
 #[cfg(test)]
 mod profiling;
+
+#[cfg(test)]
+mod invariants;
