@@ -238,6 +238,14 @@ export default function HomePage() {
               <Github size={15} /> GitHub
             </a>
             <a
+              href="https://github.com/your-org/supply-link/blob/main/docs/user-guide-producer.md"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 hover:text-[var(--foreground)] transition-colors"
+            >
+              <BookOpen size={15} /> User Guide
+            </a>
+            <a
               href="https://developers.stellar.org/docs/smart-contracts"
               target="_blank"
               rel="noreferrer"
