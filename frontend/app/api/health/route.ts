@@ -4,6 +4,7 @@ import { version } from '@/package.json';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { withCorrelationId } from '@/lib/api/errors';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
+import { withMetrics, recordDependency } from '@/lib/api/metrics';
 
 const startedAt = Date.now();
 
@@ -15,8 +16,10 @@ async function pingRpc(url: string): Promise<boolean> {
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getHealth', params: [] }),
       signal: AbortSignal.timeout(4000),
     });
+    recordDependency('stellar-rpc', res.ok);
     return res.ok;
   } catch {
+    recordDependency('stellar-rpc', false);
     return false;
   }
 }
@@ -29,22 +32,24 @@ export async function GET(request: NextRequest) {
   const limited = applyRateLimit(request, 'health', RATE_LIMIT_PRESETS.health);
   if (limited) return limited;
 
-  const contractReachable = await pingRpc(RPC_URL);
+  return withMetrics('health', async () => {
+    const contractReachable = await pingRpc(RPC_URL);
 
-  return withCors(
-    request,
-    withCorrelationId(
+    return withCors(
       request,
-      NextResponse.json({
-        status: 'ok',
-        version,
-        network: NETWORK_PASSPHRASE,
-        contractId: CONTRACT_ID,
-        rpcUrl: RPC_URL,
-        contractReachable,
-        uptime: Math.floor((Date.now() - startedAt) / 1000),
-        timestamp: new Date().toISOString(),
-      }),
-    ),
-  );
+      withCorrelationId(
+        request,
+        NextResponse.json({
+          status: 'ok',
+          version,
+          network: NETWORK_PASSPHRASE,
+          contractId: CONTRACT_ID,
+          rpcUrl: RPC_URL,
+          contractReachable,
+          uptime: Math.floor((Date.now() - startedAt) / 1000),
+          timestamp: new Date().toISOString(),
+        }),
+      ),
+    );
+  });
 }
