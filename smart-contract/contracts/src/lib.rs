@@ -66,8 +66,9 @@ pub struct Product {
 /// The `schema_version` field carries [`EVENT_SCHEMA_VERSION`] at write time.
 /// Indexers and backend services must read this field first and dispatch to the
 /// appropriate parser before accessing any other fields. The version is also
-/// encoded as the **third topic slot** in every emitted event so consumers can
-/// filter by version without deserialising the payload.
+/// encoded as the **fourth topic slot** (index 3) in every emitted event so
+/// consumers can filter by version without deserialising the payload.
+/// Topic layout: `(event_name, product_id, event_type, schema_version)`.
 ///
 /// # Storage
 /// Stored as a `Vec<TrackingEvent>` under [`DataKey::Events`] keyed by
@@ -195,6 +196,15 @@ impl SupplyLinkContract {
     /// Requires `owner.require_auth()`. The transaction must be signed by
     /// `owner`.
     ///
+    /// # Warning
+    /// If a product with `id` already exists it will be **silently overwritten**
+    /// with the new `name`, `origin`, `owner`, and `required_signatures`. The
+    /// previous product's data is lost. Additionally, the global
+    /// `ProductCount` and `ProductIndex` are incremented unconditionally, so a
+    /// duplicate registration creates a ghost index entry pointing to the same
+    /// `id`. Callers should use [`Self::product_exists`] to guard against
+    /// accidental overwrites.
+    ///
     /// # Panics
     /// Does not panic under normal conditions. Panics if the Soroban runtime
     /// rejects the auth check (i.e. `owner` did not sign).
@@ -279,8 +289,14 @@ impl SupplyLinkContract {
     ///   owner nor in `authorized_actors`.
     ///
     /// # Emitted Events
-    /// Publishes an `("event_added", product_id, event_type)` event with the
-    /// [`TrackingEvent`] struct as the event body.
+    /// - When `product.required_signatures <= 1`: publishes an
+    ///   `("event_added", product_id, event_type, schema_version)` event with
+    ///   the [`TrackingEvent`] struct as the event body.
+    /// - When `product.required_signatures > 1`: the event is staged as
+    ///   pending and an `("event_pending", product_id, event_type,
+    ///   schema_version)` event is published instead. The event is not added
+    ///   to the finalized log until [`Self::approve_event`] collects enough
+    ///   approvals.
     pub fn add_tracking_event(
         env: Env,
         product_id: String,
@@ -434,9 +450,6 @@ impl SupplyLinkContract {
 
     /// Return the number of tracking events recorded for a product.
     ///
-    /// Equivalent to `get_tracking_events(product_id).len()` but cheaper
-    /// because it avoids deserialising the full event vector.
-    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — The product ID to query.
@@ -444,6 +457,12 @@ impl SupplyLinkContract {
     /// # Returns
     /// The number of events as a `u32`. Returns `0` if the product has no
     /// events or does not exist.
+    ///
+    /// # Note
+    /// This function deserialises the full `Vec<TrackingEvent>` from storage
+    /// to read its length. It has the same storage cost as
+    /// `get_tracking_events(product_id).len()` and is not a cheaper
+    /// alternative for large event logs.
     ///
     /// # Authorization
     /// None — this is a read-only function.
@@ -573,7 +592,10 @@ impl SupplyLinkContract {
     /// - `"product not found"` — if `product_id` is not registered.
     ///
     /// # Emitted Events
-    /// Does not emit an event (removal is not currently announced on-chain).
+    /// Does not emit an event. Removal of an actor is not announced on-chain.
+    /// Consumers tracking actor permissions must observe the absence of future
+    /// `actor_authorized` events or query [`Self::get_authorized_actors`]
+    /// directly.
     pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
         let mut product: Product = env
             .storage()
@@ -606,8 +628,8 @@ impl SupplyLinkContract {
     /// Update the mutable metadata fields of a product.
     ///
     /// Only `name` and `origin` can be changed. The `id`, `owner`,
-    /// `timestamp`, and `authorized_actors` fields are immutable through this
-    /// function.
+    /// `timestamp`, `authorized_actors`, and `required_signatures` fields are
+    /// immutable through this function.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -781,7 +803,12 @@ impl SupplyLinkContract {
     /// - `"approver is not authorized"` — if approver is not owner or actor.
     /// - `"no pending events"` — if there are no pending events.
     /// - `"event index out of bounds"` — if `event_index` is invalid.
-    pub fn approve_event(
+    ///
+    /// # Emitted Events
+    /// - When the event is **not yet finalized**: no event is emitted.
+    /// - When the event **is finalized** (approvals reach `required_signatures`):
+    ///   publishes an `("event_finalized", product_id, event_type,
+    ///   schema_version)` event with the [`TrackingEvent`] struct as the body.
         env: Env,
         product_id: String,
         event_index: u32,
@@ -888,7 +915,10 @@ impl SupplyLinkContract {
     /// - `"only owner can reject"` — if rejector is not the owner.
     /// - `"no pending events"` — if there are no pending events.
     /// - `"event index out of bounds"` — if `event_index` is invalid.
-    pub fn reject_event(
+    ///
+    /// # Emitted Events
+    /// Publishes an `("event_rejected", product_id)` event with the rejected
+    /// [`TrackingEvent`] struct as the event body.
         env: Env,
         product_id: String,
         event_index: u32,
@@ -951,6 +981,9 @@ impl SupplyLinkContract {
     ///
     /// # Authorization
     /// None — this is a read-only function.
+    ///
+    /// # Panics
+    /// Does not panic.
     pub fn get_pending_events(env: Env, product_id: String) -> Vec<PendingEvent> {
         env.storage()
             .persistent()

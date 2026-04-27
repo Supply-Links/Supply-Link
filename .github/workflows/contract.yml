@@ -59,6 +59,26 @@ jobs:
         run: cargo test
         working-directory: smart-contract
 
+  doc:
+    name: cargo doc (lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: doc-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Check docs compile without warnings
+        # RUSTDOCFLAGS=-D warnings turns doc warnings into errors so broken
+        # intra-doc links, missing code fences, and malformed sections are
+        # caught on every PR.
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
+        working-directory: smart-contract
+
   build:
     name: cargo build (wasm32)
     runs-on: ubuntu-latest
