@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProductById } from "@/lib/mock/products";
+import { withCors, handleOptions } from "@/lib/api/cors";
 
-/**
- * GET /api/v1/products/[id]/badge.png
- *
- * Generates a shareable PNG badge for social media.
- * Badge includes: product name, verification date, Supply-Link logo, and QR code.
- */
+export function OPTIONS(request: NextRequest) {
+  return handleOptions(request);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -16,10 +15,7 @@ export async function GET(
     const product = getProductById(productId);
 
     if (!product) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
+      return withCors(request, NextResponse.json({ error: "Product not found" }, { status: 404 }));
     }
 
     // Generate SVG badge (since sharp requires native binaries)
@@ -96,18 +92,21 @@ export async function GET(
       </svg>
     `;
 
-    return new NextResponse(svg, {
-      headers: {
-        "Content-Type": "image/svg+xml",
-        "Cache-Control": "public, max-age=86400",
-        "Content-Disposition": `inline; filename="supply-link-badge-${productId}.svg"`,
-      },
-    });
+    return withCors(
+      request,
+      new NextResponse(svg, {
+        headers: {
+          "Content-Type": "image/svg+xml",
+          "Cache-Control": "public, max-age=86400",
+          "Content-Disposition": `inline; filename="supply-link-badge-${productId}.svg"`,
+        },
+      }) as NextResponse
+    );
   } catch (error) {
     console.error("Badge generation error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate badge" },
-      { status: 500 }
+    return withCors(
+      request,
+      NextResponse.json({ error: "Failed to generate badge" }, { status: 500 })
     );
   }
 }

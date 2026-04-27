@@ -10,9 +10,10 @@ import { registerProduct } from "@/lib/stellar/client";
 import { useStore } from "@/lib/state/store";
 import { useToast } from "@/lib/hooks/useToast";
 import { ImageUpload } from "@/components/products/ImageUpload";
+import { productIdSchema } from "@/lib/validators";
 
 const schema = z.object({
-  id: z.string().min(1, "Product ID is required"),
+  id: productIdSchema,
   name: z.string().min(2, "Name must be at least 2 characters"),
   origin: z.string().min(2, "Origin is required"),
   description: z.string().optional(),
