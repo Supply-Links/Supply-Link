@@ -537,7 +537,7 @@ impl SupplyLinkContract {
     /// - `actor` — Stellar address to authorise.
     ///
     /// # Returns
-    /// `true` on success.
+    /// `true` if `actor` was added, `false` if `actor` was already in the list.
     ///
     /// # Authorization
     /// Requires `product.owner.require_auth()`. Only the current product owner
@@ -575,9 +575,9 @@ impl SupplyLinkContract {
 
     /// Revoke an address's permission to add tracking events for a product.
     ///
-    /// Rebuilds `authorized_actors` without the first occurrence of `actor`.
-    /// If `actor` appears multiple times (due to duplicate `add_authorized_actor`
-    /// calls), only the first occurrence is removed.
+    /// Rebuilds `authorized_actors` without `actor`. Because
+    /// [`Self::add_authorized_actor`] prevents duplicates, at most one entry
+    /// will ever be removed.
     ///
     /// # Governance Safeguards
     /// - Prevents removal of the owner from authorized actors if multi-signature
@@ -1024,5 +1024,143 @@ impl SupplyLinkContract {
         env.storage()
             .persistent()
             .set(&DataKey::ActorNonce(actor.clone()), &(current_nonce + 1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::{Env, String};
+
+    // ── add_authorized_actor deduplication ───────────────────────────────────
+
+    #[test]
+    fn add_actor_returns_true_on_first_add() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p1");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        assert!(c.add_authorized_actor(&id, &actor));
+    }
+
+    #[test]
+    fn add_actor_returns_false_on_duplicate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p2");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &actor);
+        // Second call with same actor must return false
+        assert!(!c.add_authorized_actor(&id, &actor));
+    }
+
+    #[test]
+    fn no_duplicate_entries_after_repeated_adds() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p3");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &actor);
+        c.add_authorized_actor(&id, &actor);
+        c.add_authorized_actor(&id, &actor);
+
+        // List must contain exactly one entry
+        let actors = c.get_authorized_actors(&id);
+        assert_eq!(actors.len(), 1);
+    }
+
+    // ── remove_authorized_actor ───────────────────────────────────────────────
+
+    #[test]
+    fn remove_actor_returns_true_when_present() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p4");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &actor);
+        assert!(c.remove_authorized_actor(&id, &actor));
+        assert_eq!(c.get_authorized_actors(&id).len(), 0);
+    }
+
+    #[test]
+    fn remove_actor_returns_false_when_absent() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p5");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        assert!(!c.remove_authorized_actor(&id, &actor));
+    }
+
+    // ── add/remove cycle ──────────────────────────────────────────────────────
+
+    #[test]
+    fn add_remove_add_cycle_works_correctly() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p6");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        assert!(c.add_authorized_actor(&id, &actor));    // add → true
+        assert!(!c.add_authorized_actor(&id, &actor));   // dup → false
+        assert!(c.remove_authorized_actor(&id, &actor)); // remove → true
+        assert!(!c.remove_authorized_actor(&id, &actor));// absent → false
+        assert!(c.add_authorized_actor(&id, &actor));    // re-add → true
+        assert_eq!(c.get_authorized_actors(&id).len(), 1);
+    }
+
+    #[test]
+    fn membership_correct_after_multiple_actors_and_removals() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let c = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let a1 = soroban_sdk::Address::generate(&env);
+        let a2 = soroban_sdk::Address::generate(&env);
+        let a3 = soroban_sdk::Address::generate(&env);
+        let id = String::from_str(&env, "p7");
+        c.register_product(&id, &String::from_str(&env, "N"), &String::from_str(&env, "O"), &owner, &1);
+
+        c.add_authorized_actor(&id, &a1);
+        c.add_authorized_actor(&id, &a2);
+        c.add_authorized_actor(&id, &a3);
+        assert_eq!(c.get_authorized_actors(&id).len(), 3);
+
+        c.remove_authorized_actor(&id, &a2);
+        let actors = c.get_authorized_actors(&id);
+        assert_eq!(actors.len(), 2);
+        assert!(!actors.contains(&a2));
+        assert!(actors.contains(&a1));
+        assert!(actors.contains(&a3));
     }
 }

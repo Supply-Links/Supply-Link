@@ -82,6 +82,11 @@ interface SupplyLinkStore {
   addNotifications: (notifications: Notification[]) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+
+  // ── Compare ───────────────────────────────────────────────────────────────
+  compareIds: string[];
+  toggleCompare: (id: string) => void;
+  clearCompare: () => void;
 }
 
 export const useStore = create<SupplyLinkStore>()(
@@ -199,6 +204,16 @@ export const useStore = create<SupplyLinkStore>()(
           notifications: s.notifications.map((n) => ({ ...n, read: true })),
         })),
       setLastFetched: (ts) => set({ lastFetched: ts }),
+      compareIds: [],
+      toggleCompare: (id) =>
+        set((s) => ({
+          compareIds: s.compareIds.includes(id)
+            ? s.compareIds.filter((x) => x !== id)
+            : s.compareIds.length < 4
+            ? [...s.compareIds, id]
+            : s.compareIds,
+        })),
+      clearCompare: () => set({ compareIds: [] }),
     }),
     {
       name: "supply-link-store",
