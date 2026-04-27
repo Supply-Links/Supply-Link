@@ -103,7 +103,7 @@
   "verify": {
     "notFound": {
       "title": "Produit introuvable",
-      "desc": "Aucun produit avec l'ID {id} n'existe sur ce réseau.",
+      "desc": "Aucun produit avec cet ID n'existe sur ce réseau :",
       "hint": "Le code QR est peut-être invalide ou le produit a été supprimé.",
       "scanAnother": "Scanner un autre QR"
     },

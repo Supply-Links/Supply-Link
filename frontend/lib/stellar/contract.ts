@@ -1,6 +1,6 @@
 import {
   Contract,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   Networks,
   BASE_FEE,
@@ -9,9 +9,9 @@ import {
   scValToNative,
 } from "@stellar/stellar-sdk";
 import { signTransaction } from "./client";
-import { NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID, getNetwork } from "./client";
+import { safeSignTransaction, NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID, getNetwork } from "./client";
 
-const server = new SorobanRpc.Server(RPC_URL);
+const server = new rpc.Server(RPC_URL);
 
 interface ContractInvocationParams {
   method: string;
@@ -21,7 +21,7 @@ interface ContractInvocationParams {
 
 async function buildAndSimulateTransaction(
   params: ContractInvocationParams
-): Promise<SorobanRpc.SimulateTransactionResponse> {
+): Promise<rpc.Api.SimulateTransactionResponse> {
   const account = await server.getAccount(params.callerAddress);
   const contract = new Contract(CONTRACT_ID);
 
@@ -57,14 +57,14 @@ async function buildSignAndSubmitTransaction(
   // Simulate to get auth and resource fees
   const simulated = await server.simulateTransaction(tx);
 
-  if (SorobanRpc.isSimulationSuccess(simulated)) {
-    tx = SorobanRpc.assembleTransaction(tx, simulated).build();
+  if (rpc.Api.isSimulationSuccess(simulated)) {
+    tx = rpc.assembleTransaction(tx, simulated).build();
   } else {
     throw new Error(`Simulation failed: ${simulated.error}`);
   }
 
   // Sign with Freighter
-  const signed = await signTransaction(tx.toXDR(), NETWORK_PASSPHRASE);
+  const signed = await safeSignTransaction(tx.toXDR());
   const signedTx = TransactionBuilder.fromXDR(signed, NETWORK_PASSPHRASE);
 
   // Submit
@@ -108,8 +108,8 @@ export const contractClient = {
       callerAddress,
     });
 
-    if (SorobanRpc.isSimulationSuccess(simulated)) {
-      return scValToNative(simulated.results?.[0]);
+    if (rpc.Api.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.result!.retval);
     }
     throw new Error("Failed to get product");
   },
@@ -121,8 +121,8 @@ export const contractClient = {
       callerAddress,
     });
 
-    if (SorobanRpc.isSimulationSuccess(simulated)) {
-      return scValToNative(simulated.results?.[0]) || [];
+    if (rpc.Api.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.result!.retval) || [];
     }
     throw new Error("Failed to get tracking events");
   },
@@ -170,8 +170,8 @@ export const contractClient = {
       callerAddress,
     });
 
-    if (SorobanRpc.isSimulationSuccess(simulated)) {
-      return scValToNative(simulated.results?.[0]) || [];
+    if (rpc.Api.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.result!.retval) || [];
     }
     throw new Error("Failed to list products");
   },
@@ -183,8 +183,8 @@ export const contractClient = {
       callerAddress,
     });
 
-    if (SorobanRpc.isSimulationSuccess(simulated)) {
-      return scValToNative(simulated.results?.[0]) || 0;
+    if (rpc.Api.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.result!.retval) || 0;
     }
     throw new Error("Failed to get product count");
   },

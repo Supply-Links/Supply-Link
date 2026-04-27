@@ -1,9 +1,14 @@
-import { SorobanRpc } from "@stellar/stellar-sdk";
-import { RPC_URL } from "./client";
-
-const server = new SorobanRpc.Server(RPC_URL);
+import { Horizon } from "@stellar/stellar-sdk";
+import { getNetwork } from "./client";
 
 const MIN_BALANCE_THRESHOLD = 1; // 1 XLM
+
+function getHorizonUrl(): string {
+  const network = getNetwork();
+  return network === "mainnet"
+    ? "https://horizon.stellar.org"
+    : "https://horizon-testnet.stellar.org";
+}
 
 /**
  * Fetch XLM balance for an account
@@ -11,8 +16,9 @@ const MIN_BALANCE_THRESHOLD = 1; // 1 XLM
  */
 export async function getXlmBalance(accountAddress: string): Promise<string> {
   try {
-    const account = await server.getAccount(accountAddress);
-    const nativeBalance = account.balances.find((b) => b.asset_type === "native");
+    const server = new Horizon.Server(getHorizonUrl());
+    const account = await server.loadAccount(accountAddress);
+    const nativeBalance = account.balances.find((b: any) => b.asset_type === "native");
 
     if (!nativeBalance) {
       return "0";

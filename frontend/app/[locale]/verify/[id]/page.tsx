@@ -44,7 +44,8 @@ export default async function VerifyPage({ params }: Props) {
           <p className="text-4xl mb-4">🔍</p>
           <h1 className="text-xl font-semibold text-[var(--foreground)] mb-2">{t("notFound.title")}</h1>
           <p className="text-sm text-[var(--muted)]">
-            {t("notFound.desc", { id: <span className="font-mono">{id}</span> })}
+            {t("notFound.desc", { id })}{" "}
+            <span className="font-mono">{id}</span>
           </p>
           <p className="text-xs text-[var(--muted)] mt-2">{t("notFound.hint")}</p>
           <div className="mt-6">
