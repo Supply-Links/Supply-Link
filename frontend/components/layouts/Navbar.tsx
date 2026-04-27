@@ -8,6 +8,8 @@ import { WalletConnect } from "@/components/wallet/WalletConnect";
 import { NetworkMismatchBanner } from "@/components/wallet/NetworkMismatchBanner";
 import { LowBalanceWarning } from "@/components/wallet/LowBalanceWarning";
 import { NetworkBadge } from "@/components/NetworkBadge";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useStore } from "@/lib/state/store";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -32,6 +34,8 @@ export function AppNavbar({ onMenuClick }: AppNavbarProps) {
   const pathname = usePathname();
   const title = getPageTitle(pathname);
   const { xlmBalance } = useStore();
+  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } =
+    useNotifications();
 
   return (
     <>
@@ -51,10 +55,20 @@ export function AppNavbar({ onMenuClick }: AppNavbarProps) {
 
         <div className="ml-auto flex items-center gap-2">
           <NetworkBadge />
+<<<<<<< feat/notification-system
+          <NotificationDropdown
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onMarkRead={markNotificationRead}
+            onMarkAllRead={markAllNotificationsRead}
+          />
+          <WalletConnect />
+=======
           {/* WalletConnect truncates address on small screens */}
           <div className="max-w-[140px] sm:max-w-none overflow-hidden">
             <WalletConnect />
           </div>
+>>>>>>> main
           <ThemeToggle />
         </div>
       </header>

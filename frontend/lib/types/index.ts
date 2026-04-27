@@ -38,3 +38,14 @@ export interface PendingEvent {
   requiredSignatures: number;
   createdAt: number;
 }
+
+export interface Notification {
+  id: string; // `${productId}-${timestamp}`
+  productId: string;
+  productName: string;
+  eventType: EventType;
+  location: string;
+  actor: string;
+  timestamp: number;
+  read: boolean;
+}
