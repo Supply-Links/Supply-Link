@@ -18,6 +18,8 @@ export interface Product {
   requiredSignatures?: number;
   /** true while an on-chain transaction is in-flight (#49) */
   pending?: boolean;
+  /** Off-chain image URL stored in product metadata (#112) */
+  imageUrl?: string;
 }
 
 export interface TrackingEvent {

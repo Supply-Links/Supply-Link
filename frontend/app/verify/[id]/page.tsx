@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { getProductById, getEventsByProductId } from "@/lib/mock/products";
 import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
@@ -115,6 +116,13 @@ export default async function VerifyPage({ params }: Props) {
         </svg>
         Verified on Stellar · View Contract
       </a>
+
+      {/* Product image (#112) */}
+      {product.imageUrl && (
+        <div className="relative w-full h-56 rounded-xl overflow-hidden mb-6 border border-[var(--card-border)]">
+          <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
+        </div>
+      )}
 
       {/* Event Timeline */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">

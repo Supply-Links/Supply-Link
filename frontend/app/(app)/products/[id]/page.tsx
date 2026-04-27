@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getProductById } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
@@ -37,6 +38,12 @@ export default function ProductDetailPage({ params }: Props) {
       {/* Product Fields */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Details</h2>
+        {/* Product image (#112) */}
+        {p.imageUrl && (
+          <div className="relative w-full h-56 rounded-lg overflow-hidden mb-4">
+            <Image src={p.imageUrl} alt={p.name} fill className="object-cover" />
+          </div>
+        )}
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <dt className="text-[var(--muted)]">Origin</dt>
