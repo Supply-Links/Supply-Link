@@ -11,7 +11,6 @@ vi.mock('@/lib/stellar/client', () => ({
 // Mock package.json version
 vi.mock('@/package.json', () => ({ version: '0.1.0' }));
 
-// Mock fetch to control contractReachable
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
@@ -26,6 +25,54 @@ describe('GET /api/health', () => {
 
   it('returns status ok with all required fields', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
+    const { probeKv } = await import("../route");
+    const result = await probeKv();
+    expect(result.status).toBe("ok");
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+  });
+
+  it("returns down when KV ping throws", async () => {
+    process.env.KV_REST_API_URL = "https://kv.example.com";
+    process.env.KV_REST_API_TOKEN = "kv-token";
+    mockFetch.mockRejectedValueOnce(new Error("refused"));
+    const { probeKv } = await import("../route");
+    const result = await probeKv();
+    expect(result.status).toBe("down");
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+  });
+});
+
+describe("probeEnvConfig", () => {
+  it("returns ok when required env vars are present", async () => {
+    process.env.NEXT_PUBLIC_CONTRACT_ID = "CTEST";
+    process.env.NEXT_PUBLIC_STELLAR_NETWORK = "testnet";
+    const { probeEnvConfig } = await import("../route");
+    expect(probeEnvConfig().status).toBe("ok");
+  });
+
+  it("returns degraded when a required env var is missing", async () => {
+    const saved = process.env.NEXT_PUBLIC_CONTRACT_ID;
+    delete process.env.NEXT_PUBLIC_CONTRACT_ID;
+    const { probeEnvConfig } = await import("../route");
+    const result = probeEnvConfig();
+    expect(result.status).toBe("degraded");
+    expect(result.error).toMatch(/NEXT_PUBLIC_CONTRACT_ID/);
+    process.env.NEXT_PUBLIC_CONTRACT_ID = saved;
+  });
+});
+
+describe("GET /api/health", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns liveness ok and readiness ok when all probes pass", async () => {
+    process.env.NEXT_PUBLIC_CONTRACT_ID = "CTEST";
+    process.env.NEXT_PUBLIC_STELLAR_NETWORK = "testnet";
+    // rpc probe + blob probe (no token → degraded, but blob is non-critical)
+    mockFetch.mockResolvedValueOnce({ ok: true }); // rpc
+    // blob has no token → no fetch call
+    // kv has no token → no fetch call
 
     const { GET } = await import('../route');
     const response = await GET(makeRequest());
@@ -47,7 +94,10 @@ describe('GET /api/health', () => {
     const { GET } = await import('../route');
     const body = await (await GET(makeRequest())).json();
 
-    expect(body.contractReachable).toBe(true);
+    expect(typeof body.dependencies.rpc.latencyMs).toBe("number");
+    expect(typeof body.dependencies.blob.latencyMs).toBe("number");
+    expect(typeof body.dependencies.kv.latencyMs).toBe("number");
+    expect(typeof body.dependencies.env.latencyMs).toBe("number");
   });
 
   it('returns contractReachable: false when RPC fails', async () => {

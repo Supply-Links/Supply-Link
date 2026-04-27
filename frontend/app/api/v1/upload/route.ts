@@ -48,5 +48,11 @@ export async function POST(req: NextRequest) {
     access: 'public',
   });
 
-  return respond({ url: blob.url });
+  // Offload heavy post-upload work to background jobs
+  const [scanJob, processJob] = await Promise.all([
+    enqueue("scan.malware", { url: blob.url, jobId: blob.url }),
+    enqueue("image.process", { url: blob.url, productId }),
+  ]);
+
+  return respond({ url: blob.url, jobs: { scan: scanJob.id, process: processJob.id } });
 }

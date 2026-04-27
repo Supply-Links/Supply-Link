@@ -75,3 +75,6 @@ export async function POST(request: NextRequest) {
     }
   });
 }
+
+// Access tier: internal – signs with STELLAR_FEE_BUMP_SECRET; never expose publicly
+export const POST = requirePolicy("internal", handler);
