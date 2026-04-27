@@ -28,3 +28,12 @@ export interface TrackingEvent {
   /** true while an on-chain transaction is in-flight (#49) */
   pending?: boolean;
 }
+
+export interface Rating {
+  id: string;
+  productId: string;
+  walletAddress: string;
+  stars: number;
+  comment: string | null;
+  timestamp: number;
+}

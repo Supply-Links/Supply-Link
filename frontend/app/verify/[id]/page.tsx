@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getProductById, getEventsByProductId } from "@/lib/mock/products";
 import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
+import { RatingWidget } from "@/components/tracking/RatingWidget";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
 import { ShareButton } from "@/components/ui/ShareButton";
@@ -105,6 +106,12 @@ export default async function VerifyPage({ params }: Props) {
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
         <h2 className="text-base font-semibold text-[var(--foreground)] mb-5">Product Journey</h2>
         <EventTimeline events={events} />
+      </section>
+
+      {/* Rating Widget */}
+      <section className="mt-6">
+        <h2 className="text-base font-semibold text-[var(--foreground)] mb-4">Community Ratings</h2>
+        <RatingWidget productId={product.id} />
       </section>
 
       <div className="mt-6 flex justify-center">
