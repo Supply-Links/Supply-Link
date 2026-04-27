@@ -25,3 +25,13 @@ export function exportToCSV(events: TrackingEvent[], filename = "events.csv") {
 export function exportToJSON(events: TrackingEvent[], filename = "events.json") {
   downloadBlob(JSON.stringify(events, null, 2), filename, "application/json");
 }
+
+export function downloadCSV(csv: string, filename: string): void {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
