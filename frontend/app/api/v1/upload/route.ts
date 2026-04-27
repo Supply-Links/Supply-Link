@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { withCors, handleOptions } from "@/lib/api/cors";
+import { enqueue } from "@/lib/jobs/queue";
+import "@/lib/jobs/handlers";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest) {
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
+  const productId = (formData.get("productId") as string | null) ?? "unknown";
 
   if (!file) {
     return respond({ error: "No file provided" }, { status: 400 });
@@ -35,5 +38,11 @@ export async function POST(req: NextRequest) {
     access: "public",
   });
 
-  return respond({ url: blob.url });
+  // Offload heavy post-upload work to background jobs
+  const [scanJob, processJob] = await Promise.all([
+    enqueue("scan.malware", { url: blob.url, jobId: blob.url }),
+    enqueue("image.process", { url: blob.url, productId }),
+  ]);
+
+  return respond({ url: blob.url, jobs: { scan: scanJob.id, process: processJob.id } });
 }
