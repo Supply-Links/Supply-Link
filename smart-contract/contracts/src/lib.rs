@@ -18,8 +18,8 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Ve
 #[derive(Clone)]
 pub struct Product {
     /// Caller-supplied unique identifier for this product (e.g. `"batch-2024-001"`).
-    /// Must be unique across all registered products; duplicate IDs will silently
-    /// overwrite the existing entry.
+    /// Must be unique across all registered products; duplicate IDs are rejected
+    /// with `"product already exists"` and leave existing state unchanged.
     pub id: String,
     /// Human-readable product name (e.g. `"Arabica Coffee Beans"`).
     pub name: String,
@@ -158,8 +158,8 @@ impl SupplyLinkContract {
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment (injected by the runtime).
-    /// - `id` — Caller-supplied unique product identifier. If a product with
-    ///   this ID already exists it will be silently overwritten.
+    /// - `id` — Caller-supplied unique product identifier. Must not already
+    ///   exist; duplicate IDs are rejected with `"product already exists"`.
     /// - `name` — Human-readable product name.
     /// - `origin` — Geographic or organisational origin of the product.
     /// - `owner` — Stellar address that will own the product. This address
@@ -174,8 +174,8 @@ impl SupplyLinkContract {
     /// `owner`.
     ///
     /// # Panics
-    /// Does not panic under normal conditions. Panics if the Soroban runtime
-    /// rejects the auth check (i.e. `owner` did not sign).
+    /// - `"product already exists"` — if a product with `id` is already registered.
+    ///   `product_count` and index mappings are NOT modified on rejection.
     ///
     /// # Emitted Events
     /// Publishes a `("product_registered", id)` event with the [`Product`]
@@ -188,6 +188,12 @@ impl SupplyLinkContract {
         owner: Address,
         required_signatures: u32,
     ) -> Product {
+        // Duplicate guard — must come before auth to avoid leaking state on
+        // duplicate attempts and to keep counter/index consistent.
+        if env.storage().persistent().has(&DataKey::Product(id.clone())) {
+            panic!("product already exists");
+        }
+
         owner.require_auth();
         let product = Product {
             id: id.clone(),
@@ -783,11 +789,11 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
         // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
@@ -811,7 +817,7 @@ impl SupplyLinkContract {
                 .set(&DataKey::Events(product_id.clone()), &events);
 
             // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -835,7 +841,7 @@ impl SupplyLinkContract {
             true
         } else {
             // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
@@ -887,14 +893,14 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
         // Remove from pending
-        pending.remove(event_index as usize);
+        pending.remove(event_index);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
