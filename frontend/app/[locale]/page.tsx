@@ -157,6 +157,9 @@ export default function HomePage() {
             <a href="https://github.com" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-[var(--foreground)] transition-colors">
               <Github size={15} /> GitHub
             </a>
+            <Link href="/api-docs" className="flex items-center gap-1.5 hover:text-[var(--foreground)] transition-colors">
+              <BookOpen size={15} /> API Docs
+            </Link>
             <a href="https://developers.stellar.org/docs/smart-contracts" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-[var(--foreground)] transition-colors">
               <BookOpen size={15} /> Docs
             </a>

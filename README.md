@@ -316,6 +316,7 @@ Stellar's speed and near-zero cost make it ideal for supply chain use cases wher
 
 ## Documentation
 
+- **[API Reference](https://supply-link.vercel.app/api-docs)** — Interactive Swagger UI covering all REST API endpoints, authentication, and example request/response bodies.
 - **[User Guide — Producers](docs/user-guide-producer.md)** — Step-by-step guide for installing Freighter, funding a testnet account, registering products, adding tracking events, and sharing QR codes.
 
 ---
