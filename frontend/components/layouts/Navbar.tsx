@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+// Menu icon kept for potential future use
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -35,29 +35,26 @@ export function AppNavbar({ onMenuClick }: AppNavbarProps) {
 
   return (
     <>
-      <header className="h-14 border-b border-[var(--card-border)] bg-[var(--background)] flex items-center px-4 gap-4 sticky top-0 z-40">
-        {/* Hamburger — mobile only */}
-        <button
-          onClick={onMenuClick}
-          aria-label="Open menu"
-          className="md:hidden p-1.5 rounded hover:bg-[var(--muted-bg)] text-[var(--foreground)]"
-        >
-          <Menu size={20} />
-        </button>
-
-        {/* Logo — desktop only (sidebar shows it on mobile) */}
+      <header className="h-14 border-b border-[var(--card-border)] bg-[var(--background)] flex items-center px-4 gap-3 sticky top-0 z-40">
+        {/* Logo — desktop only (bottom nav handles mobile navigation) */}
         <Link
           href="/dashboard"
-          className="hidden md:block font-semibold text-sm tracking-tight text-[var(--foreground)]"
+          className="hidden md:block font-semibold text-sm tracking-tight text-[var(--foreground)] shrink-0"
         >
           Supply-Link
         </Link>
 
-        <span className="text-sm font-medium text-[var(--foreground)] md:ml-2">{title}</span>
+        {/* Page title — mobile only */}
+        <span className="text-sm font-semibold text-[var(--foreground)] md:hidden">{title}</span>
+        {/* Spacer on desktop */}
+        <span className="hidden md:inline text-sm font-medium text-[var(--foreground)] md:ml-2">{title}</span>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           <NetworkBadge />
-          <WalletConnect />
+          {/* WalletConnect truncates address on small screens */}
+          <div className="max-w-[140px] sm:max-w-none overflow-hidden">
+            <WalletConnect />
+          </div>
           <ThemeToggle />
         </div>
       </header>

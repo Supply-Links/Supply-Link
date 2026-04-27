@@ -86,25 +86,25 @@ export function QRScanner({ onClose }: QRScannerProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl w-full max-w-sm shadow-xl overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl w-full max-w-sm shadow-xl overflow-hidden my-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
           <div className="flex items-center gap-2 text-[var(--foreground)]">
             <QrCode size={16} />
             <span className="text-sm font-semibold">Scan QR Code</span>
           </div>
-          <button onClick={onClose} aria-label="Close scanner" className="p-1 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)]">
+          <button onClick={onClose} aria-label="Close scanner" className="p-2 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)] min-h-[44px] min-w-[44px] flex items-center justify-center">
             <X size={16} />
           </button>
         </div>
 
         <div className="p-4 flex flex-col gap-4">
-          {/* Camera viewfinder */}
+          {/* Camera viewfinder — aspect-square so it fills width on mobile */}
           {state !== "denied" && (
             <div
               id={containerId}
-              className="w-full rounded-lg overflow-hidden bg-black min-h-[260px]"
+              className="w-full rounded-lg overflow-hidden bg-black aspect-square"
             />
           )}
 
@@ -143,7 +143,7 @@ export function QRScanner({ onClose }: QRScannerProps) {
               />
               <button
                 onClick={handleManualSubmit}
-                className="px-3 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90"
+                className="px-4 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 min-h-[44px] shrink-0"
               >
                 Go
               </button>
