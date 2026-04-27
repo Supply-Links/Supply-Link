@@ -9,6 +9,7 @@ import { X, RefreshCw } from "lucide-react";
 import { registerProduct } from "@/lib/stellar/client";
 import { useStore } from "@/lib/state/store";
 import { useToast } from "@/lib/hooks/useToast";
+import { ImageUpload } from "@/components/products/ImageUpload";
 
 const schema = z.object({
   id: z.string().min(1, "Product ID is required"),
@@ -32,6 +33,7 @@ export function RegisterProductForm({ open, onOpenChange }: Props) {
   const { walletAddress, addProduct } = useStore();
   const toast = useToast();
   const [pending, setPending] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | undefined>();
 
   const {
     register,
@@ -70,11 +72,13 @@ export function RegisterProductForm({ open, onOpenChange }: Props) {
         timestamp: Date.now(),
         active: true,
         authorizedActors: [walletAddress],
+        imageUrl,
       });
 
       toast.dismiss(toastId);
       toast.success(`"${values.name}" registered successfully`, txHash);
       reset({ id: generateId() });
+      setImageUrl(undefined);
       onOpenChange(false);
     } catch (err) {
       toast.dismiss(toastId);
@@ -151,6 +155,9 @@ export function RegisterProductForm({ open, onOpenChange }: Props) {
                 className="px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
               />
             </div>
+
+            {/* Image Upload (#112) */}
+            <ImageUpload value={imageUrl} onChange={setImageUrl} />
 
             <div className="flex gap-3 mt-2">
               <Dialog.Close
