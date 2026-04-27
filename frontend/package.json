@@ -13,9 +13,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "prepare": "husky"
-    "lint": "eslint",
-    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
@@ -90,7 +90,7 @@
     "**/*.{ts,tsx,json,css,md}": [
       "./node_modules/.bin/prettier --write"
     ]
-  }
+  },
   "size-limit": [
     {
       "path": ".next/static/chunks/pages/*.js",
