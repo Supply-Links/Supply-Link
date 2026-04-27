@@ -7,11 +7,10 @@ import { z } from "zod";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useStore } from "@/lib/state/store";
 import { transferOwnership } from "@/lib/stellar/client";
+import { stellarAddressSchema } from "@/lib/validators";
 
 const schema = z.object({
-  newOwner: z
-    .string()
-    .regex(/^G[A-Z0-9]{55}$/, "Must be a valid Stellar address (G… 56 chars)"),
+  newOwner: stellarAddressSchema,
 });
 
 type FormValues = z.infer<typeof schema>;

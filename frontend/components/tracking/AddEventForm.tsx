@@ -8,23 +8,13 @@ import { Button, Input, Select, SelectItem, FileUpload } from "@/components/ui";
 import { useToast } from "@/lib/hooks/useToast";
 import { EventType } from "@/lib/types";
 import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
+import { productIdSchema, metadataSchema } from "@/lib/validators";
 
 const schema = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: productIdSchema,
   location: z.string().min(1, "Location is required"),
   eventType: z.enum(["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"]),
-  metadata: z.string().refine(
-    (val) => {
-      if (!val.trim()) return true;
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    "Metadata must be valid JSON"
-  ),
+  metadata: metadataSchema,
 });
 
 type FormValues = z.infer<typeof schema>;
