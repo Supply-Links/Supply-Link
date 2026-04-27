@@ -9,6 +9,8 @@ import { X, RefreshCw } from "lucide-react";
 import { registerProduct } from "@/lib/stellar/client";
 import { useStore } from "@/lib/state/store";
 import { useToast } from "@/lib/hooks/useToast";
+import { TemplateSelector } from "./TemplateSelector";
+import type { TemplateStage } from "@/lib/types";
 
 const schema = z.object({
   id: z.string().min(1, "Product ID is required"),
@@ -32,6 +34,7 @@ export function RegisterProductForm({ open, onOpenChange }: Props) {
   const { walletAddress, addProduct } = useStore();
   const toast = useToast();
   const [pending, setPending] = useState(false);
+  const [templateStages, setTemplateStages] = useState<TemplateStage[]>([]);
 
   const {
     register,
@@ -70,11 +73,13 @@ export function RegisterProductForm({ open, onOpenChange }: Props) {
         timestamp: Date.now(),
         active: true,
         authorizedActors: [walletAddress],
+        templateStages: templateStages.length > 0 ? templateStages : undefined,
       });
 
       toast.dismiss(toastId);
       toast.success(`"${values.name}" registered successfully`, txHash);
       reset({ id: generateId() });
+      setTemplateStages([]);
       onOpenChange(false);
     } catch (err) {
       toast.dismiss(toastId);
@@ -151,6 +156,9 @@ export function RegisterProductForm({ open, onOpenChange }: Props) {
                 className="px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
               />
             </div>
+
+            {/* Supply Chain Template */}
+            <TemplateSelector value={templateStages} onChange={setTemplateStages} />
 
             <div className="flex gap-3 mt-2">
               <Dialog.Close

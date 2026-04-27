@@ -1,5 +1,10 @@
 export type EventType = "HARVEST" | "PROCESSING" | "SHIPPING" | "RETAIL";
 
+export interface TemplateStage {
+  label: string;
+  eventType: EventType;
+}
+
 export interface OwnershipRecord {
   owner: string;
   transferredAt: number;
@@ -18,6 +23,8 @@ export interface Product {
   requiredSignatures?: number;
   /** true while an on-chain transaction is in-flight (#49) */
   pending?: boolean;
+  /** Ordered supply chain stages chosen at registration */
+  templateStages?: TemplateStage[];
 }
 
 export interface TrackingEvent {
