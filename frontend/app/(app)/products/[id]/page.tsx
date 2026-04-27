@@ -5,6 +5,7 @@ import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
 import { ShareButton } from "@/components/ui/ShareButton";
+import { DownloadBadgeButton } from "@/components/products/DownloadBadgeButton";
 
 interface Props {
   params: { id: string };
@@ -79,6 +80,12 @@ export default function ProductDetailPage({ params }: Props) {
       </section>
 
       {/* Action Buttons */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Share & Download</h2>
+        <DownloadBadgeButton product={p} />
+      </section>
+
+      {/* Product Actions */}
       <section>
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Actions</h2>
         <ProductActions productId={p.id} />
