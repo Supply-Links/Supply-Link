@@ -76,6 +76,9 @@ interface SupplyLinkStore {
   setEventTotal: (total: number) => void;
   validateWalletConnection: () => Promise<void>;
   disconnect: () => void;
+  addNotifications: (notifications: Notification[]) => void;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
 }
 
 export const useStore = create<SupplyLinkStore>()(
