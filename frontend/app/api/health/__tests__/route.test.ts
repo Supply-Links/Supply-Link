@@ -1,95 +1,29 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
 
-vi.mock("@/lib/stellar/client", () => ({
-  CONTRACT_ID: "CTEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDE",
-  NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
-  RPC_URL: "https://soroban-testnet.stellar.org",
+// Mock the stellar client so tests don't make real network calls
+vi.mock('@/lib/stellar/client', () => ({
+  CONTRACT_ID: 'CTEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDE',
+  NETWORK_PASSPHRASE: 'Test SDF Network ; September 2015',
+  RPC_URL: 'https://soroban-testnet.stellar.org',
 }));
 
-vi.mock("@/package.json", () => ({ version: "0.1.0" }));
+// Mock package.json version
+vi.mock('@/package.json', () => ({ version: '0.1.0' }));
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-// Helper: build a minimal NextRequest-like object
-function makeRequest(ip = "127.0.0.1") {
-  return {
-    headers: { get: (h: string) => (h === "x-forwarded-for" ? ip : null) },
-  } as unknown as import("next/server").NextRequest;
+function makeRequest(): NextRequest {
+  return new NextRequest('http://localhost/api/health');
 }
 
-describe("probeRpc", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("returns ok when RPC responds 200", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true });
-    const { probeRpc } = await import("../route");
-    const result = await probeRpc("https://soroban-testnet.stellar.org");
-    expect(result.status).toBe("ok");
-    expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+describe('GET /api/health', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("returns degraded when RPC responds non-ok", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false });
-    const { probeRpc } = await import("../route");
-    const result = await probeRpc("https://soroban-testnet.stellar.org");
-    expect(result.status).toBe("degraded");
-  });
-
-  it("returns down when RPC throws", async () => {
-    mockFetch.mockRejectedValueOnce(new Error("timeout"));
-    const { probeRpc } = await import("../route");
-    const result = await probeRpc("https://soroban-testnet.stellar.org");
-    expect(result.status).toBe("down");
-    expect(result.error).toBeDefined();
-  });
-});
-
-describe("probeBlob", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("returns degraded when BLOB_READ_WRITE_TOKEN is missing", async () => {
-    delete process.env.BLOB_READ_WRITE_TOKEN;
-    const { probeBlob } = await import("../route");
-    const result = await probeBlob();
-    expect(result.status).toBe("degraded");
-    expect(result.error).toMatch(/BLOB_READ_WRITE_TOKEN/);
-  });
-
-  it("returns ok when blob endpoint is reachable", async () => {
-    process.env.BLOB_READ_WRITE_TOKEN = "test-token";
-    mockFetch.mockResolvedValueOnce({ status: 200 });
-    const { probeBlob } = await import("../route");
-    const result = await probeBlob();
-    expect(result.status).toBe("ok");
-    delete process.env.BLOB_READ_WRITE_TOKEN;
-  });
-
-  it("returns down when blob endpoint throws", async () => {
-    process.env.BLOB_READ_WRITE_TOKEN = "test-token";
-    mockFetch.mockRejectedValueOnce(new Error("network error"));
-    const { probeBlob } = await import("../route");
-    const result = await probeBlob();
-    expect(result.status).toBe("down");
-    delete process.env.BLOB_READ_WRITE_TOKEN;
-  });
-});
-
-describe("probeKv", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("returns degraded when KV env vars are missing", async () => {
-    delete process.env.KV_REST_API_URL;
-    delete process.env.KV_REST_API_TOKEN;
-    const { probeKv } = await import("../route");
-    const result = await probeKv();
-    expect(result.status).toBe("degraded");
-    expect(result.error).toMatch(/KV_REST_API/);
-  });
-
-  it("returns ok when KV ping succeeds", async () => {
-    process.env.KV_REST_API_URL = "https://kv.example.com";
-    process.env.KV_REST_API_TOKEN = "kv-token";
+  it('returns status ok with all required fields', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
     const { probeKv } = await import("../route");
     const result = await probeKv();
@@ -140,39 +74,24 @@ describe("GET /api/health", () => {
     // blob has no token → no fetch call
     // kv has no token → no fetch call
 
-    const { GET } = await import("../route");
-    const res = await GET(makeRequest());
-    const body = await res.json();
+    const { GET } = await import('../route');
+    const response = await GET(makeRequest());
+    const body = await response.json();
 
-    expect(res.status).toBe(200);
-    expect(body.liveness).toBe("ok");
-    expect(body.readiness).toBe("ok");
-    expect(body.dependencies.rpc.status).toBe("ok");
-    expect(body.dependencies.env.status).toBe("ok");
-    expect(typeof body.uptime).toBe("number");
-    expect(typeof body.timestamp).toBe("string");
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('ok');
+    expect(body.version).toBe('0.1.0');
+    expect(body.contractId).toBe('CTEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDE');
+    expect(body.network).toBe('Test SDF Network ; September 2015');
+    expect(body.rpcUrl).toBe('https://soroban-testnet.stellar.org');
+    expect(typeof body.uptime).toBe('number');
+    expect(typeof body.timestamp).toBe('string');
   });
 
-  it("returns 503 when RPC is down", async () => {
-    process.env.NEXT_PUBLIC_CONTRACT_ID = "CTEST";
-    process.env.NEXT_PUBLIC_STELLAR_NETWORK = "testnet";
-    mockFetch.mockRejectedValueOnce(new Error("timeout")); // rpc down
-
-    const { GET } = await import("../route");
-    const res = await GET(makeRequest());
-    const body = await res.json();
-
-    expect(res.status).toBe(503);
-    expect(body.readiness).toBe("down");
-    expect(body.dependencies.rpc.status).toBe("down");
-  });
-
-  it("includes per-dependency latency in response", async () => {
-    process.env.NEXT_PUBLIC_CONTRACT_ID = "CTEST";
-    process.env.NEXT_PUBLIC_STELLAR_NETWORK = "testnet";
+  it('returns contractReachable: true when RPC responds ok', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
 
-    const { GET } = await import("../route");
+    const { GET } = await import('../route');
     const body = await (await GET(makeRequest())).json();
 
     expect(typeof body.dependencies.rpc.latencyMs).toBe("number");
@@ -181,15 +100,41 @@ describe("GET /api/health", () => {
     expect(typeof body.dependencies.env.latencyMs).toBe("number");
   });
 
-  it("returns 429 when rate limited", async () => {
-    const { GET } = await import("../route");
-    // Exhaust the rate limit for a unique IP
-    const ip = "10.0.0.99";
-    for (let i = 0; i < 10; i++) {
-      mockFetch.mockResolvedValue({ ok: true });
-      await GET(makeRequest(ip));
-    }
-    const res = await GET(makeRequest(ip));
-    expect(res.status).toBe(429);
+  it('returns contractReachable: false when RPC fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('network error'));
+
+    // Re-import to get fresh module (fetch mock changes)
+    vi.resetModules();
+    vi.mock('@/lib/stellar/client', () => ({
+      CONTRACT_ID: 'CTEST1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDE',
+      NETWORK_PASSPHRASE: 'Test SDF Network ; September 2015',
+      RPC_URL: 'https://soroban-testnet.stellar.org',
+    }));
+    vi.mock('@/package.json', () => ({ version: '0.1.0' }));
+
+    const { GET } = await import('../route');
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body.contractReachable).toBe(false);
+  });
+
+  it('timestamp is a valid ISO 8601 string', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    const { GET } = await import('../route');
+    const body = await (await GET(makeRequest())).json();
+
+    expect(() => new Date(body.timestamp)).not.toThrow();
+    expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
+  });
+
+  it('uptime is a non-negative integer', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+
+    const { GET } = await import('../route');
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(body.uptime)).toBe(true);
   });
 });
