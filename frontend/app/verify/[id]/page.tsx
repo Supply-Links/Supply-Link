@@ -8,14 +8,20 @@ import { ShareButton } from "@/components/ui/ShareButton";
 import { ProvenanceScoreGauge } from "@/components/products/ProvenanceScoreGauge";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const product = getProductById(params.id);
+  const { id } = await params;
+  const product = getProductById(id);
+  
   if (!product) {
-    return { title: "Product Not Found — Supply-Link" };
+    return { 
+      title: "Product Not Found — Supply-Link",
+      description: "The product you're looking for could not be found.",
+    };
   }
+  
   return {
     title: `${product.name} — Supply-Link Verification`,
     description: `Verify the authenticity and journey of ${product.name} from ${product.origin}. Powered by Stellar & Soroban.`,
@@ -24,6 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: `Origin: ${product.origin} · Owner: ${product.owner.slice(0, 8)}... · Tracked on-chain via Supply-Link.`,
       type: "website",
       siteName: "Supply-Link",
+      url: `${process.env.NEXT_PUBLIC_APP_URL || "https://supply-link.vercel.app"}/verify/${id}`,
     },
     twitter: {
       card: "summary",
@@ -33,9 +40,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+export async function generateStaticParams() {
+  // Return empty array for dynamic generation
+  // In production, you could pre-generate known product IDs
+  return [];
+}
+
 export default async function VerifyPage({ params }: Props) {
-  const product = getProductById(params.id);
-  const events = getEventsByProductId(params.id);
+  const { id } = await params;
+  const product = getProductById(id);
+  const events = getEventsByProductId(id);
 
   // 404-style fallback for unknown product IDs
   if (!product) {
@@ -45,7 +59,7 @@ export default async function VerifyPage({ params }: Props) {
           <p className="text-4xl mb-4">🔍</p>
           <h1 className="text-xl font-semibold text-[var(--foreground)] mb-2">Product Not Found</h1>
           <p className="text-sm text-[var(--muted)]">
-            No product with ID <span className="font-mono">{params.id}</span> exists on this network.
+            No product with ID <span className="font-mono">{id}</span> exists on this network.
           </p>
           <p className="text-xs text-[var(--muted)] mt-2">
             The QR code may be invalid or the product may have been removed.

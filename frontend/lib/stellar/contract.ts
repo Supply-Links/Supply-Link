@@ -1,6 +1,6 @@
 import {
   Contract,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   Networks,
   BASE_FEE,
@@ -11,7 +11,7 @@ import {
 import { signTransaction } from "./client";
 import { NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID, getNetwork } from "./client";
 
-const server = new SorobanRpc.Server(RPC_URL);
+const server = new rpc.Server(RPC_URL);
 
 interface ContractInvocationParams {
   method: string;
@@ -21,7 +21,7 @@ interface ContractInvocationParams {
 
 async function buildAndSimulateTransaction(
   params: ContractInvocationParams
-): Promise<SorobanRpc.SimulateTransactionResponse> {
+): Promise<rpc.SimulateTransactionResponse> {
   const account = await server.getAccount(params.callerAddress);
   const contract = new Contract(CONTRACT_ID);
 
