@@ -1,6 +1,25 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
 
+// ── Payload size limits (issue #311) ─────────────────────────────────────────
+// All limits are in bytes (Soroban String::len() returns byte count).
+// | Field    | Max bytes | Notes                          |
+// |----------|-----------|--------------------------------|
+// | id       |       128 | Storage key; keep short        |
+// | name     |       256 | Human-readable label           |
+// | origin   |       256 | Geographic/org string          |
+// | location |       256 | Per-event location             |
+// | metadata |      4096 | JSON payload                   |
+const MAX_ID_LEN:       u32 = 128;
+const MAX_NAME_LEN:     u32 = 256;
+const MAX_ORIGIN_LEN:   u32 = 256;
+const MAX_LOCATION_LEN: u32 = 256;
+const MAX_METADATA_LEN: u32 = 4096;
+
+fn assert_len(s: &String, max: u32, field: &'static str) {
+    if s.len() > max { panic!("{} exceeds max length", field); }
+}
+
 // ── Data models ──────────────────────────────────────────────────────────────
 
 /// Represents a product registered on the Supply-Link blockchain.
@@ -189,6 +208,10 @@ impl SupplyLinkContract {
         required_signatures: u32,
     ) -> Product {
         owner.require_auth();
+        // Issue #311: enforce size limits.
+        assert_len(&id,     MAX_ID_LEN,     "id");
+        assert_len(&name,   MAX_NAME_LEN,   "name");
+        assert_len(&origin, MAX_ORIGIN_LEN, "origin");
         let product = Product {
             id: id.clone(),
             name,
@@ -280,6 +303,9 @@ impl SupplyLinkContract {
             panic!("caller is not authorized");
         }
         caller.require_auth();
+        // Issue #311: enforce size limits.
+        assert_len(&location, MAX_LOCATION_LEN, "location");
+        assert_len(&metadata, MAX_METADATA_LEN, "metadata");
 
         let event = TrackingEvent {
             product_id: product_id.clone(),
@@ -618,6 +644,9 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+        // Issue #311: enforce size limits on update.
+        assert_len(&name,   MAX_NAME_LEN,   "name");
+        assert_len(&origin, MAX_ORIGIN_LEN, "origin");
 
         product.name = name;
         product.origin = origin;
@@ -783,11 +812,11 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
         // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
@@ -811,7 +840,7 @@ impl SupplyLinkContract {
                 .set(&DataKey::Events(product_id.clone()), &events);
 
             // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -835,7 +864,7 @@ impl SupplyLinkContract {
             true
         } else {
             // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
@@ -887,14 +916,14 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
         // Remove from pending
-        pending.remove(event_index as usize);
+        pending.remove(event_index);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
