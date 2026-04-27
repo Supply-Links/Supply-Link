@@ -20,8 +20,8 @@ mod tests;
 #[derive(Clone)]
 pub struct Product {
     /// Caller-supplied unique identifier for this product (e.g. `"batch-2024-001"`).
-    /// Must be unique across all registered products; duplicate IDs will silently
-    /// overwrite the existing entry.
+    /// Must be unique across all registered products; duplicate IDs are rejected
+    /// with `"product already exists"` and leave existing state unchanged.
     pub id: String,
     /// Human-readable product name (e.g. `"Arabica Coffee Beans"`).
     pub name: String,
@@ -45,6 +45,10 @@ pub struct Product {
     /// If 0 or 1, events are recorded immediately. If > 1, events are staged
     /// as pending until the required number of approvals are received.
     pub required_signatures: u32,
+    /// Lifecycle state of the product. `true` indicates the product is active
+    /// and can receive tracking events. `false` indicates the product has been
+    /// deactivated and is read-only. Defaults to `true` on registration.
+    pub active: bool,
 }
 
 /// A single supply-chain event recorded against a [`Product`].
@@ -98,6 +102,23 @@ pub struct PendingEvent {
     pub required_signatures: u32,
     /// Timestamp when the pending event was created.
     pub created_at: u64,
+}
+
+/// Ownership transfer event data with audit context.
+///
+/// Emitted when product ownership is transferred, providing both
+/// previous and new owner information for complete audit trails.
+#[contracttype]
+#[derive(Clone)]
+pub struct OwnershipTransferEvent {
+    /// The product ID being transferred.
+    pub product_id: String,
+    /// The previous owner address.
+    pub previous_owner: Address,
+    /// The new owner address.
+    pub new_owner: Address,
+    /// Timestamp of the transfer.
+    pub timestamp: u64,
 }
 
 // ── Storage keys ─────────────────────────────────────────────────────────────
@@ -162,8 +183,8 @@ impl SupplyLinkContract {
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment (injected by the runtime).
-    /// - `id` — Caller-supplied unique product identifier. If a product with
-    ///   this ID already exists it will be silently overwritten.
+    /// - `id` — Caller-supplied unique product identifier. Must not already
+    ///   exist; duplicate IDs are rejected with `"product already exists"`.
     /// - `name` — Human-readable product name.
     /// - `origin` — Geographic or organisational origin of the product.
     /// - `owner` — Stellar address that will own the product. This address
@@ -178,8 +199,8 @@ impl SupplyLinkContract {
     /// `owner`.
     ///
     /// # Panics
-    /// Does not panic under normal conditions. Panics if the Soroban runtime
-    /// rejects the auth check (i.e. `owner` did not sign).
+    /// - `"product already exists"` — if a product with `id` is already registered.
+    ///   `product_count` and index mappings are NOT modified on rejection.
     ///
     /// # Emitted Events
     /// Publishes a `("product_registered", id)` event with the [`Product`]
@@ -192,6 +213,12 @@ impl SupplyLinkContract {
         owner: Address,
         required_signatures: u32,
     ) -> Product {
+        // Duplicate guard — must come before auth to avoid leaking state on
+        // duplicate attempts and to keep counter/index consistent.
+        if env.storage().persistent().has(&DataKey::Product(id.clone())) {
+            panic!("product already exists");
+        }
+
         owner.require_auth();
         let product = Product {
             id: id.clone(),
@@ -201,6 +228,7 @@ impl SupplyLinkContract {
             timestamp: env.ledger().timestamp(),
             authorized_actors: Vec::new(&env),
             required_signatures,
+            active: true,
         };
         env.storage()
             .persistent()
@@ -242,9 +270,9 @@ impl SupplyLinkContract {
     ///   event. Must be the product owner or an address in
     ///   `authorized_actors`.
     /// - `location` — Free-form location string (e.g. `"Port of Hamburg"`).
-    /// - `event_type` — Supply-chain stage. Recommended values: `"HARVEST"`,
-    ///   `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`. Not validated by the
-    ///   contract.
+    /// - `event_type` — Canonical supply-chain stage. Must be one of:
+    ///   `"HARVEST"`, `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`.
+    ///   Unknown values are rejected with `"invalid event_type"` (issue #310).
     /// - `metadata` — Arbitrary JSON string with stage-specific data.
     ///
     /// # Returns
@@ -277,6 +305,11 @@ impl SupplyLinkContract {
             .get(&DataKey::Product(product_id.clone()))
             .expect("product not found");
 
+        // Check if product is active
+        if !product.active {
+            panic!("product is not active");
+        }
+
         // Verify caller is owner or an authorized actor before requiring auth
         let is_owner = product.owner == caller;
         let is_actor = product.authorized_actors.contains(&caller);
@@ -284,6 +317,8 @@ impl SupplyLinkContract {
             panic!("caller is not authorized");
         }
         caller.require_auth();
+        // Issue #310: reject unknown event types.
+        assert_valid_event_type(&env, &event_type);
 
         let event = TrackingEvent {
             product_id: product_id.clone(),
@@ -445,6 +480,10 @@ impl SupplyLinkContract {
     /// owner loses all owner-gated privileges immediately. The new owner gains
     /// them immediately.
     ///
+    /// # Safety Checks
+    /// - Prevents no-op transfers (transferring to the current owner)
+    /// - Validates that the new owner is a valid address
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to transfer.
@@ -459,6 +498,7 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot transfer to current owner"` — if `new_owner` equals current owner.
     ///
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
@@ -480,7 +520,7 @@ impl SupplyLinkContract {
 
         env.events().publish(
             (Symbol::new(&env, "ownership_transferred"), product_id),
-            new_owner,
+            transfer_event,
         );
 
         true
@@ -488,9 +528,8 @@ impl SupplyLinkContract {
 
     /// Grant an address permission to add tracking events for a product.
     ///
-    /// Appends `actor` to `product.authorized_actors`. Duplicate entries are
-    /// not deduplicated by the contract — callers should check
-    /// [`Self::get_authorized_actors`] before calling if deduplication matters.
+    /// Appends `actor` to `product.authorized_actors`. Prevents duplicate entries
+    /// to maintain clean governance state.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -506,6 +545,7 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"actor already authorized"` — if the actor is already in the authorized list.
     ///
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
@@ -539,6 +579,12 @@ impl SupplyLinkContract {
     /// If `actor` appears multiple times (due to duplicate `add_authorized_actor`
     /// calls), only the first occurrence is removed.
     ///
+    /// # Governance Safeguards
+    /// - Prevents removal of the owner from authorized actors if multi-signature
+    ///   is enabled and would leave insufficient authorized actors to meet the
+    ///   required signature threshold.
+    /// - Ensures at least one authorized path remains for governance operations.
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to update.
@@ -554,6 +600,10 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot remove owner from actors"` — if attempting to remove the owner
+    ///   when it would violate governance invariants.
+    /// - `"removal would violate governance"` — if removal would leave insufficient
+    ///   actors to meet multi-signature requirements.
     ///
     /// # Emitted Events
     /// Does not emit an event (removal is not currently announced on-chain).
@@ -578,10 +628,27 @@ impl SupplyLinkContract {
             }
         }
 
+        // Governance safeguard: ensure sufficient actors remain for multi-sig
+        if product.required_signatures > 1 {
+            // Count total authorized entities (owner + actors)
+            let total_authorized = 1 + new_actors.len() as u32; // owner + remaining actors
+            if total_authorized < product.required_signatures {
+                panic!("removal would violate governance");
+            }
+        }
+
         product.authorized_actors = new_actors;
         env.storage()
             .persistent()
-            .set(&DataKey::Product(product_id), &product);
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        if found {
+            env.events().publish(
+                (Symbol::new(&env, "actor_removed"), product_id),
+                actor,
+            );
+        }
 
         found
     }

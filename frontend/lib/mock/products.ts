@@ -38,7 +38,7 @@ export const MOCK_EVENTS: TrackingEvent[] = [
     location: "Yirgacheffe, Ethiopia",
     actor: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567",
     timestamp: 1710000000000,
-    metadata: JSON.stringify({ notes: "Hand-picked, shade-grown" }),
+    metadata: JSON.stringify({ notes: "Hand-picked, shade-grown", lat: 6.1667, lng: 38.2 }),
   },
   {
     productId: "prod-001",
@@ -46,7 +46,7 @@ export const MOCK_EVENTS: TrackingEvent[] = [
     location: "Addis Ababa, Ethiopia",
     actor: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567",
     timestamp: 1710200000000,
-    metadata: JSON.stringify({ method: "Washed", moisture: "11%" }),
+    metadata: JSON.stringify({ method: "Washed", moisture: "11%", lat: 9.0054, lng: 38.7636 }),
   },
   {
     productId: "prod-001",
@@ -54,7 +54,7 @@ export const MOCK_EVENTS: TrackingEvent[] = [
     location: "Port of Djibouti",
     actor: "GACTOR2ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567",
     timestamp: 1710400000000,
-    metadata: JSON.stringify({ vessel: "MV Stellar", destination: "Rotterdam" }),
+    metadata: JSON.stringify({ vessel: "MV Stellar", destination: "Rotterdam", lat: 11.5892, lng: 43.1456 }),
   },
   {
     productId: "prod-001",
@@ -62,7 +62,7 @@ export const MOCK_EVENTS: TrackingEvent[] = [
     location: "Amsterdam, Netherlands",
     actor: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     timestamp: 1710600000000,
-    metadata: JSON.stringify({ store: "Green Beans Co." }),
+    metadata: JSON.stringify({ store: "Green Beans Co.", lat: 52.3676, lng: 4.9041 }),
   },
   {
     productId: "prod-002",
@@ -70,7 +70,7 @@ export const MOCK_EVENTS: TrackingEvent[] = [
     location: "Ashanti Region, Ghana",
     actor: "GACTOR3ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567",
     timestamp: 1711000000000,
-    metadata: JSON.stringify({ variety: "Forastero" }),
+    metadata: JSON.stringify({ variety: "Forastero", lat: 6.6885, lng: -1.6244 }),
   },
 ];
 
