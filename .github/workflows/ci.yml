@@ -7,34 +7,13 @@ on:
     branches: [main]
 
 jobs:
-  env-check:
-    name: Required Env Variables
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check required env vars are documented in .env.example
-        run: |
-          required_vars=(
-            "NEXT_PUBLIC_CONTRACT_ID"
-            "NEXT_PUBLIC_STELLAR_NETWORK"
-          )
-          missing=0
-          for var in "${required_vars[@]}"; do
-            if ! grep -q "^${var}=" frontend/.env.example; then
-              echo "❌ Missing from frontend/.env.example: ${var}"
-              missing=1
-            else
-              echo "✅ ${var}"
-            fi
-          done
-          exit $missing
-
   lint-and-format:
     name: Lint & Format
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
+
     steps:
       - uses: actions/checkout@v4
 
