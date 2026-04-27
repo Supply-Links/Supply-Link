@@ -1,26 +1,11 @@
 "use client";
 
-import {
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
 import { Package, Activity, CheckCircle, Clock } from "lucide-react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
-
-const PIE_COLORS: Record<string, string> = {
-  HARVEST: "#22c55e",
-  PROCESSING: "#3b82f6",
-  SHIPPING: "#f59e0b",
-  RETAIL: "#a855f7",
-};
+import { LazyDashboardCharts } from "@/components/lazy/LazyDashboardCharts";
+import { ChartSkeleton } from "@/components/skeletons/LoadingSkeletons";
+import type { EventType } from "@/lib/types";
+import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
 
 function StatCard({
   label,
@@ -59,88 +44,11 @@ export default function DashboardPage() {
         <StatCard label="Last 24 h" value={stats.recentActivity} icon={Clock} />
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Line chart — events per day */}
-        <div className="lg:col-span-2 border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-5 shadow-sm">
-          <p className="text-sm font-semibold text-[var(--foreground)] mb-4">
-            Events per day (last 30 days)
-          </p>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={dailyCounts}>
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: "var(--muted)" }}
-                interval={4}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "var(--muted)" }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--card)",
-                  border: "1px solid var(--card-border)",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="count"
-                stroke="var(--primary)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Pie chart — event type distribution */}
-        <div className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-5 shadow-sm">
-          <p className="text-sm font-semibold text-[var(--foreground)] mb-4">
-            Event type distribution
-          </p>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={eventTypeCounts}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={85}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {eventTypeCounts.map((entry) => (
-                  <Cell
-                    key={entry.name}
-                    fill={PIE_COLORS[entry.name] ?? "#6b7280"}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  background: "var(--card)",
-                  border: "1px solid var(--card-border)",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 12 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      {/* Charts row — lazy loaded */}
+      <LazyDashboardCharts
+        dailyCounts={dailyCounts}
+        eventTypeCounts={eventTypeCounts}
+      />
 
       {/* Recent events table */}
       <div className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl shadow-sm overflow-hidden">
@@ -174,12 +82,16 @@ export default function DashboardPage() {
                       {e.productId}
                     </td>
                     <td className="px-5 py-3">
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ background: PIE_COLORS[e.eventType] ?? "#6b7280" }}
-                      >
-                        {e.eventType}
-                      </span>
+                      {(() => {
+                        const cfg = EVENT_TYPE_CONFIG[e.eventType as EventType];
+                        const Icon = cfg?.icon;
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badgeClass ?? "bg-gray-100 text-gray-800"}`}>
+                            {Icon && <Icon size={11} />}
+                            {cfg?.label ?? e.eventType}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-5 py-3 text-[var(--foreground)]">{e.location}</td>
                     <td className="px-5 py-3 text-[var(--muted)]">

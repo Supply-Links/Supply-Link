@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Plus, Package, ChevronDown } from "lucide-react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { Search, Plus, Package, ChevronDown, Upload, RefreshCw } from "lucide-react";
 import * as Select from "@radix-ui/react-select";
-import { useStore } from "@/lib/state/store";
-import { listProducts } from "@/lib/stellar/client";
-import { MOCK_PRODUCTS } from "@/lib/mock/products";
+import { useStore, selectFilteredProducts } from "@/lib/state/store";
+import { useProducts } from "@/lib/hooks/useProducts";
 import { RegisterProductForm } from "@/components/products/RegisterProductForm";
+import { BatchImportForm } from "@/components/products/BatchImportForm";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import type { EventType } from "@/lib/types";
+import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
 
 const EVENT_TYPES: EventType[] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
 
@@ -34,9 +36,7 @@ function EmptyState({ hasSearch, onRegister }: { hasSearch: boolean; onRegister:
         {hasSearch ? "No products match your search" : "No products yet"}
       </h3>
       <p className="text-sm text-[var(--muted)] max-w-xs">
-        {hasSearch
-          ? "Try a different name or ID."
-          : "Register your first product on-chain to get started."}
+        {hasSearch ? "Try a different name or ID." : "Register your first product on-chain to get started."}
       </p>
       {!hasSearch && (
         <button
@@ -51,33 +51,51 @@ function EmptyState({ hasSearch, onRegister }: { hasSearch: boolean; onRegister:
 }
 
 export default function ProductsPage() {
-  const { products, setProducts } = useStore();
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [eventFilter, setEventFilter] = useState<EventType | "ALL">("ALL");
-  const [modalOpen, setModalOpen] = useState(false);
+  const { loading, error, refresh } = useProducts();
+  const {
+    searchQuery,
+    filterEventType,
+    sortBy,
+    sortOrder,
+    setSearchQuery,
+    setFilterEventType,
+    setSortBy,
+    setSortOrder,
+  } = useStore();
+  const filtered = useStore(selectFilteredProducts);
+
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+
+  // Sync search + filter to/from URL params (#50)
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const { products: onChain } = await listProducts();
-        const merged = onChain.length > 0 ? onChain : MOCK_PRODUCTS;
-        setProducts(merged);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [setProducts]);
+    const q = searchParams.get("q");
+    const f = searchParams.get("filter") as EventType | null;
+    if (q !== null) setSearchQuery(q);
+    if (f !== null) setFilterEventType(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const filtered = products.filter((p) => {
-    const matchesSearch =
-      search === "" ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.id.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  function updateURL(q: string, f: EventType | null) {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (f) params.set("filter", f);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function handleSearch(q: string) {
+    setSearchQuery(q);
+    updateURL(q, filterEventType);
+  }
+
+  function handleFilter(f: EventType | null) {
+    setFilterEventType(f);
+    updateURL(searchQuery, f);
+  }
 
   return (
     <main className="p-6 md:p-8 max-w-7xl mx-auto">
@@ -88,27 +106,54 @@ export default function ProductsPage() {
             {loading ? "Loading…" : `${filtered.length} product${filtered.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
-        >
-          <Plus size={16} /> Register New Product
-        </button>
+        <div className="flex gap-2 self-start sm:self-auto">
+          {/* Refresh button — clears cache and re-fetches (#48) */}
+          <button
+            onClick={refresh}
+            title="Refresh products"
+            className="flex items-center gap-2 px-3 py-2 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors"
+          >
+            <RefreshCw size={15} />
+          </button>
+          <button
+            onClick={() => setBatchOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm font-medium transition-colors"
+          >
+            <Upload size={16} /> Import CSV
+          </button>
+          <button
+            onClick={() => setRegisterOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus size={16} /> Register New Product
+          </button>
+        </div>
       </div>
 
+      {/* Error banner (#47) */}
+      {error && (
+        <div className="mb-6 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Search + filter + sort (#50) */}
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
           <input
             type="text"
             placeholder="Search by name or ID…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
         </div>
 
-        <Select.Root value={eventFilter} onValueChange={(v) => setEventFilter(v as EventType | "ALL")}>
+        <Select.Root
+          value={filterEventType ?? "ALL"}
+          onValueChange={(v) => handleFilter(v === "ALL" ? null : (v as EventType))}
+        >
           <Select.Trigger className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[160px] focus:outline-none focus:ring-2 focus:ring-violet-500">
             <Select.Value placeholder="Filter by event" />
             <Select.Icon><ChevronDown size={14} /></Select.Icon>
@@ -119,9 +164,48 @@ export default function ProductsPage() {
                 <Select.Item value="ALL" className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-[var(--muted-bg)] focus:bg-[var(--muted-bg)] outline-none">
                   <Select.ItemText>All Events</Select.ItemText>
                 </Select.Item>
-                {EVENT_TYPES.map((t) => (
-                  <Select.Item key={t} value={t} className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-[var(--muted-bg)] focus:bg-[var(--muted-bg)] outline-none">
-                    <Select.ItemText>{t}</Select.ItemText>
+                {EVENT_TYPES.map((t) => {
+                  const cfg = EVENT_TYPE_CONFIG[t];
+                  const Icon = cfg.icon;
+                  return (
+                    <Select.Item key={t} value={t} className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-[var(--muted-bg)] focus:bg-[var(--muted-bg)] outline-none">
+                      <Select.ItemText>
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badgeClass}`}>
+                          <Icon size={11} />
+                          {cfg.label}
+                        </span>
+                      </Select.ItemText>
+                    </Select.Item>
+                  );
+                })}
+              </Select.Viewport>
+            </Select.Content>
+          </Select.Portal>
+        </Select.Root>
+
+        <Select.Root
+          value={`${sortBy}-${sortOrder}`}
+          onValueChange={(v) => {
+            const [by, order] = v.split("-") as ["name" | "timestamp", "asc" | "desc"];
+            setSortBy(by);
+            setSortOrder(order);
+          }}
+        >
+          <Select.Trigger className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)] text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-violet-500">
+            <Select.Value placeholder="Sort" />
+            <Select.Icon><ChevronDown size={14} /></Select.Icon>
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Content className="z-50 bg-[var(--background)] border border-[var(--card-border)] rounded-xl shadow-lg overflow-hidden">
+              <Select.Viewport className="p-1">
+                {(["name-asc", "name-desc", "timestamp-asc", "timestamp-desc"] as const).map((v) => (
+                  <Select.Item key={v} value={v} className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-[var(--muted-bg)] focus:bg-[var(--muted-bg)] outline-none">
+                    <Select.ItemText>
+                      {v === "name-asc" ? "Name A→Z"
+                        : v === "name-desc" ? "Name Z→A"
+                        : v === "timestamp-asc" ? "Oldest first"
+                        : "Newest first"}
+                    </Select.ItemText>
                   </Select.Item>
                 ))}
               </Select.Viewport>
@@ -135,21 +219,33 @@ export default function ProductsPage() {
           {Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState hasSearch={search !== ""} onRegister={() => setModalOpen(true)} />
+        <EmptyState hasSearch={searchQuery !== ""} onRegister={() => setRegisterOpen(true)} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((product) => (
             <Link
               key={product.id}
               href={`/products/${product.id}`}
-              className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md hover:border-violet-500/40 transition-all"
+              className={`border bg-[var(--card)] rounded-xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md transition-all ${
+                product.pending
+                  ? "border-violet-400 animate-pulse"
+                  : "border-[var(--card-border)] hover:border-violet-500/40"
+              }`}
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="text-lg font-semibold text-[var(--foreground)] leading-tight">{product.name}</h2>
-                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${product.active ? "bg-green-500/10 text-green-500" : "bg-[var(--muted-bg)] text-[var(--muted)]"}`}>
-                    {product.active ? "Active" : "Inactive"}
-                  </span>
+                  <div className="flex gap-1 shrink-0">
+                    {/* Pending badge (#49) */}
+                    {product.pending && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-violet-500/10 text-violet-500">
+                        Pending
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${product.active ? "bg-green-500/10 text-green-500" : "bg-[var(--muted-bg)] text-[var(--muted)]"}`}>
+                      {product.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-sm text-[var(--muted)] mt-1">Origin: {product.origin}</p>
                 <p className="text-xs text-[var(--muted)] mt-1 font-mono truncate">ID: {product.id}</p>
@@ -160,7 +256,8 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <RegisterProductForm open={modalOpen} onOpenChange={setModalOpen} />
+      <RegisterProductForm open={registerOpen} onOpenChange={setRegisterOpen} />
+      <BatchImportForm open={batchOpen} onOpenChange={setBatchOpen} />
     </main>
   );
 }

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Button, Input, Select, SelectItem } from "@/components/ui";
 import { useToast } from "@/lib/hooks/useToast";
 import { EventType } from "@/lib/types";
+import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
 
 const schema = z.object({
   productId: z.string().min(1, "Product ID is required"),
@@ -103,10 +104,18 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium">Event Type</label>
         <Select value={eventType} onValueChange={(val) => register("eventType").onChange({ target: { value: val } })}>
-          <SelectItem value="HARVEST">Harvest</SelectItem>
-          <SelectItem value="PROCESSING">Processing</SelectItem>
-          <SelectItem value="SHIPPING">Shipping</SelectItem>
-          <SelectItem value="RETAIL">Retail</SelectItem>
+          {(["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"] as EventType[]).map((t) => {
+            const cfg = EVENT_TYPE_CONFIG[t];
+            const Icon = cfg.icon;
+            return (
+              <SelectItem key={t} value={t}>
+                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badgeClass}`}>
+                  <Icon size={11} />
+                  {cfg.label}
+                </span>
+              </SelectItem>
+            );
+          })}
         </Select>
         {errors.eventType && <p className="text-xs text-red-500">{errors.eventType.message}</p>}
       </div>
