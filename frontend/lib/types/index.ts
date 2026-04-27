@@ -1,5 +1,10 @@
 export type EventType = "HARVEST" | "PROCESSING" | "SHIPPING" | "RETAIL";
 
+export interface TemplateStage {
+  label: string;
+  eventType: EventType;
+}
+
 export interface OwnershipRecord {
   owner: string;
   transferredAt: number;
