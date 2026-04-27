@@ -1,9 +1,4 @@
-import { isConnected, signTransaction, getAddress } from '@stellar/freighter-api';
-import {
-  getAddress,
-  isConnected,
-  signTransaction,
-} from "@stellar/freighter-api";
+import { isConnected, signTransaction, getAddress } from "@stellar/freighter-api";
 
 export type StellarNetwork = "testnet" | "mainnet";
 
@@ -47,10 +42,6 @@ export class FreighterNotInstalledError extends Error {
 }
 
 export async function getWalletAddress(): Promise<string | null> {
-  const connected = await isConnected();
-  if (!connected) return null;
-  const result = await getAddress();
-  return result.address ?? null;
   try {
     const result = await isConnected();
     if (!result.isConnected) return null;
@@ -92,13 +83,9 @@ export { signTransaction };
 export const CONTRACT_ID =
   process.env.NEXT_PUBLIC_CONTRACT_ID ?? 'CBUWSKT2UGOAXK4ZREVDJV5XHSYB42PZ3CERU2ZFUTUMAZLJEHNZIECA';
 
-export const NETWORK_PASSPHRASE =
-  process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? 'Test SDF Network ; September 2015';
-
-export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? 'https://soroban-testnet.stellar.org';
 export const NETWORK_PASSPHRASE = NETWORK_CONFIG.passphrase;
 
-export const RPC_URL = NETWORK_CONFIG.rpcUrl;
+export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? NETWORK_CONFIG.rpcUrl;
 
 /**
  * Stub: call register_product on the Soroban contract.

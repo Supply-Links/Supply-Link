@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product, TrackingEvent, EventType } from "../types";
+import type { Product, TrackingEvent, EventType, Notification } from "@/lib/types";
 import { isConnected } from "@stellar/freighter-api";
 
 interface SupplyLinkStore {
@@ -28,6 +28,9 @@ interface SupplyLinkStore {
   walletAddress: string | null;
   xlmBalance: string | null;
   networkMismatch: boolean;
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+  notifications: Notification[];
 
   // ── Pagination ────────────────────────────────────────────────────────────
   productPage: number;
@@ -104,6 +107,7 @@ export const useStore = create<SupplyLinkStore>()(
       walletAddress: null,
       xlmBalance: null,
       networkMismatch: false,
+      notifications: [],
       lastFetched: null,
       productPage: 0,
       productPageSize: 20,
@@ -184,6 +188,21 @@ export const useStore = create<SupplyLinkStore>()(
           productPage: 0,
           eventPage: 0,
         }),
+      addNotifications: (incoming) =>
+        set((s) => ({
+          notifications: [
+            ...s.notifications,
+            ...incoming.filter((n) => !s.notifications.some((e) => e.id === n.id)),
+          ],
+        })),
+      markNotificationRead: (id) =>
+        set((s) => ({
+          notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        })),
+      markAllNotificationsRead: () =>
+        set((s) => ({
+          notifications: s.notifications.map((n) => ({ ...n, read: true })),
+        })),
       setLastFetched: (ts) => set({ lastFetched: ts }),
       compareIds: [],
       toggleCompare: (id) =>

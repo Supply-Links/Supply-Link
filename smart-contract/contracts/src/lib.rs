@@ -1,6 +1,18 @@
 #![no_std]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Symbol};
 
+// ── Canonical event type registry (issue #310) ───────────────────────────────
+// Accepted values for event_type in add_tracking_event.
+// Migration: free-form strings are no longer accepted.
+const VALID_EVENT_TYPES: [&str; 4] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
+
+fn assert_valid_event_type(env: &Env, event_type: &String) {
+    for valid in VALID_EVENT_TYPES.iter() {
+        if *event_type == String::from_str(env, valid) { return; }
+    }
+    panic!("invalid event_type");
+}
+
 // ── Data models ──────────────────────────────────────────────────────────────
 
 /// Represents a product registered on the Supply-Link blockchain.
@@ -18,8 +30,8 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Ve
 #[derive(Clone)]
 pub struct Product {
     /// Caller-supplied unique identifier for this product (e.g. `"batch-2024-001"`).
-    /// Must be unique across all registered products; duplicate IDs will silently
-    /// overwrite the existing entry.
+    /// Must be unique across all registered products; duplicate IDs are rejected
+    /// with `"product already exists"` and leave existing state unchanged.
     pub id: String,
     /// Human-readable product name (e.g. `"Arabica Coffee Beans"`).
     pub name: String,
@@ -43,6 +55,10 @@ pub struct Product {
     /// If 0 or 1, events are recorded immediately. If > 1, events are staged
     /// as pending until the required number of approvals are received.
     pub required_signatures: u32,
+    /// Lifecycle state of the product. `true` indicates the product is active
+    /// and can receive tracking events. `false` indicates the product has been
+    /// deactivated and is read-only. Defaults to `true` on registration.
+    pub active: bool,
 }
 
 /// A single supply-chain event recorded against a [`Product`].
@@ -96,6 +112,23 @@ pub struct PendingEvent {
     pub required_signatures: u32,
     /// Timestamp when the pending event was created.
     pub created_at: u64,
+}
+
+/// Ownership transfer event data with audit context.
+///
+/// Emitted when product ownership is transferred, providing both
+/// previous and new owner information for complete audit trails.
+#[contracttype]
+#[derive(Clone)]
+pub struct OwnershipTransferEvent {
+    /// The product ID being transferred.
+    pub product_id: String,
+    /// The previous owner address.
+    pub previous_owner: Address,
+    /// The new owner address.
+    pub new_owner: Address,
+    /// Timestamp of the transfer.
+    pub timestamp: u64,
 }
 
 // ── Storage keys ─────────────────────────────────────────────────────────────
@@ -158,8 +191,8 @@ impl SupplyLinkContract {
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment (injected by the runtime).
-    /// - `id` — Caller-supplied unique product identifier. If a product with
-    ///   this ID already exists it will be silently overwritten.
+    /// - `id` — Caller-supplied unique product identifier. Must not already
+    ///   exist; duplicate IDs are rejected with `"product already exists"`.
     /// - `name` — Human-readable product name.
     /// - `origin` — Geographic or organisational origin of the product.
     /// - `owner` — Stellar address that will own the product. This address
@@ -174,8 +207,8 @@ impl SupplyLinkContract {
     /// `owner`.
     ///
     /// # Panics
-    /// Does not panic under normal conditions. Panics if the Soroban runtime
-    /// rejects the auth check (i.e. `owner` did not sign).
+    /// - `"product already exists"` — if a product with `id` is already registered.
+    ///   `product_count` and index mappings are NOT modified on rejection.
     ///
     /// # Emitted Events
     /// Publishes a `("product_registered", id)` event with the [`Product`]
@@ -188,6 +221,12 @@ impl SupplyLinkContract {
         owner: Address,
         required_signatures: u32,
     ) -> Product {
+        // Duplicate guard — must come before auth to avoid leaking state on
+        // duplicate attempts and to keep counter/index consistent.
+        if env.storage().persistent().has(&DataKey::Product(id.clone())) {
+            panic!("product already exists");
+        }
+
         owner.require_auth();
         let product = Product {
             id: id.clone(),
@@ -197,6 +236,7 @@ impl SupplyLinkContract {
             timestamp: env.ledger().timestamp(),
             authorized_actors: Vec::new(&env),
             required_signatures,
+            active: true,
         };
         env.storage()
             .persistent()
@@ -238,9 +278,9 @@ impl SupplyLinkContract {
     ///   event. Must be the product owner or an address in
     ///   `authorized_actors`.
     /// - `location` — Free-form location string (e.g. `"Port of Hamburg"`).
-    /// - `event_type` — Supply-chain stage. Recommended values: `"HARVEST"`,
-    ///   `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`. Not validated by the
-    ///   contract.
+    /// - `event_type` — Canonical supply-chain stage. Must be one of:
+    ///   `"HARVEST"`, `"PROCESSING"`, `"SHIPPING"`, `"RETAIL"`.
+    ///   Unknown values are rejected with `"invalid event_type"` (issue #310).
     /// - `metadata` — Arbitrary JSON string with stage-specific data.
     ///
     /// # Returns
@@ -273,6 +313,11 @@ impl SupplyLinkContract {
             .get(&DataKey::Product(product_id.clone()))
             .expect("product not found");
 
+        // Check if product is active
+        if !product.active {
+            panic!("product is not active");
+        }
+
         // Verify caller is owner or an authorized actor before requiring auth
         let is_owner = product.owner == caller;
         let is_actor = product.authorized_actors.contains(&caller);
@@ -280,6 +325,8 @@ impl SupplyLinkContract {
             panic!("caller is not authorized");
         }
         caller.require_auth();
+        // Issue #310: reject unknown event types.
+        assert_valid_event_type(&env, &event_type);
 
         let event = TrackingEvent {
             product_id: product_id.clone(),
@@ -441,6 +488,10 @@ impl SupplyLinkContract {
     /// owner loses all owner-gated privileges immediately. The new owner gains
     /// them immediately.
     ///
+    /// # Safety Checks
+    /// - Prevents no-op transfers (transferring to the current owner)
+    /// - Validates that the new owner is a valid address
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to transfer.
@@ -455,10 +506,11 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot transfer to current owner"` — if `new_owner` equals current owner.
     ///
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
-    /// `new_owner` as the event body.
+    /// [`OwnershipTransferEvent`] containing both previous and new owner data.
     pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> bool {
         let mut product: Product = env
             .storage()
@@ -467,15 +519,29 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Prevent no-op transfer to current owner
+        if product.owner == new_owner {
+            panic!("cannot transfer to current owner");
+        }
+
+        let previous_owner = product.owner.clone();
         product.owner = new_owner.clone();
         env.storage()
             .persistent()
             .set(&DataKey::Product(product_id.clone()), &product);
 
-        // Emit event
+        // Emit enriched event with both previous and new owner
+        let transfer_event = OwnershipTransferEvent {
+            product_id: product_id.clone(),
+            previous_owner,
+            new_owner,
+            timestamp: env.ledger().timestamp(),
+        };
+
         env.events().publish(
             (Symbol::new(&env, "ownership_transferred"), product_id),
-            new_owner,
+            transfer_event,
         );
 
         true
@@ -483,9 +549,8 @@ impl SupplyLinkContract {
 
     /// Grant an address permission to add tracking events for a product.
     ///
-    /// Appends `actor` to `product.authorized_actors`. Duplicate entries are
-    /// not deduplicated by the contract — callers should check
-    /// [`Self::get_authorized_actors`] before calling if deduplication matters.
+    /// Appends `actor` to `product.authorized_actors`. Prevents duplicate entries
+    /// to maintain clean governance state.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
@@ -501,6 +566,7 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"actor already authorized"` — if the actor is already in the authorized list.
     ///
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
@@ -513,6 +579,12 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Prevent duplicate actors
+        if product.authorized_actors.contains(&actor) {
+            panic!("actor already authorized");
+        }
+
         product.authorized_actors.push_back(actor.clone());
         env.storage()
             .persistent()
@@ -533,6 +605,12 @@ impl SupplyLinkContract {
     /// If `actor` appears multiple times (due to duplicate `add_authorized_actor`
     /// calls), only the first occurrence is removed.
     ///
+    /// # Governance Safeguards
+    /// - Prevents removal of the owner from authorized actors if multi-signature
+    ///   is enabled and would leave insufficient authorized actors to meet the
+    ///   required signature threshold.
+    /// - Ensures at least one authorized path remains for governance operations.
+    ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product to update.
@@ -548,9 +626,13 @@ impl SupplyLinkContract {
     ///
     /// # Panics
     /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"cannot remove owner from actors"` — if attempting to remove the owner
+    ///   when it would violate governance invariants.
+    /// - `"removal would violate governance"` — if removal would leave insufficient
+    ///   actors to meet multi-signature requirements.
     ///
     /// # Emitted Events
-    /// Does not emit an event (removal is not currently announced on-chain).
+    /// Publishes an `("actor_removed", product_id)` event with the removed actor address.
     pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
         let mut product: Product = env
             .storage()
@@ -559,6 +641,11 @@ impl SupplyLinkContract {
             .expect("product not found");
 
         product.owner.require_auth();
+
+        // Governance safeguard: prevent removing owner from actors if multi-sig is enabled
+        if actor == product.owner && product.required_signatures > 1 {
+            panic!("cannot remove owner from actors");
+        }
 
         // Find and remove the actor
         let mut found = false;
@@ -572,10 +659,27 @@ impl SupplyLinkContract {
             }
         }
 
+        // Governance safeguard: ensure sufficient actors remain for multi-sig
+        if product.required_signatures > 1 {
+            // Count total authorized entities (owner + actors)
+            let total_authorized = 1 + new_actors.len() as u32; // owner + remaining actors
+            if total_authorized < product.required_signatures {
+                panic!("removal would violate governance");
+            }
+        }
+
         product.authorized_actors = new_actors;
         env.storage()
             .persistent()
-            .set(&DataKey::Product(product_id), &product);
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        if found {
+            env.events().publish(
+                (Symbol::new(&env, "actor_removed"), product_id),
+                actor,
+            );
+        }
 
         found
     }
@@ -783,11 +887,11 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let mut pending_event = pending.get(event_index as usize).unwrap().clone();
+        let mut pending_event = pending.get(event_index).unwrap().clone();
 
         // Check if approver already approved
         if !pending_event.approvals.contains(&approver) {
@@ -811,7 +915,7 @@ impl SupplyLinkContract {
                 .set(&DataKey::Events(product_id.clone()), &events);
 
             // Remove from pending
-            pending.remove(event_index as usize);
+            pending.remove(event_index);
             if pending.len() > 0 {
                 env.storage()
                     .persistent()
@@ -835,7 +939,7 @@ impl SupplyLinkContract {
             true
         } else {
             // Update pending event with new approval
-            pending.set(event_index as usize, pending_event);
+            pending.set(event_index, pending_event);
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id), &pending);
@@ -887,14 +991,14 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .expect("no pending events");
 
-        if event_index as usize >= pending.len() {
+        if event_index >= pending.len() as u32 {
             panic!("event index out of bounds");
         }
 
-        let rejected_event = pending.get(event_index as usize).unwrap().clone();
+        let rejected_event = pending.get(event_index).unwrap().clone();
 
         // Remove from pending
-        pending.remove(event_index as usize);
+        pending.remove(event_index);
         if pending.len() > 0 {
             env.storage()
                 .persistent()
@@ -932,5 +1036,597 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Deactivate a product, preventing new tracking events.
+    ///
+    /// Sets the `active` field to `false`. Deactivated products remain readable
+    /// but cannot receive new tracking events until reactivated.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to deactivate.
+    ///
+    /// # Returns
+    /// `true` on success.
+    ///
+    /// # Authorization
+    /// Requires `product.owner.require_auth()`. Only the current product owner
+    /// may deactivate a product.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"product already inactive"` — if the product is already deactivated.
+    ///
+    /// # Emitted Events
+    /// Publishes a `("product_deactivated", product_id)` event.
+    pub fn deactivate_product(env: Env, product_id: String) -> bool {
+        let mut product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+
+        if !product.active {
+            panic!("product already inactive");
+        }
+
+        product.active = false;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        env.events().publish(
+            (Symbol::new(&env, "product_deactivated"), product_id),
+            product,
+        );
+
+        true
+    }
+
+    /// Reactivate a deactivated product.
+    ///
+    /// Sets the `active` field to `true`, allowing new tracking events again.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to reactivate.
+    ///
+    /// # Returns
+    /// `true` on success.
+    ///
+    /// # Authorization
+    /// Requires `product.owner.require_auth()`. Only the current product owner
+    /// may reactivate a product.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"product already active"` — if the product is already active.
+    ///
+    /// # Emitted Events
+    /// Publishes a `("product_reactivated", product_id)` event.
+    pub fn reactivate_product(env: Env, product_id: String) -> bool {
+        let mut product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+
+        if product.active {
+            panic!("product already active");
+        }
+
+        product.active = true;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        // Emit event
+        env.events().publish(
+            (Symbol::new(&env, "product_reactivated"), product_id),
+            product,
+        );
+
+        true
+    }
+
+    /// Return a paginated slice of product IDs filtered by active status.
+    ///
+    /// Similar to [`Self::list_products`] but allows filtering by lifecycle state.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `offset` — Zero-based index of the first product to return.
+    /// - `limit` — Maximum number of product IDs to return.
+    /// - `active_only` — If `true`, only return active products. If `false`, return all products.
+    ///
+    /// # Returns
+    /// A `Vec<String>` of product IDs matching the filter criteria.
+    ///
+    /// # Authorization
+    /// None — this is a read-only function.
+    ///
+    /// # Panics
+    /// Does not panic.
+    pub fn list_products_filtered(
+        env: Env,
+        offset: u64,
+        limit: u64,
+        active_only: bool,
+    ) -> Vec<String> {
+        let count: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ProductCount)
+            .unwrap_or(0);
+
+        let mut products = Vec::new(&env);
+        let mut collected = 0u64;
+        let mut skipped = 0u64;
+
+        for i in 0..count {
+            if collected >= limit {
+                break;
+            }
+
+            if let Some(product_id) = env
+                .storage()
+                .persistent()
+                .get::<DataKey, String>(&DataKey::ProductIndex(i))
+            {
+                if let Some(product) = env
+                    .storage()
+                    .persistent()
+                    .get::<DataKey, Product>(&DataKey::Product(product_id.clone()))
+                {
+                    // Apply filter
+                    if !active_only || product.active {
+                        if skipped >= offset {
+                            products.push_back(product_id);
+                            collected += 1;
+                        } else {
+                            skipped += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        products
+    }
+
+    /// Check if a product is active.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to check.
+    ///
+    /// # Returns
+    /// `true` if the product exists and is active, `false` otherwise.
+    ///
+    /// # Authorization
+    /// None — this is a read-only function.
+    ///
+    /// # Panics
+    /// Does not panic.
+    pub fn is_product_active(env: Env, product_id: String) -> bool {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Product>(&DataKey::Product(product_id))
+            .map(|p| p.active)
+            .unwrap_or(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    fn test_product_deactivation_lifecycle() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        // Register product
+        env.mock_all_auths();
+        let product = client.register_product(&product_id, &name, &origin, &owner, &1);
+        assert_eq!(product.active, true);
+
+        // Deactivate product
+        client.deactivate_product(&product_id);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.active, false);
+
+        // Verify product is inactive
+        assert_eq!(client.is_product_active(&product_id), false);
+
+        // Reactivate product
+        client.reactivate_product(&product_id);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.active, true);
+        assert_eq!(client.is_product_active(&product_id), true);
+    }
+
+    #[test]
+    #[should_panic(expected = "product is not active")]
+    fn test_cannot_add_event_to_inactive_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+        let location = String::from_str(&env, "Test Location");
+        let event_type = String::from_str(&env, "HARVEST");
+        let metadata = String::from_str(&env, "{}");
+
+        env.mock_all_auths();
+
+        // Register and deactivate product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+        client.deactivate_product(&product_id);
+
+        // Try to add event to inactive product - should panic
+        client.add_tracking_event(&product_id, &owner, &location, &event_type, &metadata);
+    }
+
+    #[test]
+    fn test_list_products_filtered() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        env.mock_all_auths();
+
+        // Register 5 products
+        for i in 1..=5 {
+            let product_id = String::from_str(&env, &format!("product-{:03}", i));
+            let name = String::from_str(&env, &format!("Product {}", i));
+            let origin = String::from_str(&env, "Test Origin");
+            client.register_product(&product_id, &name, &origin, &owner, &1);
+        }
+
+        // Deactivate products 2 and 4
+        client.deactivate_product(&String::from_str(&env, "product-002"));
+        client.deactivate_product(&String::from_str(&env, "product-004"));
+
+        // List all products
+        let all_products = client.list_products_filtered(&0, &10, &false);
+        assert_eq!(all_products.len(), 5);
+
+        // List only active products
+        let active_products = client.list_products_filtered(&0, &10, &true);
+        assert_eq!(active_products.len(), 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "product already inactive")]
+    fn test_cannot_deactivate_inactive_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+        client.deactivate_product(&product_id);
+        
+        // Try to deactivate again - should panic
+        client.deactivate_product(&product_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "product already active")]
+    fn test_cannot_reactivate_active_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-004");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+        
+        // Try to reactivate an already active product - should panic
+        client.reactivate_product(&product_id);
+    }
+}
+
+#[cfg(test)]
+mod ownership_transfer_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    fn test_ownership_transfer_success() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let new_owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Transfer ownership
+        let result = client.transfer_ownership(&product_id, &new_owner);
+        assert_eq!(result, true);
+
+        // Verify new owner
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, new_owner);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot transfer to current owner")]
+    fn test_cannot_transfer_to_current_owner() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Try to transfer to same owner - should panic
+        client.transfer_ownership(&product_id, &owner);
+    }
+
+    #[test]
+    fn test_ownership_transfer_chain() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner1 = Address::generate(&env);
+        let owner2 = Address::generate(&env);
+        let owner3 = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with owner1
+        client.register_product(&product_id, &name, &origin, &owner1, &1);
+
+        // Transfer to owner2
+        client.transfer_ownership(&product_id, &owner2);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, owner2);
+
+        // Transfer to owner3
+        client.transfer_ownership(&product_id, &owner3);
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, owner3);
+    }
+
+    #[test]
+    #[should_panic(expected = "product not found")]
+    fn test_transfer_nonexistent_product() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let new_owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "nonexistent-product");
+
+        env.mock_all_auths();
+
+        // Try to transfer nonexistent product - should panic
+        client.transfer_ownership(&product_id, &new_owner);
+    }
+}
+
+#[cfg(test)]
+mod governance_safeguard_tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Env};
+
+    #[test]
+    #[should_panic(expected = "actor already authorized")]
+    fn test_cannot_add_duplicate_actor() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-001");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Add actor
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Try to add same actor again - should panic
+        client.add_authorized_actor(&product_id, &actor);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot remove owner from actors")]
+    fn test_cannot_remove_owner_from_multisig_actors() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-002");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner, &2);
+
+        // Add owner as actor
+        client.add_authorized_actor(&product_id, &owner);
+
+        // Try to remove owner from actors - should panic
+        client.remove_authorized_actor(&product_id, &owner);
+    }
+
+    #[test]
+    #[should_panic(expected = "removal would violate governance")]
+    fn test_cannot_remove_actor_below_threshold() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor1 = Address::generate(&env);
+        let actor2 = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-003");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product requiring 3 signatures
+        client.register_product(&product_id, &name, &origin, &owner, &3);
+
+        // Add 2 actors (total authorized: owner + 2 actors = 3)
+        client.add_authorized_actor(&product_id, &actor1);
+        client.add_authorized_actor(&product_id, &actor2);
+
+        // Try to remove an actor - would leave only 2 authorized (owner + 1 actor)
+        // This violates the requirement of 3 signatures - should panic
+        client.remove_authorized_actor(&product_id, &actor1);
+    }
+
+    #[test]
+    fn test_can_remove_actor_above_threshold() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor1 = Address::generate(&env);
+        let actor2 = Address::generate(&env);
+        let actor3 = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-004");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product requiring 3 signatures
+        client.register_product(&product_id, &name, &origin, &owner, &3);
+
+        // Add 3 actors (total authorized: owner + 3 actors = 4)
+        client.add_authorized_actor(&product_id, &actor1);
+        client.add_authorized_actor(&product_id, &actor2);
+        client.add_authorized_actor(&product_id, &actor3);
+
+        // Remove one actor - still leaves 3 authorized (owner + 2 actors)
+        // This meets the requirement of 3 signatures - should succeed
+        let result = client.remove_authorized_actor(&product_id, &actor1);
+        assert_eq!(result, true);
+
+        // Verify actor was removed
+        let actors = client.get_authorized_actors(&product_id);
+        assert_eq!(actors.len(), 2);
+    }
+
+    #[test]
+    fn test_can_remove_actor_single_sig() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-005");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with single signature (no multi-sig)
+        client.register_product(&product_id, &name, &origin, &owner, &1);
+
+        // Add actor
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Remove actor - should succeed since no multi-sig governance
+        let result = client.remove_authorized_actor(&product_id, &actor);
+        assert_eq!(result, true);
+
+        // Verify actor was removed
+        let actors = client.get_authorized_actors(&product_id);
+        assert_eq!(actors.len(), 0);
+    }
+
+    #[test]
+    fn test_governance_invariant_after_ownership_transfer() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, SupplyLinkContract);
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let owner1 = Address::generate(&env);
+        let owner2 = Address::generate(&env);
+        let actor = Address::generate(&env);
+        let product_id = String::from_str(&env, "test-product-006");
+        let name = String::from_str(&env, "Test Product");
+        let origin = String::from_str(&env, "Test Origin");
+
+        env.mock_all_auths();
+
+        // Register product with multi-sig
+        client.register_product(&product_id, &name, &origin, &owner1, &2);
+
+        // Add actor
+        client.add_authorized_actor(&product_id, &actor);
+
+        // Transfer ownership
+        client.transfer_ownership(&product_id, &owner2);
+
+        // Verify governance still intact - should still have 2 authorized (new owner + actor)
+        let product = client.get_product(&product_id);
+        assert_eq!(product.owner, owner2);
+        assert_eq!(product.authorized_actors.len(), 1);
     }
 }
