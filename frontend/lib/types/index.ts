@@ -51,3 +51,12 @@ export interface Notification {
   timestamp: number;
   read: boolean;
 }
+
+export interface Rating {
+  id: string;
+  productId: string;
+  walletAddress: string;
+  stars: number;
+  comment: string | null;
+  timestamp: number;
+}
