@@ -16,7 +16,7 @@ export async function verifySignature(
     const tx = new Transaction(signedTxXdr, "Test SDF Network ; September 2015");
 
     // Verify the transaction source matches the wallet address
-    if (!tx.source || tx.source.accountId() !== walletAddress) {
+    if (!tx.source || tx.source !== walletAddress) {
       return false;
     }
 
