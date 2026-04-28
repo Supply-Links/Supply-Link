@@ -97,3 +97,20 @@ jobs:
       - name: Build WASM
         run: cargo build --target wasm32-unknown-unknown --release
         working-directory: smart-contract
+
+  resilience:
+    name: resilience tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: resilience-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Run resilience suite
+        run: cargo test resilience_tests
+        working-directory: smart-contract
