@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { getProductById, getEventsByProductId } from "@/lib/mock/products";
+import { getProduct, getTrackingEvents } from "@/lib/services/productReadModel";
 import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
 import { RatingWidget } from "@/components/tracking/RatingWidget";
@@ -15,7 +15,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await getProduct(id);
   
   if (!product) {
     return { 
@@ -50,8 +50,8 @@ export async function generateStaticParams() {
 
 export default async function VerifyPage({ params }: Props) {
   const { id } = await params;
-  const product = getProductById(id);
-  const events = getEventsByProductId(id);
+  const product = await getProduct(id);
+  const events = await getTrackingEvents(id);
 
   // 404-style fallback for unknown product IDs
   if (!product) {
