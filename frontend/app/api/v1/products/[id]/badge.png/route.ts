@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProductById } from "@/lib/mock/products";
+import { getProduct } from "@/lib/services/productReadModel";
 import { withCors, handleOptions } from "@/lib/api/cors";
 
 export function OPTIONS(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(
 ) {
   try {
     const { id: productId } = await params;
-    const product = getProductById(productId);
+    const product = await getProduct(productId);
 
     if (!product) {
       return withCors(request, NextResponse.json({ error: "Product not found" }, { status: 404 }));
