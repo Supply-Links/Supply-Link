@@ -1,17 +1,38 @@
+/**
+ * Ratings API route — hardened with replay-proof signature protocol.
+ *
+ * POST /api/ratings
+ *   Requires a signed message in canonical format:
+ *     supply-link:rate:<productId>:<stars>:<nonce>:<expiresAt>
+ *   Enforces: expiry window, one-time nonce, one-rating-per-wallet-per-product.
+ *
+ * GET /api/ratings?productId=<id>
+ *   Returns aggregated ratings for a product.
+ *
+ * closes #306
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySignature } from '@/lib/stellar/verify';
 import { kv } from '@vercel/kv';
+import { verifySignature } from '@/lib/stellar/verify';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 import { withIdempotency } from '@/lib/api/idempotency';
 import { withMetrics, recordDependency } from '@/lib/api/metrics';
+import {
+  parseAndValidateMessage,
+  consumeNonce,
+  hasDuplicateRating,
+  recordRating,
+} from '@/lib/api/ratingsProtocol';
 
 interface RatingSubmission {
   productId: string;
   walletAddress: string;
   stars: number;
   comment?: string;
+  /** Canonical message: supply-link:rate:<productId>:<stars>:<nonce>:<expiresAt> */
   message: string;
   signature: string;
 }
@@ -33,45 +54,54 @@ export async function POST(request: NextRequest) {
         const data: RatingSubmission = JSON.parse(rawBody);
         const { productId, walletAddress, stars, comment, message, signature } = data;
 
+        // ── Field presence ───────────────────────────────────────────────────
         if (!productId || !walletAddress || !stars || !message || !signature) {
-          return withCors(
-            req,
-            apiError(req, 400, ErrorCode.MISSING_FIELDS, 'Missing required fields'),
-          );
+          return withCors(req, apiError(req, 400, ErrorCode.MISSING_FIELDS, 'Missing required fields'));
         }
 
         if (stars < 1 || stars > 5 || !Number.isInteger(stars)) {
-          return withCors(
-            req,
-            apiError(
-              req,
-              400,
-              ErrorCode.VALIDATION_ERROR,
-              'Stars must be an integer between 1 and 5',
-            ),
-          );
+          return withCors(req, apiError(req, 400, ErrorCode.VALIDATION_ERROR, 'Stars must be an integer between 1 and 5'));
         }
 
         if (comment && comment.length > 500) {
+          return withCors(req, apiError(req, 400, ErrorCode.VALIDATION_ERROR, 'Comment must be 500 characters or less'));
+        }
+
+        // ── Canonical message format + expiry ────────────────────────────────
+        const msgValidation = parseAndValidateMessage(message, productId, stars);
+        if (!msgValidation.ok) {
           return withCors(
             req,
-            apiError(
-              req,
-              400,
-              ErrorCode.VALIDATION_ERROR,
-              'Comment must be 500 characters or less',
-            ),
+            apiError(req, 400, ErrorCode.VALIDATION_ERROR, `Invalid message: ${msgValidation.reason}`),
           );
         }
 
+        // ── Cryptographic signature ──────────────────────────────────────────
         const isValid = await verifySignature(walletAddress, message, signature);
         if (!isValid) {
+          return withCors(req, apiError(req, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'));
+        }
+
+        // ── Nonce (replay protection) ────────────────────────────────────────
+        const nonce = message.split(':')[4];
+        const nonceConsumed = await consumeNonce(walletAddress, nonce);
+        if (!nonceConsumed) {
           return withCors(
             req,
-            apiError(req, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'),
+            apiError(req, 409, ErrorCode.IDEMPOTENCY_CONFLICT, 'Nonce already used — replay detected'),
           );
         }
 
+        // ── Duplicate wallet-product submission ──────────────────────────────
+        const isDuplicate = await hasDuplicateRating(walletAddress, productId);
+        if (isDuplicate) {
+          return withCors(
+            req,
+            apiError(req, 409, ErrorCode.IDEMPOTENCY_CONFLICT, 'Wallet has already rated this product'),
+          );
+        }
+
+        // ── Persist ──────────────────────────────────────────────────────────
         const rating = {
           id: `${productId}_${walletAddress}_${Date.now()}`,
           productId,
@@ -87,6 +117,7 @@ export async function POST(request: NextRequest) {
           const ratings = existing || [];
           ratings.push(rating);
           await kv.set(key, ratings);
+          await recordRating(walletAddress, productId);
           recordDependency('vercel-kv', true);
         } catch (kvErr) {
           recordDependency('vercel-kv', false);
@@ -96,10 +127,7 @@ export async function POST(request: NextRequest) {
         return respond(rating, { status: 201 });
       } catch (error) {
         console.error('[ratings POST]', error);
-        return withCors(
-          req,
-          apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'),
-        );
+        return withCors(req, apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'));
       }
     }),
   );
@@ -117,10 +145,7 @@ export async function GET(request: NextRequest) {
       const productId = request.nextUrl.searchParams.get('productId');
 
       if (!productId) {
-        return withCors(
-          request,
-          apiError(request, 400, ErrorCode.MISSING_FIELDS, 'Missing productId parameter'),
-        );
+        return withCors(request, apiError(request, 400, ErrorCode.MISSING_FIELDS, 'Missing productId parameter'));
       }
 
       const key = `ratings:${productId}`;
@@ -147,10 +172,7 @@ export async function GET(request: NextRequest) {
       });
     } catch (error) {
       console.error('[ratings GET]', error);
-      return withCors(
-        request,
-        apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch ratings'),
-      );
+      return withCors(request, apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch ratings'));
     }
   });
 }
