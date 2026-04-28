@@ -73,6 +73,107 @@ jobs:
             smart-contract/target
           key: doc-${{ hashFiles('smart-contract/Cargo.lock') }}
       - name: Check docs compile without warnings
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
+        working-directory: smart-contract
+
+  build:
+    name: cargo build (wasm32)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: build-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Build WASM
+        run: cargo build --target wasm32-unknown-unknown --release
+        working-directory: smart-contract
+
+  coverage:
+    name: cargo llvm-cov (coverage ≥ 80%)
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: coverage-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+      - name: Generate coverage report
+        run: |
+          cargo llvm-cov --profile coverage --fail-under-lines 80 --fail-under-functions 80 --fail-under-branches 80 --fail-under-statements 80
+        working-directory: smart-contract
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          cargo llvm-cov --profile coverage --lcov --output-path target/llvm-cov/lcov.info
+          bash <(curl -s https://codecov.io/bash) -f target/llvm-cov/lcov.info -t $CODECOV_TOKEN
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: clippy-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+        working-directory: smart-contract
+
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: test-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Run tests
+        run: cargo test
+        working-directory: smart-contract
+
+  doc:
+    name: cargo doc (lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smart-contract/target
+          key: doc-${{ hashFiles('smart-contract/Cargo.lock') }}
+      - name: Check docs compile without warnings
         # RUSTDOCFLAGS=-D warnings turns doc warnings into errors so broken
         # intra-doc links, missing code fences, and malformed sections are
         # caught on every PR.
