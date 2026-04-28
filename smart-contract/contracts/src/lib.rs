@@ -131,9 +131,18 @@ pub struct TrackingEvent {
 ///
 /// For high-value products, events are staged until the required number of
 /// authorized actors have approved them.
+///
+/// Each pending event has a stable identifier (`pending_event_id`) that remains
+/// unchanged even if other pending events in the queue are removed or approved.
+/// This prevents client mistakes from index-based references that shift after
+/// queue mutations.
 #[contracttype]
 #[derive(Clone)]
 pub struct PendingEvent {
+    /// Stable unique identifier for this pending event within its product.
+    /// Generated at creation time and immutable. Used for deterministic targeting
+    /// in approve/reject operations to avoid index-based race conditions.
+    pub pending_event_id: u64,
     /// ID of the product this event is for.
     pub product_id: String,
     /// The event data awaiting approval.
@@ -187,6 +196,10 @@ pub enum DataKey {
     /// Key for pending events awaiting multi-signature approval.
     /// The inner `String` is the product ID.
     PendingEvents(String),
+    /// Key for the next stable pending event ID counter.
+    /// The inner `String` is the product ID.
+    /// Stores a `u64` used to generate unique identifiers for pending events.
+    NextPendingId(String),
     /// Key for the global product registration counter.
     ProductCount,
     /// Key for the index-to-ID mapping used by pagination.
@@ -390,17 +403,25 @@ impl SupplyLinkContract {
 
         // Check if multi-signature is required
         if product.required_signatures > 1 {
-            // Stage event as pending
+            // Stage event as pending with a stable ID
             let mut pending: Vec<PendingEvent> = env
                 .storage()
                 .persistent()
                 .get(&DataKey::PendingEvents(product_id.clone()))
                 .unwrap_or_else(|| Vec::new(&env));
 
+            // Generate next stable pending event ID
+            let next_id: u64 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::NextPendingId(product_id.clone()))
+                .unwrap_or(0u64);
+
             let mut approvals = Vec::new(&env);
             approvals.push_back(caller);
 
             let pending_event = PendingEvent {
+                pending_event_id: next_id,
                 product_id: product_id.clone(),
                 event: event.clone(),
                 approvals,
@@ -412,6 +433,11 @@ impl SupplyLinkContract {
             env.storage()
                 .persistent()
                 .set(&DataKey::PendingEvents(product_id.clone()), &pending);
+
+            // Increment the ID counter for next pending event
+            env.storage()
+                .persistent()
+                .set(&DataKey::NextPendingId(product_id.clone()), &(next_id + 1));
 
             // Emit pending event
             env.events().publish(
@@ -870,13 +896,15 @@ impl SupplyLinkContract {
     ///
     /// For products with `required_signatures > 1`, events are staged as pending
     /// until the required number of approvals are received. This function allows
-    /// authorized actors to approve a pending event.
+    /// authorized actors to approve a pending event using its stable identifier.
     ///
     /// # Parameters
-    /// - `env` — Soroban execution environment.
+    /// - `env` — Soroban execution environment (injected by the runtime).
     /// - `product_id` — ID of the product.
-    /// - `event_index` — Index of the pending event in the pending queue.
+    /// - `pending_event_id` — Stable ID of the pending event to approve.
+    ///   This ID remains unchanged even if other pending events are removed.
     /// - `approver` — Address of the actor approving the event.
+    /// - `nonce` — Sequential nonce for authorization, incremented by the contract.
     ///
     /// # Returns
     /// `true` if the event was finalized (all signatures received), `false` if
@@ -890,17 +918,20 @@ impl SupplyLinkContract {
     /// - `"product not found"` — if `product_id` is not registered.
     /// - `"approver is not authorized"` — if approver is not owner or actor.
     /// - `"no pending events"` — if there are no pending events.
-    /// - `"event index out of bounds"` — if `event_index` is invalid.
+    /// - `"pending event not found"` — if `pending_event_id` doesn't match any pending event.
+    /// - `"invalid nonce"` — if nonce does not match the expected sequential value.
     ///
     /// # Emitted Events
     /// - When the event is **not yet finalized**: no event is emitted.
     /// - When the event **is finalized** (approvals reach `required_signatures`):
     ///   publishes an `("event_finalized", product_id, event_type,
     ///   schema_version)` event with the [`TrackingEvent`] struct as the body.
+    pub fn approve_event(
         env: Env,
         product_id: String,
-        event_index: u32,
+        pending_event_id: u64,
         approver: Address,
+        nonce: u64,
     ) -> Result<bool, Error> {
         let product: Product = env
             .storage()
@@ -922,9 +953,18 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .ok_or(Error::NoPendingEvents)?;
 
-        if event_index >= pending.len() as u32 {
-            panic!("event index out of bounds");
+        // Find the pending event by stable ID (not index-based)
+        let mut event_position: Option<usize> = None;
+        for i in 0..pending.len() {
+            if pending.get(i).unwrap().pending_event_id == pending_event_id {
+                event_position = Some(i);
+                break;
+            }
         }
+
+        let event_index = event_position.ok_or_else(|| {
+            panic!("pending event not found")
+        })?;
 
         let mut pending_event = pending.get(event_index).unwrap().clone();
 
@@ -983,13 +1023,17 @@ impl SupplyLinkContract {
     ///
     /// Removes a pending event from the approval queue without finalizing it.
     /// Optionally accepts a reason for the rejection for audit purposes.
+    /// Uses the stable identifier of the pending event to ensure deterministic
+    /// behavior even after queue mutations.
     ///
     /// # Parameters
     /// - `env` — Soroban execution environment.
     /// - `product_id` — ID of the product.
-    /// - `event_index` — Index of the pending event to reject.
+    /// - `pending_event_id` — Stable ID of the pending event to reject.
+    ///   This ID remains unchanged even if other pending events are removed.
     /// - `rejector` — Address of the actor rejecting the event.
     /// - `reason` — Optional reason for rejection (max 256 characters).
+    /// - `nonce` — Sequential nonce for authorization, incremented by the contract.
     ///
     /// # Returns
     /// `true` on success.
@@ -1001,14 +1045,16 @@ impl SupplyLinkContract {
     /// - `"product not found"` — if `product_id` is not registered.
     /// - `"only owner can reject"` — if rejector is not the owner.
     /// - `"no pending events"` — if there are no pending events.
-    /// - `"event index out of bounds"` — if `event_index` is invalid.
+    /// - `"pending event not found"` — if `pending_event_id` doesn't match any pending event.
     /// - `"rejection reason too long"` — if reason exceeds 256 characters.
+    /// - `"invalid nonce"` — if nonce does not match the expected sequential value.
     pub fn reject_event(
         env: Env,
         product_id: String,
-        event_index: u32,
+        pending_event_id: u64,
         rejector: Address,
         reason: String,
+        nonce: u64,
     ) -> bool {
         let product: Product = env
             .storage()
@@ -1033,9 +1079,18 @@ impl SupplyLinkContract {
             .get(&DataKey::PendingEvents(product_id.clone()))
             .ok_or(Error::NoPendingEvents)?;
 
-        if event_index >= pending.len() as u32 {
-            panic!("event index out of bounds");
+        // Find the pending event by stable ID (not index-based)
+        let mut event_position: Option<usize> = None;
+        for i in 0..pending.len() {
+            if pending.get(i).unwrap().pending_event_id == pending_event_id {
+                event_position = Some(i);
+                break;
+            }
         }
+
+        let event_index = event_position.ok_or_else(|| {
+            panic!("pending event not found")
+        })?;
 
         let rejected_event = pending.get(event_index).unwrap().clone();
 
@@ -1096,6 +1151,47 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::ActorNonce(actor))
             .unwrap_or(0)
+    }
+
+    /// Get the stable pending event ID for a pending event at a given index.
+    ///
+    /// This function is provided for backward compatibility with clients that
+    /// currently use index-based references. It bridges index-based lookups to
+    /// stable IDs.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product.
+    /// - `event_index` — Zero-based index into the pending events queue.
+    ///
+    /// # Returns
+    /// The stable `pending_event_id` of the event at that index, or panics if
+    /// the index is out of bounds or no events exist.
+    ///
+    /// # Panics
+    /// - `"no pending events"` — if there are no pending events.
+    /// - `"event index out of bounds"` — if `event_index` is invalid.
+    ///
+    /// # Note
+    /// This function should be called to convert existing index-based client code
+    /// to use stable IDs. Direct index usage in approve_event/reject_event will
+    /// no longer work; the stable ID must be obtained first.
+    pub fn get_pending_event_id_at_index(
+        env: Env,
+        product_id: String,
+        event_index: u32,
+    ) -> u64 {
+        let pending: Vec<PendingEvent> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingEvents(product_id))
+            .ok_or_else(|| panic!("no pending events"))?;
+
+        if event_index >= pending.len() as u32 {
+            panic!("event index out of bounds");
+        }
+
+        pending.get(event_index).unwrap().pending_event_id
     }
 
     fn validate_and_increment_nonce(env: &Env, actor: &Address, provided_nonce: u64) {
