@@ -138,7 +138,9 @@ export function applyRateLimit(
     return withCors(
       request,
       apiError(request, 429, ErrorCode.RATE_LIMITED, 'Too many requests. Please slow down.', {
-        'Retry-After': String(shortResult.retryAfter),
+        headers: {
+          'Retry-After': String(shortResult.retryAfter),
+        },
       }),
     );
   }
@@ -155,7 +157,9 @@ export function applyRateLimit(
           429,
           ErrorCode.RATE_LIMITED,
           'Request burst limit exceeded. Please slow down.',
-          { 'Retry-After': String(burstResult.retryAfter) },
+          {
+            headers: { 'Retry-After': String(burstResult.retryAfter) },
+          },
         ),
       );
     }

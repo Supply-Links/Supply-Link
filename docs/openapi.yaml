@@ -30,8 +30,38 @@ components:
       type: object
       properties:
         error:
-          type: string
-          example: "Missing required fields"
+          type: object
+          required: [status, code, message, correlationId]
+          properties:
+            status:
+              type: integer
+              example: 400
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Request validation failed
+            correlationId:
+              type: string
+              example: 550e8400-e29b-41d4-a716-446655440000
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: productId
+                  location:
+                    type: string
+                    example: query
+                  message:
+                    type: string
+                    example: productId is required
+                  code:
+                    type: string
+                    example: too_small
 
     HealthResponse:
       type: object
@@ -171,7 +201,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
-                error: "Too many requests"
+                error:
+                  status: 429
+                  code: RATE_LIMITED
+                  message: Too many requests
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
 
   /api/ratings:
     get:
@@ -210,7 +244,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
-                error: "Missing productId parameter"
+                error:
+                  status: 400
+                  code: VALIDATION_ERROR
+                  message: Request validation failed
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
+                  details:
+                    - field: productId
+                      location: query
+                      message: productId is required
+                      code: too_small
 
     post:
       summary: Submit a product rating
@@ -264,6 +307,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              examples:
+                invalid_json:
+                  value:
+                    error:
+                      status: 400
+                      code: INVALID_JSON
+                      message: Request body must be valid JSON
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
+                invalid_body:
+                  value:
+                    error:
+                      status: 400
+                      code: VALIDATION_ERROR
+                      message: Request validation failed
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
+                      details:
+                        - field: stars
+                          location: body
+                          message: stars must be between 1 and 5
+                          code: too_small
         "401":
           description: Invalid wallet signature
           content:
@@ -271,7 +334,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
-                error: "Invalid signature"
+                error:
+                  status: 401
+                  code: INVALID_SIGNATURE
+                  message: Invalid signature
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
 
   /api/v1/fee-bump:
     post:
@@ -311,10 +378,35 @@ paths:
               examples:
                 missing:
                   value:
-                    error: "Missing or invalid 'innerTx' parameter"
+                    error:
+                      status: 400
+                      code: VALIDATION_ERROR
+                      message: Request validation failed
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
+                      details:
+                        - field: innerTx
+                          location: body
+                          message: innerTx is required
+                          code: too_small
                 invalid_xdr:
                   value:
-                    error: "Invalid transaction XDR"
+                    error:
+                      status: 400
+                      code: INVALID_PAYLOAD
+                      message: Invalid transaction XDR
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
+        "415":
+          description: Unsupported content type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  status: 415
+                  code: UNSUPPORTED_CONTENT_TYPE
+                  message: Expected application/json request body
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
         "500":
           description: Fee-bump account not configured
           content:
@@ -322,7 +414,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
-                error: "Fee-bump account not configured"
+                error:
+                  status: 500
+                  code: DEPENDENCY_UNAVAILABLE
+                  message: Fee-bump account not configured
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
 
   /api/v1/upload:
     post:
@@ -361,13 +457,42 @@ paths:
               examples:
                 no_file:
                   value:
-                    error: "No file provided"
+                    error:
+                      status: 400
+                      code: VALIDATION_ERROR
+                      message: Request validation failed
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
+                      details:
+                        - field: file
+                          location: body
+                          message: file is required
+                          code: custom
                 bad_type:
                   value:
-                    error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF"
+                    error:
+                      status: 400
+                      code: VALIDATION_ERROR
+                      message: Invalid file type. Allowed: JPEG, PNG, WebP, GIF
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
                 too_large:
                   value:
-                    error: "File too large. Maximum size is 5 MB"
+                    error:
+                      status: 400
+                      code: VALIDATION_ERROR
+                      message: File too large. Maximum size is 5 MB
+                      correlationId: 550e8400-e29b-41d4-a716-446655440000
+        "415":
+          description: Unsupported content type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  status: 415
+                  code: UNSUPPORTED_CONTENT_TYPE
+                  message: Expected multipart/form-data request body
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
 
   /api/v1/products/{id}/badge.png:
     get:
@@ -397,4 +522,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
-                error: "Product not found"
+                error:
+                  status: 404
+                  code: INVALID_PAYLOAD
+                  message: Product not found
+                  correlationId: 550e8400-e29b-41d4-a716-446655440000
