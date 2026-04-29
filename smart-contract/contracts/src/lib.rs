@@ -831,6 +831,57 @@ impl SupplyLinkContract {
         Ok(product)
     }
 
+    /// Deactivate a product, preventing new events from being recorded.
+    ///
+    /// Sets `product.active` to `false`. Once deactivated, a product cannot
+    /// receive new tracking events. The product remains queryable but is marked
+    /// as recalled/deactivated for consumer display.
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to deactivate.
+    ///
+    /// # Returns
+    /// The updated [`Product`] struct with `active = false`.
+    ///
+    /// # Authorization
+    /// Requires `product.owner.require_auth()`. Only the product owner may
+    /// deactivate a product.
+    ///
+    /// # Panics
+    /// - `"product not found"` — if `product_id` is not registered.
+    /// - `"product already inactive"` — if the product is already deactivated.
+    ///
+    /// # Emitted Events
+    /// Publishes a `("product_deactivated", product_id)` event with the updated
+    /// [`Product`] struct as the event body.
+    pub fn deactivate_product(env: Env, product_id: String) -> Result<Product, Error> {
+        let mut product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .ok_or(Error::ProductNotFound)?;
+
+        product.owner.require_auth();
+
+        if !product.active {
+            panic!("product already inactive");
+        }
+
+        product.active = false;
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Product(product_id.clone()), &product);
+
+        env.events().publish(
+            (Symbol::new(&env, "product_deactivated"), product_id),
+            product.clone(),
+        );
+
+        Ok(product)
+    }
+
     /// Return the list of addresses authorised to add events for a product.
     ///
     /// # Parameters

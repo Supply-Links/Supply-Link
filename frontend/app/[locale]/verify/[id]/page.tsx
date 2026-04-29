@@ -8,6 +8,7 @@ import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { ProvenanceScoreGauge } from "@/components/products/ProvenanceScoreGauge";
+import ProductVerifyClient from "./ProductVerifyClient";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -77,7 +78,7 @@ export default async function VerifyPage({ params }: Props) {
   const stellarExpertUrl = `https://stellar.expert/explorer/testnet/contract/${CONTRACT_ID}`;
   const registeredAt = new Date(product.timestamp).toLocaleString();
 
-  return (
+  const pageContent = (
     <main className="p-6 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
@@ -98,6 +99,60 @@ export default async function VerifyPage({ params }: Props) {
           <p className="text-sm text-[var(--muted)]">Origin: {product.origin}</p>
           <p className="text-xs text-[var(--muted)] mt-0.5">Registered: {registeredAt}</p>
           <p className="text-xs font-mono text-[var(--muted)] mt-0.5 break-all">
+            Owner: {product.owner}
+          </p>
+        </div>
+        <ProductQRCode productId={product.id} size={140} />
+      </div>
+
+      {/* Verified on Stellar badge */}
+      <a
+        href={stellarExpertUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full border border-[var(--card-border)] bg-[var(--card)] text-sm text-[var(--foreground)] hover:opacity-80 transition-opacity"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+          <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Verified on Stellar · View Contract
+      </a>
+
+      {/* Product image (#112) */}
+      {product.imageUrl && (
+        <div className="relative w-full h-56 rounded-xl overflow-hidden mb-6 border border-[var(--card-border)]">
+          <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
+        </div>
+      )}
+
+      {/* Event Timeline */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+          <h2 className="text-base font-semibold text-[var(--foreground)]">Product Journey</h2>
+          <ProvenanceScoreGauge events={events} />
+        </div>
+        <EventTimeline events={events} />
+      </section>
+
+      {/* Rating Widget */}
+      <section className="mt-6">
+        <h2 className="text-base font-semibold text-[var(--foreground)] mb-4">Community Ratings</h2>
+        <RatingWidget productId={product.id} />
+      </section>
+
+      <div className="mt-6 flex justify-center">
+        <ScanQRButton variant="outline" label="Scan Another QR" />
+      </div>
+    </main>
+  );
+
+  return (
+    <ProductVerifyClient product={product}>
+      {pageContent}
+    </ProductVerifyClient>
+  );
+}
             Owner: {product.owner}
           </p>
         </div>
