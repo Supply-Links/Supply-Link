@@ -90,7 +90,7 @@ mod invariants {
         // The contract calls product.owner.require_auth(), not caller.require_auth(),
         // so with mock_all_auths this will succeed only if the stored owner matches.
         // We verify the invariant by checking the owner field after a legitimate transfer.
-        client.transfer_ownership(&String::from_str(&env, "p1"), &attacker);
+        client.transfer_ownership(&String::from_str(&env, "p1"), &attacker, &0);
         let product = client.get_product(&String::from_str(&env, "p1"));
         assert_eq!(product.owner, attacker, "I1: owner must be updated to attacker after transfer");
 
@@ -108,10 +108,10 @@ mod invariants {
         reg(&env, &cid, &owner, "p1", 0);
 
         let client = SupplyLinkContractClient::new(&env, &cid);
-        client.transfer_ownership(&String::from_str(&env, "p1"), &new_owner);
+        client.transfer_ownership(&String::from_str(&env, "p1"), &new_owner, &0);
 
         // New owner adds an actor — must succeed
-        let ok = client.add_authorized_actor(&String::from_str(&env, "p1"), &actor);
+        let ok = client.add_authorized_actor(&String::from_str(&env, "p1"), &actor, &0);
         assert!(ok, "I2: new owner must be able to add authorized actor");
 
         let actors = client.get_authorized_actors(&String::from_str(&env, "p1"));
@@ -131,10 +131,10 @@ mod invariants {
         reg(&env, &cid, &owner, "p1", 0);
 
         let client = SupplyLinkContractClient::new(&env, &cid);
-        client.add_authorized_actor(&String::from_str(&env, "p1"), &actor);
+        client.add_authorized_actor(&String::from_str(&env, "p1"), &actor, &0);
         // Succeeds
         add_event(&env, &cid, "p1", &actor);
-        client.remove_authorized_actor(&String::from_str(&env, "p1"), &actor);
+        client.remove_authorized_actor(&String::from_str(&env, "p1"), &actor, &0);
         // Must panic
         add_event(&env, &cid, "p1", &actor);
     }
@@ -243,16 +243,16 @@ mod invariants {
         reg(&env, &cid, &owner, "p1", 2);
         let client = SupplyLinkContractClient::new(&env, &cid);
 
-        client.add_authorized_actor(&String::from_str(&env, "p1"), &actor);
+        client.add_authorized_actor(&String::from_str(&env, "p1"), &actor, &0);
         add_event(&env, &cid, "p1", &owner);
 
         // First approval — not yet finalized
-        let finalized = client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor);
+        let finalized = client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor, &0);
         assert!(!finalized, "I5: single approval must not finalize a 2-sig event");
         assert_eq!(client.get_events_count(&String::from_str(&env, "p1")), 0);
 
         // Second approval (owner) — must finalize
-        let finalized = client.approve_event(&String::from_str(&env, "p1"), &0u32, &owner);
+        let finalized = client.approve_event(&String::from_str(&env, "p1"), &0u32, &owner, &0);
         assert!(finalized, "I5: second approval must finalize the event");
         assert_eq!(
             client.get_events_count(&String::from_str(&env, "p1")), 1,
@@ -276,7 +276,7 @@ mod invariants {
         add_event(&env, &cid, "p1", &owner);
         assert_eq!(client.get_pending_events(&String::from_str(&env, "p1")).len(), 2);
 
-        client.reject_event(&String::from_str(&env, "p1"), &0u32, &owner);
+        client.reject_event(&String::from_str(&env, "p1"), &0u32, &owner, &String::from_str(&env, ""), &0);
 
         assert_eq!(
             client.get_pending_events(&String::from_str(&env, "p1")).len(), 1,
@@ -299,12 +299,12 @@ mod invariants {
         reg(&env, &cid, &owner, "p1", 2);
         let client = SupplyLinkContractClient::new(&env, &cid);
 
-        client.add_authorized_actor(&String::from_str(&env, "p1"), &actor);
+        client.add_authorized_actor(&String::from_str(&env, "p1"), &actor, &0);
         add_event(&env, &cid, "p1", &owner);
 
         // actor approves twice
-        let r1 = client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor);
-        let r2 = client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor);
+        let r1 = client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor, &0);
+        let r2 = client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor, &0);
 
         assert!(!r1, "I6: first approval must not finalize");
         assert!(!r2, "I6: duplicate approval must not finalize (still needs owner)");
@@ -331,7 +331,7 @@ mod invariants {
             let actor = Address::generate(&env);
             reg(&env, &cid, &owner, "p1", 2);
             let client = SupplyLinkContractClient::new(&env, &cid);
-            client.add_authorized_actor(&String::from_str(&env, "p1"), &actor);
+            client.add_authorized_actor(&String::from_str(&env, "p1"), &actor, &0);
 
             let mut total_adds = 0u32;
             let mut total_rejects = 0u32;
@@ -350,9 +350,9 @@ mod invariants {
                     }
                     1 if pending_len > 0 => {
                         // approve first pending with actor, then owner to finalize
-                        client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor);
+                        client.approve_event(&String::from_str(&env, "p1"), &0u32, &actor, &0);
                         let finalized = client.approve_event(
-                            &String::from_str(&env, "p1"), &0u32, &owner
+                            &String::from_str(&env, "p1"), &0u32, &owner, &0
                         );
                         if finalized {
                             total_finalized += 1;
@@ -360,7 +360,7 @@ mod invariants {
                     }
                     2 if pending_len > 0 => {
                         // reject first pending
-                        client.reject_event(&String::from_str(&env, "p1"), &0u32, &owner);
+                        client.reject_event(&String::from_str(&env, "p1"), &0u32, &owner, &String::from_str(&env, ""), &0);
                         total_rejects += 1;
                     }
                     _ => {} // no pending events, skip
