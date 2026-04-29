@@ -309,6 +309,7 @@ fn test_reject_event_increments_nonce() {
         &String::from_str(&env, "prod1"),
         &0,
         &owner,
+        &String::from_str(&env, ""),
         &0,
     );
     
