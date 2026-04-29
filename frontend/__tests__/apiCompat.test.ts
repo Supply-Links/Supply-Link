@@ -17,17 +17,12 @@
 
 import { describe, it, expect } from 'vitest';
 
-// ── Shape helpers ─────────────────────────────────────────────────────────────
-
-/** Assert that `obj` contains at least the keys in `shape` with matching types. */
 function assertShape(obj: Record<string, unknown>, shape: Record<string, string>) {
   for (const [key, expectedType] of Object.entries(shape)) {
     expect(obj).toHaveProperty(key);
     expect(typeof obj[key]).toBe(expectedType);
   }
 }
-
-// ── Health response shape ─────────────────────────────────────────────────────
 
 describe('GET /api/health — response shape', () => {
   it('contains required fields with correct types', () => {
@@ -54,8 +49,6 @@ describe('GET /api/health — response shape', () => {
     expect(typeof sample.contractReachable).toBe('boolean');
   });
 });
-
-// ── Ratings GET response shape ────────────────────────────────────────────────
 
 describe('GET /api/ratings — response shape', () => {
   it('contains required fields', () => {
@@ -94,8 +87,6 @@ describe('GET /api/ratings — response shape', () => {
   });
 });
 
-// ── Ratings POST response shape ───────────────────────────────────────────────
-
 describe('POST /api/ratings — response shape', () => {
   it('created rating has required fields', () => {
     const created: Record<string, unknown> = {
@@ -117,8 +108,6 @@ describe('POST /api/ratings — response shape', () => {
   });
 });
 
-// ── Upload POST response shape ────────────────────────────────────────────────
-
 describe('POST /api/v1/upload — response shape', () => {
   it('contains url and jobs fields', () => {
     const sample: Record<string, unknown> = {
@@ -128,33 +117,33 @@ describe('POST /api/v1/upload — response shape', () => {
 
     assertShape(sample, { url: 'string' });
     expect(sample.jobs).toBeDefined();
-    expect(typeof (sample.jobs as any).scan).toBe('string');
-    expect(typeof (sample.jobs as any).process).toBe('string');
+    expect(typeof (sample.jobs as { scan: string }).scan).toBe('string');
+    expect(typeof (sample.jobs as { process: string }).process).toBe('string');
   });
 });
 
-// ── Error envelope shape ──────────────────────────────────────────────────────
-
 describe('API error envelope — shape is stable', () => {
-  it('error object has code, message, correlationId', () => {
+  it('error object has status, code, message, correlationId', () => {
     const envelope: Record<string, unknown> = {
       error: {
+        status: 400,
         code: 'VALIDATION_ERROR',
         message: 'Stars must be an integer between 1 and 5',
         correlationId: 'abc-123',
+        details: [{ field: 'stars', location: 'body', message: 'must be between 1 and 5' }],
       },
     };
 
     const err = envelope.error as Record<string, unknown>;
     assertShape(err, {
+      status: 'number',
       code: 'string',
       message: 'string',
       correlationId: 'string',
     });
+    expect(Array.isArray(err.details)).toBe(true);
   });
 });
-
-// ── Versioning helper ─────────────────────────────────────────────────────────
 
 describe('withDeprecation', () => {
   it('sets Deprecation and Sunset headers', async () => {

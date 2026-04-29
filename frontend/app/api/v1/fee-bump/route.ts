@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Keypair, TransactionBuilder, Networks, BASE_FEE } from '@stellar/base';
+import { Keypair, TransactionBuilder, Networks, BASE_FEE } from '@stellar/stellar-sdk';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 import { withIdempotency } from '@/lib/api/idempotency';
 import { requirePolicy } from '@/lib/api/policy';
 import { AuditEmitter } from '@/lib/api/audit';
@@ -49,7 +48,7 @@ async function handler(request: NextRequest) {
 
       let innerTransaction;
       try {
-        innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET_NETWORK_PASSPHRASE);
+        innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET);
       } catch {
         resultStatus = 400;
         resultBody = { error: ErrorCode.INVALID_PAYLOAD, message: 'Invalid transaction XDR' };
@@ -57,25 +56,25 @@ async function handler(request: NextRequest) {
       }
 
       const operationCount = innerTransaction.operations.length;
-      const feeBumpFee = BASE_FEE * (1 + operationCount);
-
-      const feeBumpTx = new TransactionBuilder(await feeBumpKeypair.publicKey(), {
-        fee: feeBumpFee.toString(),
-        networkPassphrase: Networks.TESTNET_NETWORK_PASSPHRASE,
-      })
-        .setBaseFee(BASE_FEE)
-        .addOperation(innerTransaction.operations[0])
-        .build();
+      const feeBumpFee = (BigInt(BASE_FEE) * BigInt(1 + operationCount)).toString();
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        feeBumpKeypair,
+        feeBumpFee,
+        innerTransaction,
+        Networks.TESTNET,
+      );
 
       feeBumpTx.sign(feeBumpKeypair);
 
       resultBody = {
         feeBumpTx: feeBumpTx.toXDR(),
-        cost: feeBumpFee.toString(),
+        cost: feeBumpFee,
         message: 'Fee-bump transaction created. Ready to submit to Stellar network.',
       };
       resultStatus = 200;
     } catch (error) {
+      const validation = handleValidationError(req, error);
+      if (validation) return withCors(req, validation);
       console.error('[fee-bump POST]', error);
       resultStatus = 500;
       resultBody = {

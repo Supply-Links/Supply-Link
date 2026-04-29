@@ -47,6 +47,7 @@ describe('apiError', () => {
     const req = makeRequest({ 'x-correlation-id': 'trace-xyz' });
     const res = apiError(req, 400, ErrorCode.VALIDATION_ERROR, 'bad input');
     const body = await res.json();
+    expect(body.error.status).toBe(400);
     expect(body.error.correlationId).toBe('trace-xyz');
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(body.error.message).toBe('bad input');
@@ -69,7 +70,9 @@ describe('apiError', () => {
 
   it('passes extra headers through', () => {
     const req = makeRequest();
-    const res = apiError(req, 429, ErrorCode.RATE_LIMITED, 'slow down', { 'Retry-After': '60' });
+    const res = apiError(req, 429, ErrorCode.RATE_LIMITED, 'slow down', {
+      headers: { 'Retry-After': '60' },
+    });
     expect(res.headers.get('retry-after')).toBe('60');
   });
 });

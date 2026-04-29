@@ -26,7 +26,7 @@ import {
 } from '@/lib/api/uploadHardening';
 import { enqueue } from '@/lib/jobs/queue';
 
-const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export function OPTIONS(request: NextRequest) {
@@ -44,8 +44,6 @@ async function handler(req: NextRequest) {
   let resultBody: any;
   const actorId = getClientIp(req);
 
-  // ── Parse multipart ────────────────────────────────────────────────────────
-  let formData: FormData;
   try {
     formData = await req.formData();
   } catch {
@@ -101,6 +99,16 @@ async function handler(req: NextRequest) {
       req,
       apiError(req, 429, ErrorCode.RATE_LIMITED, 'Upload quota exceeded. Try again later.'),
     );
+  } catch (error) {
+    const validation = handleValidationError(req, error);
+    if (validation) {
+      const reason = validation.status === 415 ? 'unsupported_content_type' : 'malformed_multipart';
+      await logUploadRejection({ ts: Date.now(), actorId, filename: '', reason });
+      return withCors(req, validation);
+    }
+
+    console.error('[upload POST]', error);
+    return withCors(req, apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to upload file'));
   }
 
   // ── Safe path ──────────────────────────────────────────────────────────────

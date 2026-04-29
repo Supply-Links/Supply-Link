@@ -7,9 +7,18 @@ Every error response from the API follows this shape:
 ```json
 {
   "error": {
+    "status": 400,
     "code": "VALIDATION_ERROR",
     "message": "Stars must be an integer between 1 and 5",
-    "correlationId": "550e8400-e29b-41d4-a716-446655440000"
+    "correlationId": "550e8400-e29b-41d4-a716-446655440000",
+    "details": [
+      {
+        "field": "stars",
+        "location": "body",
+        "message": "stars must be between 1 and 5",
+        "code": "too_small"
+      }
+    ]
   }
 }
 ```
@@ -23,6 +32,8 @@ The same `correlationId` is also present in the `X-Correlation-Id` response head
 | `VALIDATION_ERROR`       | 400         | Input failed validation rules                  |
 | `MISSING_FIELDS`         | 400         | Required fields absent from request            |
 | `INVALID_PAYLOAD`        | 400         | Payload is structurally invalid (e.g. bad XDR) |
+| `INVALID_JSON`           | 400         | Request body is not valid JSON                 |
+| `UNSUPPORTED_CONTENT_TYPE` | 415       | Request body content type is not accepted      |
 | `UNAUTHORIZED`           | 401         | Authentication required                        |
 | `INVALID_SIGNATURE`      | 401         | Stellar signature verification failed          |
 | `IDEMPOTENCY_CONFLICT`   | 409         | Idempotency key reused with different payload  |
@@ -45,3 +56,31 @@ The same `correlationId` is also present in the `X-Correlation-Id` response head
    Or in Vercel/cloud log explorer, search for the UUID string.
 3. **Trace the request path:** logs for validation, external calls (Stellar RPC, KV store), and the final response all share the same ID.
 4. **Escalate:** If the error code is `INTERNAL_ERROR` or `DEPENDENCY_UNAVAILABLE`, check dependency health via `GET /api/health` and review server-side logs for the full stack trace (never exposed to clients).
+
+## Validation Failure Examples
+
+Unsupported content type:
+
+```json
+{
+  "error": {
+    "status": 415,
+    "code": "UNSUPPORTED_CONTENT_TYPE",
+    "message": "Expected application/json request body",
+    "correlationId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+Malformed JSON:
+
+```json
+{
+  "error": {
+    "status": 400,
+    "code": "INVALID_JSON",
+    "message": "Request body must be valid JSON",
+    "correlationId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
