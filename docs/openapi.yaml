@@ -166,6 +166,132 @@ components:
           format: uri
           example: "https://public.blob.vercel-storage.com/products/1714224000000-photo.jpg"
 
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "prod-001"
+        name:
+          type: string
+          example: "Organic Coffee Beans"
+        origin:
+          type: string
+          example: "Ethiopia"
+        owner:
+          type: string
+          description: Stellar wallet address
+          example: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1710000000000
+        active:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+        authorizedActors:
+          type: array
+          items:
+            type: string
+          description: List of Stellar wallet addresses authorized to add events
+          example:
+            - "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+            - "GACTOR2ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+        requiredSignatures:
+          type: integer
+          minimum: 0
+          description: Number of signatures required for event approval (0 or 1 = immediate, >1 = multi-sig)
+          example: 1
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://public.blob.vercel-storage.com/products/coffee.jpg"
+        ownershipHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              owner:
+                type: string
+                example: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              transferredAt:
+                type: integer
+                example: 1710000000000
+          example:
+            - owner: "GORIGINALOWNERABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              transferredAt: 1700000000000
+            - owner: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              transferredAt: 1710000000000
+
+    TrackingEvent:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: "prod-001"
+        eventType:
+          type: string
+          enum: [HARVEST, PROCESSING, SHIPPING, RETAIL]
+          example: "HARVEST"
+        location:
+          type: string
+          example: "Yirgacheffe, Ethiopia"
+        actor:
+          type: string
+          description: Stellar wallet address of the actor
+          example: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1710000000000
+        metadata:
+          type: string
+          description: JSON string containing event-specific metadata
+          example: '{"notes": "Hand-picked, shade-grown", "lat": 6.1667, "lng": 38.2}'
+        pending:
+          type: boolean
+          nullable: true
+          description: True while an on-chain transaction is in-flight
+          example: false
+
+    PaginatedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+        total:
+          type: integer
+          example: 42
+        offset:
+          type: integer
+          example: 0
+        limit:
+          type: integer
+          example: 50
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Invalid product ID"
+            correlationId:
+              type: string
+              format: uuid
+              example: "550e8400-e29b-41d4-a716-446655440000"
+
 paths:
   /api/health:
     get:
