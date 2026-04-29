@@ -7,9 +7,9 @@ import {
   Address,
   nativeToScVal,
   scValToNative,
-} from "@stellar/stellar-sdk";
-import { signTransaction } from "./client";
-import { NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID, getNetwork } from "./client";
+} from '@stellar/stellar-sdk';
+import { signTransaction } from './client';
+import { NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID, getNetwork } from './client';
 
 const server = new rpc.Server(RPC_URL);
 
@@ -20,8 +20,8 @@ interface ContractInvocationParams {
 }
 
 async function buildAndSimulateTransaction(
-  params: ContractInvocationParams
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params: ContractInvocationParams,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const account = await server.getAccount(params.callerAddress);
   const contract = new Contract(CONTRACT_ID);
@@ -30,18 +30,14 @@ async function buildAndSimulateTransaction(
     fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
   })
-    .addOperation(
-      contract.call(params.method, ...params.args.map((arg) => nativeToScVal(arg)))
-    )
+    .addOperation(contract.call(params.method, ...params.args.map((arg) => nativeToScVal(arg))))
     .setTimeout(30)
     .build();
 
   return server.simulateTransaction(tx);
 }
 
-async function buildSignAndSubmitTransaction(
-  params: ContractInvocationParams
-): Promise<string> {
+async function buildSignAndSubmitTransaction(params: ContractInvocationParams): Promise<string> {
   const account = await server.getAccount(params.callerAddress);
   const contract = new Contract(CONTRACT_ID);
 
@@ -49,9 +45,7 @@ async function buildSignAndSubmitTransaction(
     fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
   })
-    .addOperation(
-      contract.call(params.method, ...params.args.map((arg) => nativeToScVal(arg)))
-    )
+    .addOperation(contract.call(params.method, ...params.args.map((arg) => nativeToScVal(arg))))
     .setTimeout(30)
     .build();
 
@@ -79,10 +73,10 @@ export const contractClient = {
     name: string,
     origin: string,
     owner: string,
-    callerAddress: string
+    callerAddress: string,
   ): Promise<string> {
     return buildSignAndSubmitTransaction({
-      method: "register_product",
+      method: 'register_product',
       args: [productId, name, origin, new Address(owner)],
       callerAddress,
     });
@@ -93,10 +87,10 @@ export const contractClient = {
     location: string,
     eventType: string,
     metadata: string,
-    callerAddress: string
+    callerAddress: string,
   ): Promise<string> {
     return buildSignAndSubmitTransaction({
-      method: "add_tracking_event",
+      method: 'add_tracking_event',
       args: [productId, location, eventType, metadata],
       callerAddress,
     });
@@ -104,7 +98,7 @@ export const contractClient = {
 
   async getProduct(productId: string, callerAddress: string): Promise<any> {
     const simulated = await buildAndSimulateTransaction({
-      method: "get_product",
+      method: 'get_product',
       args: [productId],
       callerAddress,
     });
@@ -112,12 +106,12 @@ export const contractClient = {
     if (rpc.Api.isSimulationSuccess(simulated)) {
       return scValToNative(simulated.result!.retval);
     }
-    throw new Error("Failed to get product");
+    throw new Error('Failed to get product');
   },
 
   async getTrackingEvents(productId: string, callerAddress: string): Promise<any[]> {
     const simulated = await buildAndSimulateTransaction({
-      method: "get_tracking_events",
+      method: 'get_tracking_events',
       args: [productId],
       callerAddress,
     });
@@ -125,16 +119,16 @@ export const contractClient = {
     if (rpc.Api.isSimulationSuccess(simulated)) {
       return scValToNative(simulated.result!.retval) || [];
     }
-    throw new Error("Failed to get tracking events");
+    throw new Error('Failed to get tracking events');
   },
 
   async transferOwnership(
     productId: string,
     newOwner: string,
-    callerAddress: string
+    callerAddress: string,
   ): Promise<string> {
     return buildSignAndSubmitTransaction({
-      method: "transfer_ownership",
+      method: 'transfer_ownership',
       args: [productId, new Address(newOwner)],
       callerAddress,
     });
@@ -143,10 +137,10 @@ export const contractClient = {
   async addAuthorizedActor(
     productId: string,
     actor: string,
-    callerAddress: string
+    callerAddress: string,
   ): Promise<string> {
     return buildSignAndSubmitTransaction({
-      method: "add_authorized_actor",
+      method: 'add_authorized_actor',
       args: [productId, new Address(actor)],
       callerAddress,
     });
@@ -155,18 +149,30 @@ export const contractClient = {
   async removeAuthorizedActor(
     productId: string,
     actor: string,
-    callerAddress: string
+    callerAddress: string,
   ): Promise<string> {
     return buildSignAndSubmitTransaction({
-      method: "remove_authorized_actor",
+      method: 'remove_authorized_actor',
       args: [productId, new Address(actor)],
       callerAddress,
     });
   },
 
-  async listProducts(page: number = 0, pageSize: number = 20, callerAddress: string): Promise<any[]> {
+  async deactivateProduct(productId: string, callerAddress: string): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: 'deactivate_product',
+      args: [productId],
+      callerAddress,
+    });
+  },
+
+  async listProducts(
+    page: number = 0,
+    pageSize: number = 20,
+    callerAddress: string,
+  ): Promise<any[]> {
     const simulated = await buildAndSimulateTransaction({
-      method: "list_products",
+      method: 'list_products',
       args: [page, pageSize],
       callerAddress,
     });
@@ -174,12 +180,12 @@ export const contractClient = {
     if (rpc.Api.isSimulationSuccess(simulated)) {
       return scValToNative(simulated.result!.retval) || [];
     }
-    throw new Error("Failed to list products");
+    throw new Error('Failed to list products');
   },
 
   async getProductCount(callerAddress: string): Promise<number> {
     const simulated = await buildAndSimulateTransaction({
-      method: "get_product_count",
+      method: 'get_product_count',
       args: [],
       callerAddress,
     });
@@ -187,6 +193,6 @@ export const contractClient = {
     if (rpc.Api.isSimulationSuccess(simulated)) {
       return scValToNative(simulated.result!.retval) || 0;
     }
-    throw new Error("Failed to get product count");
+    throw new Error('Failed to get product count');
   },
 };
