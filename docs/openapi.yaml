@@ -136,6 +136,132 @@ components:
           format: uri
           example: "https://public.blob.vercel-storage.com/products/1714224000000-photo.jpg"
 
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "prod-001"
+        name:
+          type: string
+          example: "Organic Coffee Beans"
+        origin:
+          type: string
+          example: "Ethiopia"
+        owner:
+          type: string
+          description: Stellar wallet address
+          example: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1710000000000
+        active:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+        authorizedActors:
+          type: array
+          items:
+            type: string
+          description: List of Stellar wallet addresses authorized to add events
+          example:
+            - "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+            - "GACTOR2ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+        requiredSignatures:
+          type: integer
+          minimum: 0
+          description: Number of signatures required for event approval (0 or 1 = immediate, >1 = multi-sig)
+          example: 1
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://public.blob.vercel-storage.com/products/coffee.jpg"
+        ownershipHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              owner:
+                type: string
+                example: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              transferredAt:
+                type: integer
+                example: 1710000000000
+          example:
+            - owner: "GORIGINALOWNERABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              transferredAt: 1700000000000
+            - owner: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              transferredAt: 1710000000000
+
+    TrackingEvent:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: "prod-001"
+        eventType:
+          type: string
+          enum: [HARVEST, PROCESSING, SHIPPING, RETAIL]
+          example: "HARVEST"
+        location:
+          type: string
+          example: "Yirgacheffe, Ethiopia"
+        actor:
+          type: string
+          description: Stellar wallet address of the actor
+          example: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+        timestamp:
+          type: integer
+          description: Unix timestamp in milliseconds
+          example: 1710000000000
+        metadata:
+          type: string
+          description: JSON string containing event-specific metadata
+          example: '{"notes": "Hand-picked, shade-grown", "lat": 6.1667, "lng": 38.2}'
+        pending:
+          type: boolean
+          nullable: true
+          description: True while an on-chain transaction is in-flight
+          example: false
+
+    PaginatedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+        total:
+          type: integer
+          example: 42
+        offset:
+          type: integer
+          example: 0
+        limit:
+          type: integer
+          example: 50
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Invalid product ID"
+            correlationId:
+              type: string
+              format: uuid
+              example: "550e8400-e29b-41d4-a716-446655440000"
+
 paths:
   /api/health:
     get:
@@ -398,3 +524,363 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 error: "Product not found"
+
+  /api/v1/products:
+    get:
+      summary: List all products
+      description: Returns a paginated list of products. Requires API key authentication.
+      operationId: listProducts
+      tags: [REST API]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            example: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+            example: 50
+      responses:
+        "200":
+          description: Paginated list of products
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Product"
+              example:
+                items:
+                  - id: "prod-001"
+                    name: "Organic Coffee Beans"
+                    origin: "Ethiopia"
+                    owner: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    timestamp: 1710000000000
+                    active: true
+                total: 42
+                offset: 0
+                limit: 50
+        "400":
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: API key rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                example: 60
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+    post:
+      summary: Register a new product
+      description: Creates a new product in the supply chain. Requires idempotency key for exactly-once semantics.
+      operationId: registerProduct
+      tags: [REST API]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: UUID for idempotent requests. Same key + same body = cached response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, origin, owner]
+              properties:
+                name:
+                  type: string
+                  example: "Organic Coffee Beans"
+                origin:
+                  type: string
+                  example: "Ethiopia"
+                owner:
+                  type: string
+                  description: Stellar wallet address of the product owner
+                  example: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                authorizedActors:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional list of Stellar wallet addresses allowed to add events
+                  example: ["GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"]
+                requiredSignatures:
+                  type: integer
+                  minimum: 0
+                  default: 1
+                  example: 1
+                imageUrl:
+                  type: string
+                  format: uri
+                  nullable: true
+                  example: "https://public.blob.vercel-storage.com/products/coffee.jpg"
+      responses:
+        "201":
+          description: Product successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+              example:
+                id: "prod-1710000000000-abc123"
+                name: "Organic Coffee Beans"
+                origin: "Ethiopia"
+                owner: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                timestamp: 1710000000000
+                active: true
+                authorizedActors: ["GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"]
+                requiredSignatures: 1
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Idempotency conflict (same key, different body)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: API key rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /api/v1/products/{id}:
+    get:
+      summary: Get product details
+      description: Retrieve detailed information about a specific product, including ownership history.
+      operationId: getProduct
+      tags: [REST API]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "prod-001"
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: API key rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /api/v1/products/{id}/events:
+    get:
+      summary: List tracking events for a product
+      description: Returns paginated list of all tracking events for a specific product.
+      operationId: listProductEvents
+      tags: [REST API]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "prod-001"
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated list of tracking events
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/TrackingEvent"
+              example:
+                items:
+                  - productId: "prod-001"
+                    eventType: "HARVEST"
+                    location: "Yirgacheffe, Ethiopia"
+                    actor: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+                    timestamp: 1710000000000
+                    metadata: '{"notes": "Hand-picked"}'
+                total: 4
+                offset: 0
+                limit: 50
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: API key rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+    post:
+      summary: Add a tracking event to a product
+      description: Records a new event in the product's supply chain journey.
+      operationId: addProductEvent
+      tags: [REST API]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "prod-001"
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventType, location, actor]
+              properties:
+                eventType:
+                  type: string
+                  enum: [HARVEST, PROCESSING, SHIPPING, RETAIL]
+                  example: "HARVEST"
+                location:
+                  type: string
+                  example: "Yirgacheffe, Ethiopia"
+                actor:
+                  type: string
+                  description: Stellar wallet address of the event actor
+                  example: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+                metadata:
+                  type: string
+                  description: JSON string with event-specific data (optional)
+                  example: '{"notes": "Hand-picked, shade-grown", "lat": 6.1667, "lng": 38.2}'
+      responses:
+        "201":
+          description: Event successfully recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackingEvent"
+              example:
+                productId: "prod-001"
+                eventType: "HARVEST"
+                location: "Yirgacheffe, Ethiopia"
+                actor: "GACTOR1ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567"
+                timestamp: 1710000000000
+                metadata: '{"notes": "Hand-picked"}'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: API key rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
