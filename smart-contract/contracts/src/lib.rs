@@ -13,6 +13,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Address, 
 pub const EVENT_SCHEMA_VERSION: u32 = 1;
 
 mod tests;
+mod resilience_tests;
 
 // ── Payload size limits (issue #311) ─────────────────────────────────────────
 // All limits are in bytes (Soroban String::len() returns byte count).
@@ -29,8 +30,26 @@ const MAX_ORIGIN_LEN:   u32 = 256;
 const MAX_LOCATION_LEN: u32 = 256;
 const MAX_METADATA_LEN: u32 = 4096;
 
+// ── Event expiration policy (issue #314) ──────────────────────────────────────
+/// Pending events expire after this many seconds (7 days).
+const EXPIRATION_WINDOW: u64 = 604_800;  // 7 * 24 * 60 * 60 seconds
+
 fn assert_len(s: &String, max: u32, field: &'static str) {
     if s.len() > max { panic!("{} exceeds max length", field); }
+}
+
+// ── Error types ──────────────────────────────────────────────────────────────
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Error {
+    ProductNotFound = 1,
+    NotAuthorized = 2,
+    ApproverNotAuthorized = 3,
+    NoPendingEvents = 4,
+    OwnerOnly = 5,
+    PendingEventExpired = 6,
+    InvalidNonce = 7,
 }
 
 // ── Data models ──────────────────────────────────────────────────────────────
@@ -153,6 +172,8 @@ pub struct PendingEvent {
     pub required_signatures: u32,
     /// Timestamp when the pending event was created.
     pub created_at: u64,
+    /// Timestamp when this pending event expires (issue #314).
+    pub expiration: u64,
 }
 
 /// Event rejection data with optional reason context.
@@ -427,6 +448,7 @@ impl SupplyLinkContract {
                 approvals,
                 required_signatures: product.required_signatures,
                 created_at: env.ledger().timestamp(),
+                expiration: env.ledger().timestamp() + EXPIRATION_WINDOW,
             };
 
             pending.push_back(pending_event);
@@ -584,7 +606,12 @@ impl SupplyLinkContract {
     /// # Emitted Events
     /// Publishes an `("ownership_transferred", product_id)` event with
     /// `new_owner` as the event body.
-    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> Result<bool, Error> {
+    pub fn transfer_ownership(
+        env: Env,
+        product_id: String,
+        new_owner: Address,
+        nonce: u64,
+    ) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
@@ -601,7 +628,7 @@ impl SupplyLinkContract {
 
         env.events().publish(
             (Symbol::new(&env, "ownership_transferred"), product_id),
-            transfer_event,
+            new_owner,
         );
 
         Ok(true)
@@ -631,7 +658,12 @@ impl SupplyLinkContract {
     /// # Emitted Events
     /// Publishes an `("actor_authorized", product_id)` event with `actor` as
     /// the event body.
-    pub fn add_authorized_actor(env: Env, product_id: String, actor: Address) -> Result<bool, Error> {
+    pub fn add_authorized_actor(
+        env: Env,
+        product_id: String,
+        actor: Address,
+        nonce: u64,
+    ) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
@@ -691,7 +723,12 @@ impl SupplyLinkContract {
     /// Consumers tracking actor permissions must observe the absence of future
     /// `actor_authorized` events or query [`Self::get_authorized_actors`]
     /// directly.
-    pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
+    pub fn remove_authorized_actor(
+        env: Env,
+        product_id: String,
+        actor: Address,
+        nonce: u64,
+    ) -> Result<bool, Error> {
         let mut product: Product = env
             .storage()
             .persistent()
@@ -914,12 +951,14 @@ impl SupplyLinkContract {
     /// Requires `approver.require_auth()`. The approver must be the owner or
     /// an authorized actor.
     ///
+    /// # Errors
+    /// - [`Error::ProductNotFound`] — if `product_id` is not registered.
+    /// - [`Error::ApproverNotAuthorized`] — if approver is not owner or actor.
+    /// - [`Error::NoPendingEvents`] — if there are no pending events.
+    /// - [`Error::PendingEventExpired`] — if the pending event has expired (issue #314).
+    ///
     /// # Panics
-    /// - `"product not found"` — if `product_id` is not registered.
-    /// - `"approver is not authorized"` — if approver is not owner or actor.
-    /// - `"no pending events"` — if there are no pending events.
-    /// - `"pending event not found"` — if `pending_event_id` doesn't match any pending event.
-    /// - `"invalid nonce"` — if nonce does not match the expected sequential value.
+    /// - `"event index out of bounds"` — if `event_index` is invalid.
     ///
     /// # Emitted Events
     /// - When the event is **not yet finalized**: no event is emitted.
@@ -967,6 +1006,12 @@ impl SupplyLinkContract {
         })?;
 
         let mut pending_event = pending.get(event_index).unwrap().clone();
+
+        // Check expiration (issue #314)
+        let current_time = env.ledger().timestamp();
+        if current_time > pending_event.expiration {
+            return Err(Error::PendingEventExpired);
+        }
 
         if !pending_event.approvals.contains(&approver) {
             pending_event.approvals.push_back(approver.clone());
@@ -1055,7 +1100,7 @@ impl SupplyLinkContract {
         rejector: Address,
         reason: String,
         nonce: u64,
-    ) -> bool {
+    ) -> Result<bool, Error> {
         let product: Product = env
             .storage()
             .persistent()
@@ -1144,6 +1189,71 @@ impl SupplyLinkContract {
             .persistent()
             .get(&DataKey::PendingEvents(product_id))
             .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Clean up expired pending events for a product.
+    ///
+    /// Removes all expired pending events from storage and emits a purge event
+    /// for each removed entry (issue #314).
+    ///
+    /// # Parameters
+    /// - `env` — Soroban execution environment.
+    /// - `product_id` — ID of the product to clean up.
+    ///
+    /// # Returns
+    /// Number of events purged.
+    ///
+    /// # Authorization
+    /// None — this is a permissionless cleanup function.
+    ///
+    /// # Emitted Events
+    /// Publishes `("pending_events_purged", product_id)` event with the count
+    /// of purged events. Also publishes `("pending_event_purged", product_id)`
+    /// for each individual removed event.
+    pub fn cleanup_expired_events(env: Env, product_id: String) -> u32 {
+        let mut pending: Vec<PendingEvent> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingEvents(product_id.clone()))
+            .unwrap_or_else(|| Vec::new(&env));
+
+        let current_time = env.ledger().timestamp();
+        let mut expired_count: u32 = 0;
+
+        // Filter out expired events
+        let mut valid_pending = Vec::new(&env);
+        for i in 0..pending.len() {
+            let event = pending.get(i).unwrap();
+            if current_time <= event.expiration {
+                valid_pending.push_back(event.clone());
+            } else {
+                expired_count += 1;
+
+                // Emit event for each purged entry
+                env.events().publish(
+                    (Symbol::new(&env, "pending_event_purged"), product_id.clone()),
+                    event.product_id.clone(),
+                );
+            }
+        }
+
+        if valid_pending.len() > 0 {
+            env.storage()
+                .persistent()
+                .set(&DataKey::PendingEvents(product_id.clone()), &valid_pending);
+        } else {
+            env.storage()
+                .persistent()
+                .remove(&DataKey::PendingEvents(product_id.clone()));
+        }
+
+        // Emit summary event
+        env.events().publish(
+            (Symbol::new(&env, "pending_events_purged"), product_id),
+            expired_count,
+        );
+
+        expired_count
     }
 
     pub fn get_nonce(env: Env, actor: Address) -> u64 {
@@ -1236,7 +1346,7 @@ mod rejection_reason_tests {
 
         // Register product with multi-sig
         client.register_product(&product_id, &name, &origin, &owner, &2);
-        client.add_authorized_actor(&product_id, &actor);
+        client.add_authorized_actor(&product_id, &actor, &0);
 
         // Add pending event
         client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
@@ -1246,7 +1356,7 @@ mod rejection_reason_tests {
         assert_eq!(pending.len(), 1);
 
         // Reject with reason
-        let result = client.reject_event(&product_id, &0, &owner, &reason);
+        let result = client.reject_event(&product_id, &0, &owner, &reason, &1);
         assert_eq!(result, true);
 
         // Verify pending event was removed
@@ -1274,13 +1384,13 @@ mod rejection_reason_tests {
 
         // Register product with multi-sig
         client.register_product(&product_id, &name, &origin, &owner, &2);
-        client.add_authorized_actor(&product_id, &actor);
+        client.add_authorized_actor(&product_id, &actor, &0);
 
         // Add pending event
         client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
 
         // Reject with empty reason (should work)
-        let result = client.reject_event(&product_id, &0, &owner, &reason);
+        let result = client.reject_event(&product_id, &0, &owner, &reason, &1);
         assert_eq!(result, true);
     }
 
@@ -1307,13 +1417,13 @@ mod rejection_reason_tests {
 
         // Register product with multi-sig
         client.register_product(&product_id, &name, &origin, &owner, &2);
-        client.add_authorized_actor(&product_id, &actor);
+        client.add_authorized_actor(&product_id, &actor, &0);
 
         // Add pending event
         client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
 
         // Try to reject with too long reason - should panic
-        client.reject_event(&product_id, &0, &owner, &long_reason);
+        client.reject_event(&product_id, &0, &owner, &long_reason, &1);
     }
 
     #[test]
@@ -1338,13 +1448,13 @@ mod rejection_reason_tests {
 
         // Register product with multi-sig
         client.register_product(&product_id, &name, &origin, &owner, &2);
-        client.add_authorized_actor(&product_id, &actor);
+        client.add_authorized_actor(&product_id, &actor, &0);
 
         // Add pending event
         client.add_tracking_event(&product_id, &actor, &location, &event_type, &metadata);
 
         // Reject with max length reason (should work)
-        let result = client.reject_event(&product_id, &0, &owner, &max_reason);
+        let result = client.reject_event(&product_id, &0, &owner, &max_reason, &1);
         assert_eq!(result, true);
     }
 }

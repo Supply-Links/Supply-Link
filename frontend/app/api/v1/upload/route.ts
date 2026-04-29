@@ -16,6 +16,8 @@ import { put } from '@vercel/blob';
 import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
 import { applyRateLimit, RATE_LIMIT_PRESETS, getClientIp } from '@/lib/api/rateLimit';
+import { requirePolicy } from '@/lib/api/policy';
+import { AuditEmitter } from '@/lib/api/audit';
 import {
   verifyMagicBytes,
   safePath,
@@ -31,13 +33,15 @@ export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   const limited = applyRateLimit(req, 'upload', RATE_LIMIT_PRESETS.upload);
   if (limited) return limited;
 
   const respond = (body: unknown, init?: ResponseInit) =>
     withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 
+  let resultStatus = 200;
+  let resultBody: any;
   const actorId = getClientIp(req);
 
   // ── Parse multipart ────────────────────────────────────────────────────────
@@ -52,10 +56,15 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File | null;
   const productId = (formData.get('productId') as string | null) ?? '';
 
-  if (!file) {
-    return withCors(req, apiError(req, 400, ErrorCode.MISSING_FIELDS, 'No file provided'));
-  }
+  try {
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
+    const productId = formData.get('productId') as string | null;
 
+      resultStatus = 400;
+      resultBody = { error: ErrorCode.MISSING_FIELDS, message: 'No file provided' };
+      return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
+    }
   // ── MIME allowlist ─────────────────────────────────────────────────────────
   if (!ALLOWED_TYPES.includes(file.type)) {
     await logUploadRejection({ ts: Date.now(), actorId, filename: file.name, reason: 'invalid_mime' });
@@ -110,4 +119,18 @@ export async function POST(req: NextRequest) {
     { url: blob.url, jobs: { scan: scanJob.id, process: processJob.id } },
     { status: 201 },
   );
+  } catch (error) {
+    console.error('[upload POST]', error);
+    resultStatus = 500;
+    resultBody = { error: ErrorCode.INTERNAL_ERROR, message: 'Failed to upload file' };
+    return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
+  } finally {
+    // Audit log the upload operation
+    AuditEmitter.emit(req, 'file.upload', resultStatus, undefined, resultBody, {
+      filename: resultBody?.url ? resultBody.url.split('/').pop() : undefined,
+    });
+  }
 }
+
+export const POST = requirePolicy('partner', handler);
+
