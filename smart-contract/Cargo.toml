@@ -18,3 +18,11 @@ lto = true
 [profile.release-with-logs]
 inherits = "release"
 debug-assertions = true
+
+# Coverage profile — used by `cargo llvm-cov` when --profile coverage is passed
+[profile.coverage]
+inherits = "test"            # Start from test profile (debuginfo, no opt-level override)
+opt-level = 0                # No optimisations for accurate coverage
+debug = 2                    # Full debug info
+debug-assertions = true
+overflow-checks = true

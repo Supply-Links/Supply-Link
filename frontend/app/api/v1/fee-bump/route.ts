@@ -4,9 +4,7 @@ import { withCors, handleOptions } from '@/lib/api/cors';
 import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
 import { withIdempotency } from '@/lib/api/idempotency';
 import { requirePolicy } from '@/lib/api/policy';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
-import { feeBumpBodySchema } from '@/lib/api/schemas';
-import { handleValidationError, parseJsonBody } from '@/lib/api/validation';
+import { AuditEmitter } from '@/lib/api/audit';
 
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
@@ -20,15 +18,30 @@ async function handler(request: NextRequest) {
     const respond = (body: unknown, init?: ResponseInit) =>
       withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 
+    let resultBody: any;
+    let resultStatus: number = 200;
+
     try {
-      const { innerTx } = parseJsonBody(req, rawBody, feeBumpBodySchema);
+      const body = JSON.parse(rawBody);
+      const { innerTx } = body;
+
+      if (!innerTx || typeof innerTx !== 'string') {
+        resultStatus = 400;
+        resultBody = {
+          error: ErrorCode.MISSING_FIELDS,
+          message: "Missing or invalid 'innerTx' parameter",
+        };
+        return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
+      }
 
       const feeBumpSecret = process.env.STELLAR_FEE_BUMP_SECRET;
       if (!feeBumpSecret) {
-        return withCors(
-          req,
-          apiError(req, 500, ErrorCode.DEPENDENCY_UNAVAILABLE, 'Fee-bump account not configured'),
-        );
+        resultStatus = 500;
+        resultBody = {
+          error: ErrorCode.DEPENDENCY_UNAVAILABLE,
+          message: 'Fee-bump account not configured',
+        };
+        return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
       }
 
       const feeBumpKeypair = Keypair.fromSecret(feeBumpSecret);
@@ -37,10 +50,9 @@ async function handler(request: NextRequest) {
       try {
         innerTransaction = TransactionBuilder.fromXDR(innerTx, Networks.TESTNET);
       } catch {
-        return withCors(
-          req,
-          apiError(req, 400, ErrorCode.INVALID_PAYLOAD, 'Invalid transaction XDR'),
-        );
+        resultStatus = 400;
+        resultBody = { error: ErrorCode.INVALID_PAYLOAD, message: 'Invalid transaction XDR' };
+        return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
       }
 
       const operationCount = innerTransaction.operations.length;
@@ -54,21 +66,40 @@ async function handler(request: NextRequest) {
 
       feeBumpTx.sign(feeBumpKeypair);
 
-      return respond({
+      resultBody = {
         feeBumpTx: feeBumpTx.toXDR(),
         cost: feeBumpFee,
         message: 'Fee-bump transaction created. Ready to submit to Stellar network.',
-      });
+      };
+      resultStatus = 200;
     } catch (error) {
       const validation = handleValidationError(req, error);
       if (validation) return withCors(req, validation);
       console.error('[fee-bump POST]', error);
-      return withCors(
+      resultStatus = 500;
+      resultBody = {
+        error: ErrorCode.INTERNAL_ERROR,
+        message: 'Failed to create fee-bump transaction',
+      };
+    } finally {
+      // Audit log the operation
+      AuditEmitter.emit(
         req,
-        apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to create fee-bump transaction'),
+        'fee-bump.create',
+        resultStatus,
+        rawBody ? JSON.parse(rawBody) : undefined,
+        resultBody,
       );
+    }
+
+    if (resultStatus === 200) {
+      return respond(resultBody);
+    } else {
+      return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
     }
   });
 }
 
+// Access tier: internal – signs with STELLAR_FEE_BUMP_SECRET; never expose publicly
 export const POST = requirePolicy('internal', handler);
+
