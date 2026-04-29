@@ -13,6 +13,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Address, 
 pub const EVENT_SCHEMA_VERSION: u32 = 1;
 
 mod tests;
+mod resilience_tests;
 
 // ── Payload size limits (issue #311) ─────────────────────────────────────────
 // All limits are in bytes (Soroban String::len() returns byte count).
