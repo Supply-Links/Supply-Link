@@ -5,6 +5,7 @@
 [![Built on Stellar](https://img.shields.io/badge/Built%20on-Stellar-7B2FBE?logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Smart%20Contracts-Soroban-blueviolet)](https://soroban.stellar.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Coverage Status](https://codecov.io/gh/your-org/supply-link/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/supply-link)
 
 ---
 
