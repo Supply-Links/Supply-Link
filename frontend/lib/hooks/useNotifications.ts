@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/state/store';
 import { contractClient } from '@/lib/stellar/contract';
-import type { Notification, NotificationType, EventType } from '@/lib/types';
+import { withRetry } from '@/lib/resilience';
+import type { Notification } from '@/lib/types';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -175,43 +176,46 @@ export function useNotifications() {
 
   const seenTimestamps = useRef<Record<string, number>>({});
 
-  useEffect(() => {
+  const poll = useCallback(async () => {
     if (!walletAddress || !products.length) return;
 
-    async function poll() {
-      const incoming: Notification[] = [];
+    const incoming: Notification[] = [];
 
-      for (const product of products) {
-        try {
-          const events = await contractClient.getTrackingEvents(product.id, walletAddress!);
-          for (const ev of events) {
-            const known = seenTimestamps.current[product.id] ?? 0;
-            if (ev.timestamp > known) {
-              seenTimestamps.current[product.id] = Math.max(known, ev.timestamp);
-              incoming.push(buildTrackingNotification(product.id, product.name, ev));
-            }
-          }
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          if (errorMsg.includes('recalled') || errorMsg.includes('deactivated')) {
-            incoming.push(
-              buildRecallNotification(product.id, product.name, walletAddress!, Date.now()),
-            );
-          } else if (errorMsg && !errorMsg.includes('Failed to get')) {
-            incoming.push(
-              buildContractErrorNotification(product.id, product.name, errorMsg, Date.now()),
-            );
+    for (const product of products) {
+      try {
+        const events = await withRetry(
+          () => contractClient.getTrackingEvents(product.id, walletAddress),
+          { maxAttempts: 2, baseDelayMs: 1_000 },
+        );
+        for (const ev of events) {
+          const known = seenTimestamps.current[product.id] ?? 0;
+          if (ev.timestamp > known) {
+            seenTimestamps.current[product.id] = Math.max(known, ev.timestamp);
+            incoming.push({
+              id: `${product.id}-${ev.timestamp}`,
+              productId: product.id,
+              productName: product.name,
+              eventType: ev.eventType,
+              location: ev.location,
+              actor: ev.actor,
+              timestamp: ev.timestamp,
+              read: false,
+            });
           }
         }
+      } catch {
+        // silently skip failed product polls
       }
-
-      if (incoming.length) addNotifications(incoming);
     }
 
+    if (incoming.length) addNotifications(incoming);
+  }, [walletAddress, products, addNotifications]);
+
+  useEffect(() => {
     poll();
     const id = setInterval(poll, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [walletAddress, products, addNotifications]);
+  }, [poll]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
