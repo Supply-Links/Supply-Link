@@ -188,4 +188,89 @@ export const contractClient = {
     }
     throw new Error("Failed to get product count");
   },
+
+  // ── Archival ──────────────────────────────────────────────────────────────
+
+  async archiveTrackingEvent(
+    productId: string,
+    eventIndex: number,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "archive_tracking_event",
+      args: [productId, new Address(callerAddress), eventIndex],
+      callerAddress,
+    });
+  },
+
+  async listArchivedEvents(productId: string, callerAddress: string): Promise<any[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "list_archived_events",
+      args: [productId],
+      callerAddress,
+    });
+
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) || [];
+    }
+    throw new Error("Failed to list archived events");
+  },
+
+  // ── Certification Registry ────────────────────────────────────────────────
+
+  async issueCertification(
+    productId: string,
+    certId: string,
+    certType: string,
+    reference: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "issue_certification",
+      args: [productId, new Address(callerAddress), certId, certType, reference],
+      callerAddress,
+    });
+  },
+
+  async revokeCertification(
+    productId: string,
+    certId: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "revoke_certification",
+      args: [productId, new Address(callerAddress), certId],
+      callerAddress,
+    });
+  },
+
+  async verifyCertification(
+    productId: string,
+    certId: string,
+    callerAddress: string
+  ): Promise<any> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "verify_certification",
+      args: [productId, certId],
+      callerAddress,
+    });
+
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]);
+    }
+    throw new Error("Certification verification failed");
+  },
+
+  async getCertifications(productId: string, callerAddress: string): Promise<any[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_certifications",
+      args: [productId],
+      callerAddress,
+    });
+
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) || [];
+    }
+    throw new Error("Failed to get certifications");
+  },
 };

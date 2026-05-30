@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getProductById } from "@/lib/mock/products";
+import { getProductById, getCertificationsByProductId } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
+import { CertificationPanel } from "@/components/products/CertificationPanel";
 
 interface Props {
   params: { id: string };
@@ -14,6 +15,7 @@ export default function ProductDetailPage({ params }: Props) {
   if (!product) notFound();
   const p = product!;
   const registeredAt = new Date(p.timestamp).toLocaleString();
+  const certifications = getCertificationsByProductId(p.id);
 
   return (
     <main className="p-8 max-w-3xl mx-auto">
@@ -78,6 +80,12 @@ export default function ProductDetailPage({ params }: Props) {
       <section>
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Actions</h2>
         <ProductActions productId={p.id} />
+      </section>
+
+      {/* Certification Registry */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mt-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Certifications</h2>
+        <CertificationPanel productId={p.id} initialCertifications={certifications} />
       </section>
     </main>
   );

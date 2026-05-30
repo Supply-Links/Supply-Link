@@ -23,4 +23,19 @@ export interface TrackingEvent {
   timestamp: number;
   eventType: EventType;
   metadata: string; // JSON string
+  archived?: boolean;
+  archivedAt?: number; // unix ms, 0 if not archived
+}
+
+export type CertStatus = "ACTIVE" | "REVOKED";
+
+export interface Certification {
+  certId: string;
+  productId: string;
+  issuer: string; // Stellar address
+  issuedAt: number; // unix ms
+  certType: string; // e.g. "ORGANIC", "FAIR_TRADE", "ISO9001"
+  reference: string; // external registry URL / ID
+  revoked: boolean;
+  revokedAt?: number; // unix ms
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { TrackingEvent, EventType } from "@/lib/types";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Archive } from "lucide-react";
 
 const EVENT_LABELS: Record<EventType, string> = {
   HARVEST: "Harvest",
@@ -55,9 +55,13 @@ function MetadataViewer({ raw }: { raw: string }) {
 
 interface EventTimelineProps {
   events: TrackingEvent[];
+  /** If provided, renders an archive button on each event */
+  onArchive?: (index: number) => void;
+  /** Whether the archive button should be disabled (e.g. not the owner) */
+  archiveDisabled?: boolean;
 }
 
-export function EventTimeline({ events }: EventTimelineProps) {
+export function EventTimeline({ events, onArchive, archiveDisabled }: EventTimelineProps) {
   if (events.length === 0) {
     return (
       <p className="text-sm text-[var(--muted)] py-6 text-center">
@@ -80,6 +84,17 @@ export function EventTimeline({ events }: EventTimelineProps) {
             <span className="text-xs text-[var(--muted)]">
               {new Date(event.timestamp).toLocaleString()}
             </span>
+            {onArchive && (
+              <button
+                onClick={() => onArchive(i)}
+                disabled={archiveDisabled}
+                title="Archive this event"
+                className="ml-auto flex items-center gap-1 text-xs text-[var(--muted)] hover:text-amber-600 disabled:opacity-40 transition-colors"
+              >
+                <Archive size={12} />
+                Archive
+              </button>
+            )}
           </div>
           <p className="text-sm text-[var(--foreground)]">{event.location}</p>
           <p className="text-xs font-mono text-[var(--muted)] mt-0.5">
