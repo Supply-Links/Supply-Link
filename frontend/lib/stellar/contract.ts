@@ -188,4 +188,121 @@ export const contractClient = {
     }
     throw new Error("Failed to get product count");
   },
+
+  // ── Recall / Emergency Alert methods ──────────────────────────────────────
+
+  async issueRecall(
+    productId: string,
+    callerAddress: string,
+    severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+    message: string
+  ): Promise<string> {
+    // Map severity string to contract enum index
+    const severityMap = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
+    return buildSignAndSubmitTransaction({
+      method: "issue_recall",
+      args: [productId, new Address(callerAddress), severityMap[severity], message],
+      callerAddress,
+    });
+  },
+
+  async resolveRecall(
+    productId: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "resolve_recall",
+      args: [productId, new Address(callerAddress)],
+      callerAddress,
+    });
+  },
+
+  async getRecall(productId: string, callerAddress: string): Promise<any> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_recall",
+      args: [productId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]);
+    }
+    throw new Error("Failed to get recall");
+  },
+
+  async hasActiveRecall(productId: string, callerAddress: string): Promise<boolean> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "has_active_recall",
+      args: [productId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) ?? false;
+    }
+    return false;
+  },
+
+  // ── Certificate / Revocation Registry methods ─────────────────────────────
+
+  async issueCertificate(
+    certId: string,
+    productId: string,
+    callerAddress: string,
+    certType: string,
+    expiresAt: number,
+    metadata: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "issue_certificate",
+      args: [certId, productId, new Address(callerAddress), certType, expiresAt, metadata],
+      callerAddress,
+    });
+  },
+
+  async revokeCertificate(
+    certId: string,
+    callerAddress: string,
+    reason: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "revoke_certificate",
+      args: [certId, new Address(callerAddress), reason],
+      callerAddress,
+    });
+  },
+
+  async getCertificate(certId: string, callerAddress: string): Promise<any> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_certificate",
+      args: [certId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]);
+    }
+    throw new Error("Failed to get certificate");
+  },
+
+  async isRevoked(certId: string, callerAddress: string): Promise<boolean> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "is_revoked",
+      args: [certId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) ?? false;
+    }
+    return false;
+  },
+
+  async getProductCertificates(productId: string, callerAddress: string): Promise<string[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_product_certificates",
+      args: [productId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) || [];
+    }
+    return [];
+  },
 };

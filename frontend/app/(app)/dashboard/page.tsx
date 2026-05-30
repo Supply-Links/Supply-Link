@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Package, Activity, CheckCircle, Clock } from "lucide-react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
+import { DashboardAlertsBanner } from "@/components/alerts/DashboardAlertsBanner";
 
 const PIE_COLORS: Record<string, string> = {
   HARVEST: "#22c55e",
@@ -50,6 +51,9 @@ export default function DashboardPage() {
   return (
     <main className="p-6 space-y-8 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Dashboard</h1>
+
+      {/* Emergency recall alerts — shown prominently at the top */}
+      <DashboardAlertsBanner />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

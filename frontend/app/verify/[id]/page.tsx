@@ -4,6 +4,8 @@ import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
+import { VerifyAlertBanner } from "@/components/alerts/VerifyAlertBanner";
+import { CertificatePanel } from "@/components/products/CertificatePanel";
 
 interface Props {
   params: { id: string };
@@ -61,6 +63,9 @@ export default async function VerifyPage({ params }: Props) {
 
   return (
     <main className="p-6 max-w-2xl mx-auto">
+      {/* Emergency alert banner — shown prominently for public verifiers */}
+      <VerifyAlertBanner productId={product.id} />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
@@ -100,9 +105,17 @@ export default async function VerifyPage({ params }: Props) {
       </a>
 
       {/* Event Timeline */}
-      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
         <h2 className="text-base font-semibold text-[var(--foreground)] mb-5">Product Journey</h2>
         <EventTimeline events={events} />
+      </section>
+
+      {/* Certificates — read-only public view */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold text-[var(--foreground)] mb-4">
+          Certificates &amp; Attestations
+        </h2>
+        <CertificatePanel productId={product.id} editable={false} />
       </section>
 
       <div className="mt-6 flex justify-center">

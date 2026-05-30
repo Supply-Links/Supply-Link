@@ -1,25 +1,69 @@
+"use client";
+
+import { useState } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductById } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
+import { CertificatePanel } from "@/components/products/CertificatePanel";
+import { EmergencyAlertBanner } from "@/components/alerts/EmergencyAlertBanner";
+import { IssueRecallForm } from "@/components/alerts/IssueRecallForm";
+import { useStore } from "@/lib/state/store";
+import { contractClient } from "@/lib/stellar/contract";
+import { useToast } from "@/lib/hooks/useToast";
+import { propagateAlert } from "@/lib/alerts/notify";
 
 interface Props {
   params: { id: string };
 }
 
-export default function ProductDetailPage({ params }: Props) {
-  const product = getProductById(params.id);
+function ProductDetailClient({ productId }: { productId: string }) {
+  const product = getProductById(productId);
   if (!product) notFound();
   const p = product!;
   const registeredAt = new Date(p.timestamp).toLocaleString();
+
+  const { walletAddress, recalls, resolveRecall } = useStore();
+  const toast = useToast();
+  const [showRecallForm, setShowRecallForm] = useState(false);
+
+  const activeRecall = recalls[productId];
+  const isOwner = walletAddress && walletAddress === p.owner;
+
+  async function handleResolveRecall() {
+    if (!walletAddress) return;
+    const toastId = toast.loading("Resolving recall on-chain…");
+    try {
+      const txHash = await contractClient.resolveRecall(productId, walletAddress);
+      resolveRecall(productId, walletAddress);
+      // Notify via webhook if configured
+      const resolved = { ...activeRecall!, status: "RESOLVED" as const, resolvedAt: Date.now(), resolvedBy: walletAddress };
+      await propagateAlert(resolved, "recall.resolved");
+      toast.dismiss(toastId);
+      toast.success("Recall resolved", txHash);
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error("Failed to resolve recall", err instanceof Error ? err.message : "Unknown error");
+    }
+  }
 
   return (
     <main className="p-8 max-w-3xl mx-auto">
       <Link href="/products" className="text-sm text-[var(--muted)] hover:underline mb-6 inline-block">
         ← Back to Products
       </Link>
+
+      {/* Emergency alert banner — shown prominently when active */}
+      {activeRecall && (
+        <div className="mb-6">
+          <EmergencyAlertBanner
+            alert={activeRecall}
+            onResolve={isOwner && activeRecall.status === "ACTIVE" ? handleResolveRecall : undefined}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 mb-8">
         <div>
@@ -54,6 +98,12 @@ export default function ProductDetailPage({ params }: Props) {
         <AuthorizedActorsPanel productId={p.id} initialActors={p.authorizedActors} />
       </section>
 
+      {/* Certificates */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Certificates &amp; Attestations</h2>
+        <CertificatePanel productId={p.id} editable={!!walletAddress} />
+      </section>
+
       {/* Ownership History */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-8">
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Ownership History</h2>
@@ -78,7 +128,30 @@ export default function ProductDetailPage({ params }: Props) {
       <section>
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Actions</h2>
         <ProductActions productId={p.id} />
+
+        {/* Recall action — available to owner and authorized actors */}
+        {walletAddress && !activeRecall?.status?.includes("ACTIVE") && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowRecallForm(true)}
+              className="px-4 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+            >
+              Issue Recall Alert
+            </button>
+          </div>
+        )}
       </section>
+
+      {/* Issue recall form dialog */}
+      <IssueRecallForm
+        productId={p.id}
+        open={showRecallForm}
+        onOpenChange={setShowRecallForm}
+      />
     </main>
   );
+}
+
+export default function ProductDetailPage({ params }: Props) {
+  return <ProductDetailClient productId={params.id} />;
 }

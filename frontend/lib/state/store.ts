@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product, TrackingEvent } from "../types";
+import type { Product, TrackingEvent, RecallAlert, Certificate } from "../types";
 import { isConnected } from "@stellar/freighter-api";
 
 interface SupplyLinkStore {
@@ -16,6 +16,11 @@ interface SupplyLinkStore {
   eventPage: number;
   eventPageSize: number;
   eventTotal: number;
+  // Alert / recall state
+  recalls: Record<string, RecallAlert>; // keyed by productId
+  dismissedAlerts: string[]; // productIds dismissed in this session
+  // Certificate / revocation state
+  certificates: Certificate[];
   setWalletAddress: (address: string | null) => void;
   setXlmBalance: (balance: string | null) => void;
   setNetworkMismatch: (mismatch: boolean) => void;
@@ -33,6 +38,15 @@ interface SupplyLinkStore {
   setEventPageSize: (size: number) => void;
   setEventTotal: (total: number) => void;
   disconnect: () => void;
+  // Alert actions
+  setRecall: (productId: string, alert: RecallAlert) => void;
+  resolveRecall: (productId: string, resolvedBy: string) => void;
+  dismissAlert: (productId: string) => void;
+  clearDismissedAlerts: () => void;
+  // Certificate actions
+  addCertificate: (cert: Certificate) => void;
+  setCertificates: (certs: Certificate[]) => void;
+  revokeCertificate: (certId: string, revokedBy: string, reason: string) => void;
 }
 
 export const useStore = create<SupplyLinkStore>()(
@@ -50,6 +64,9 @@ export const useStore = create<SupplyLinkStore>()(
       eventPage: 0,
       eventPageSize: 20,
       eventTotal: 0,
+      recalls: {},
+      dismissedAlerts: [],
+      certificates: [],
       setWalletAddress: (address) => set({ walletAddress: address }),
       setXlmBalance: (balance) => set({ xlmBalance: balance }),
       setNetworkMismatch: (mismatch) => set({ networkMismatch: mismatch }),
@@ -87,6 +104,55 @@ export const useStore = create<SupplyLinkStore>()(
           productPage: 0,
           eventPage: 0,
         }),
+      // Alert actions
+      setRecall: (productId, alert) =>
+        set((state) => ({
+          recalls: { ...state.recalls, [productId]: alert },
+          // Also update the product's recall field
+          products: state.products.map((p) =>
+            p.id === productId ? { ...p, recall: alert } : p
+          ),
+        })),
+      resolveRecall: (productId, resolvedBy) =>
+        set((state) => {
+          const existing = state.recalls[productId];
+          if (!existing) return state;
+          const resolved = {
+            ...existing,
+            status: "RESOLVED" as const,
+            resolvedAt: Date.now(),
+            resolvedBy,
+          };
+          return {
+            recalls: { ...state.recalls, [productId]: resolved },
+            products: state.products.map((p) =>
+              p.id === productId ? { ...p, recall: resolved } : p
+            ),
+          };
+        }),
+      dismissAlert: (productId) =>
+        set((state) => ({
+          dismissedAlerts: [...state.dismissedAlerts, productId],
+        })),
+      clearDismissedAlerts: () => set({ dismissedAlerts: [] }),
+      // Certificate actions
+      addCertificate: (cert) =>
+        set((state) => ({ certificates: [...state.certificates, cert] })),
+      setCertificates: (certs) => set({ certificates: certs }),
+      revokeCertificate: (certId, revokedBy, reason) =>
+        set((state) => ({
+          certificates: state.certificates.map((c) =>
+            c.id === certId
+              ? {
+                  ...c,
+                  status: "REVOKED" as const,
+                  revokedAt: Date.now(),
+                  revokedBy,
+                  revocationReason: reason,
+                }
+              : c
+          ),
+        })),
     }),
     {
       name: "supply-link-store",
