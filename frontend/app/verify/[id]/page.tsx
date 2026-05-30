@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { getProductById, getEventsByProductId } from "@/lib/mock/products";
+import { getProductById, getEventsByProductId, getInsuranceByProductId } from "@/lib/mock/products";
 import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
+import { InsuranceStatusBadge } from "@/components/products/InsuranceStatusBadge";
 
 interface Props {
   params: { id: string };
@@ -34,6 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function VerifyPage({ params }: Props) {
   const product = getProductById(params.id);
   const events = getEventsByProductId(params.id);
+  const insurance = getInsuranceByProductId(params.id);
 
   // 404-style fallback for unknown product IDs
   if (!product) {
@@ -98,6 +100,44 @@ export default async function VerifyPage({ params }: Props) {
         </svg>
         Verified on Stellar · View Contract
       </a>
+
+      {/* Insurance status */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold text-[var(--foreground)] mb-3">Insurance Coverage</h2>
+        <InsuranceStatusBadge coverage={insurance} />
+        {insurance && (
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mt-4">
+            <div>
+              <dt className="text-[var(--muted)] text-xs">Policy ID</dt>
+              <dd className="font-mono text-xs mt-0.5 text-[var(--foreground)]">{insurance.policyId}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)] text-xs">Provider</dt>
+              <dd className="font-medium mt-0.5 text-[var(--foreground)]">{insurance.provider}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)] text-xs">Coverage Type</dt>
+              <dd className="mt-0.5">
+                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                  {insurance.coverageType}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)] text-xs">Insured Value</dt>
+              <dd className="font-semibold mt-0.5 text-[var(--foreground)]">{insurance.insuredValue}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)] text-xs">Valid From</dt>
+              <dd className="mt-0.5 text-[var(--foreground)]">{insurance.validFrom}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)] text-xs">Valid Until</dt>
+              <dd className="mt-0.5 text-[var(--foreground)]">{insurance.validUntil}</dd>
+            </div>
+          </dl>
+        )}
+      </section>
 
       {/* Event Timeline */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">

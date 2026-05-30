@@ -162,3 +162,101 @@ export async function removeAuthorizedActor(
   // TODO: build + sign + submit Soroban transaction
   await new Promise((r) => setTimeout(r, 1000)); // simulate network delay
 }
+
+// ── Insurance coverage ────────────────────────────────────────────────────────
+
+/**
+ * Call add_insurance_coverage on the Soroban contract.
+ * Only the product owner or an authorized actor may call this.
+ */
+export async function addInsuranceCoverage(
+  productId: string,
+  callerAddress: string,
+  policyId: string,
+  provider: string,
+  coverageType: string,
+  validFrom: string,
+  validUntil: string,
+  insuredValue: string
+): Promise<void> {
+  const { contractClient } = await import("./contract");
+  await contractClient.addInsuranceCoverage(
+    productId,
+    callerAddress,
+    policyId,
+    provider,
+    coverageType,
+    validFrom,
+    validUntil,
+    insuredValue
+  );
+}
+
+/**
+ * Call get_insurance on the Soroban contract.
+ * Also logs the read access on-chain with the given purpose.
+ */
+export async function getInsurance(
+  productId: string,
+  callerAddress: string,
+  purpose: string
+): Promise<import("../types").InsuranceCoverage | null> {
+  const { contractClient } = await import("./contract");
+  return contractClient.getInsurance(productId, callerAddress, purpose);
+}
+
+/**
+ * Call add_claim_proof on the Soroban contract.
+ * Only the product owner or an authorized actor may call this.
+ */
+export async function addClaimProof(
+  productId: string,
+  callerAddress: string,
+  claimId: string,
+  documentRef: string,
+  description: string,
+  status: string
+): Promise<void> {
+  const { contractClient } = await import("./contract");
+  await contractClient.addClaimProof(productId, callerAddress, claimId, documentRef, description, status);
+}
+
+/**
+ * Call get_claim_proofs on the Soroban contract.
+ * Also logs the read access on-chain with the given purpose.
+ */
+export async function getClaimProofs(
+  productId: string,
+  callerAddress: string,
+  purpose: string
+): Promise<import("../types").ClaimProof[]> {
+  const { contractClient } = await import("./contract");
+  return contractClient.getClaimProofs(productId, callerAddress, purpose);
+}
+
+// ── Read-access audit logging ─────────────────────────────────────────────────
+
+/**
+ * Call log_read_access on the Soroban contract.
+ * Records that callerAddress accessed productId for the given purpose.
+ */
+export async function logReadAccess(
+  productId: string,
+  callerAddress: string,
+  purpose: string
+): Promise<void> {
+  const { contractClient } = await import("./contract");
+  await contractClient.logReadAccess(productId, callerAddress, purpose);
+}
+
+/**
+ * Call get_read_logs on the Soroban contract.
+ * Only the product owner may retrieve the full audit trail.
+ */
+export async function getReadLogs(
+  productId: string,
+  callerAddress: string
+): Promise<import("../types").ReadAccessLog[]> {
+  const { contractClient } = await import("./contract");
+  return contractClient.getReadLogs(productId, callerAddress);
+}

@@ -25,6 +25,64 @@ pub struct TrackingEvent {
     pub metadata: String,   // JSON string
 }
 
+/// Insurance coverage metadata for a product.
+/// Stored on-chain so coverage can be independently verified.
+#[contracttype]
+#[derive(Clone)]
+pub struct InsuranceCoverage {
+    /// Unique coverage / policy identifier issued by the insurer.
+    pub policy_id: String,
+    /// Name of the insurance provider.
+    pub provider: String,
+    /// Coverage type (e.g. "CARGO", "LIABILITY", "ALL_RISK").
+    pub coverage_type: String,
+    /// ISO-8601 date string for when coverage begins.
+    pub valid_from: String,
+    /// ISO-8601 date string for when coverage expires.
+    pub valid_until: String,
+    /// Insured value expressed as a string (e.g. "10000 USD").
+    pub insured_value: String,
+    /// Address of the actor who recorded this coverage.
+    pub recorded_by: Address,
+    /// Ledger timestamp when this record was written.
+    pub timestamp: u64,
+}
+
+/// A claim proof reference attached to a product's insurance record.
+/// Stores a verifiable reference (e.g. IPFS CID, document hash) so
+/// auditors can retrieve and verify the underlying claim document.
+#[contracttype]
+#[derive(Clone)]
+pub struct ClaimProof {
+    /// Unique claim identifier.
+    pub claim_id: String,
+    /// Content-addressable reference to the claim document (e.g. IPFS CID or SHA-256 hash).
+    pub document_ref: String,
+    /// Human-readable description of the claim.
+    pub description: String,
+    /// Claim status: "SUBMITTED" | "APPROVED" | "REJECTED" | "PENDING".
+    pub status: String,
+    /// Address of the actor who submitted this claim proof.
+    pub submitted_by: Address,
+    /// Ledger timestamp when this claim was recorded.
+    pub timestamp: u64,
+}
+
+/// An immutable read-access log entry for sensitive product queries.
+/// Records who accessed a product record and when, enabling audit trails.
+#[contracttype]
+#[derive(Clone)]
+pub struct ReadAccessLog {
+    /// The product that was accessed.
+    pub product_id: String,
+    /// Stellar address of the actor who requested the data.
+    pub accessor: Address,
+    /// Ledger timestamp of the access event.
+    pub timestamp: u64,
+    /// Purpose / context of the access (e.g. "INSURANCE_VERIFY", "AUDIT", "OWNERSHIP_CHECK").
+    pub purpose: String,
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -33,6 +91,12 @@ pub enum DataKey {
     Events(String),
     ProductCount,
     ProductIndex(u64),
+    /// Stores InsuranceCoverage for a product.
+    Insurance(String),
+    /// Stores Vec<ClaimProof> for a product.
+    Claims(String),
+    /// Stores Vec<ReadAccessLog> for a product.
+    ReadLogs(String),
 }
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -321,6 +385,222 @@ impl SupplyLinkContract {
         }
         
         products
+    }
+
+    // ── Insurance coverage ────────────────────────────────────────────────────
+
+    /// Record insurance coverage metadata for a product.
+    /// Only the product owner or an authorized actor may call this.
+    /// Overwrites any previously stored coverage (use add_claim_proof for claims).
+    pub fn add_insurance_coverage(
+        env: Env,
+        product_id: String,
+        caller: Address,
+        policy_id: String,
+        provider: String,
+        coverage_type: String,
+        valid_from: String,
+        valid_until: String,
+        insured_value: String,
+    ) -> InsuranceCoverage {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        let is_owner = product.owner == caller;
+        let is_actor = product.authorized_actors.contains(&caller);
+        if !is_owner && !is_actor {
+            panic!("caller is not authorized");
+        }
+        caller.require_auth();
+
+        let coverage = InsuranceCoverage {
+            policy_id: policy_id.clone(),
+            provider,
+            coverage_type,
+            valid_from,
+            valid_until,
+            insured_value,
+            recorded_by: caller,
+            timestamp: env.ledger().timestamp(),
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Insurance(product_id.clone()), &coverage);
+
+        env.events().publish(
+            (Symbol::new(&env, "insurance_added"), product_id),
+            coverage.clone(),
+        );
+
+        coverage
+    }
+
+    /// Retrieve the insurance coverage record for a product.
+    /// Returns None if no coverage has been recorded.
+    /// Also logs this read access for audit purposes.
+    pub fn get_insurance(
+        env: Env,
+        product_id: String,
+        accessor: Address,
+        purpose: String,
+    ) -> Option<InsuranceCoverage> {
+        // Require the accessor to authenticate so the log is attributable.
+        accessor.require_auth();
+
+        // Record the read access.
+        Self::_append_read_log(&env, product_id.clone(), accessor, purpose);
+
+        env.storage()
+            .persistent()
+            .get(&DataKey::Insurance(product_id))
+    }
+
+    /// Attach a claim proof reference to a product's insurance record.
+    /// Only the product owner or an authorized actor may call this.
+    pub fn add_claim_proof(
+        env: Env,
+        product_id: String,
+        caller: Address,
+        claim_id: String,
+        document_ref: String,
+        description: String,
+        status: String,
+    ) -> ClaimProof {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        let is_owner = product.owner == caller;
+        let is_actor = product.authorized_actors.contains(&caller);
+        if !is_owner && !is_actor {
+            panic!("caller is not authorized");
+        }
+        caller.require_auth();
+
+        let proof = ClaimProof {
+            claim_id: claim_id.clone(),
+            document_ref,
+            description,
+            status,
+            submitted_by: caller,
+            timestamp: env.ledger().timestamp(),
+        };
+
+        let mut claims: Vec<ClaimProof> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Claims(product_id.clone()))
+            .unwrap_or_else(|| Vec::new(&env));
+
+        claims.push_back(proof.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::Claims(product_id.clone()), &claims);
+
+        env.events().publish(
+            (Symbol::new(&env, "claim_proof_added"), product_id, claim_id),
+            proof.clone(),
+        );
+
+        proof
+    }
+
+    /// Retrieve all claim proofs for a product.
+    /// Also logs this read access for audit purposes.
+    pub fn get_claim_proofs(
+        env: Env,
+        product_id: String,
+        accessor: Address,
+        purpose: String,
+    ) -> Vec<ClaimProof> {
+        accessor.require_auth();
+        Self::_append_read_log(&env, product_id.clone(), accessor, purpose);
+
+        env.storage()
+            .persistent()
+            .get(&DataKey::Claims(product_id))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    // ── Read-access audit logging ─────────────────────────────────────────────
+
+    /// Explicitly log a read-access event for a sensitive product record.
+    /// Callers (e.g. the frontend) may call this when fetching product details
+    /// for audit or verification purposes.
+    pub fn log_read_access(
+        env: Env,
+        product_id: String,
+        accessor: Address,
+        purpose: String,
+    ) {
+        // Product must exist to prevent spam logging against arbitrary IDs.
+        let exists: bool = env
+            .storage()
+            .persistent()
+            .has(&DataKey::Product(product_id.clone()));
+        if !exists {
+            panic!("product not found");
+        }
+
+        accessor.require_auth();
+        Self::_append_read_log(&env, product_id, accessor, purpose);
+    }
+
+    /// Retrieve read-access logs for a product.
+    /// Only the product owner may query the full audit trail.
+    pub fn get_read_logs(
+        env: Env,
+        product_id: String,
+        caller: Address,
+    ) -> Vec<ReadAccessLog> {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+        // Verify the caller is actually the owner.
+        if product.owner != caller {
+            panic!("only the product owner may view audit logs");
+        }
+
+        env.storage()
+            .persistent()
+            .get(&DataKey::ReadLogs(product_id))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Internal helper: append a ReadAccessLog entry.
+    fn _append_read_log(env: &Env, product_id: String, accessor: Address, purpose: String) {
+        let log = ReadAccessLog {
+            product_id: product_id.clone(),
+            accessor,
+            timestamp: env.ledger().timestamp(),
+            purpose,
+        };
+
+        let mut logs: Vec<ReadAccessLog> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ReadLogs(product_id.clone()))
+            .unwrap_or_else(|| Vec::new(env));
+
+        logs.push_back(log.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::ReadLogs(product_id.clone()), &logs);
+
+        env.events().publish(
+            (Symbol::new(env, "read_access_logged"), product_id),
+            log,
+        );
     }
 }
 
@@ -1069,5 +1349,490 @@ mod tests {
         assert_eq!(actors.get(0).unwrap(), actor1);
         assert_eq!(actors.get(1).unwrap(), actor2);
         assert_eq!(actors.get(2).unwrap(), actor3);
+    }
+
+    // ── Insurance coverage tests ──────────────────────────────────────────────
+
+    /// Owner can add insurance coverage and retrieve it.
+    #[test]
+    fn test_add_and_get_insurance_coverage() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-ins-001");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Coffee Beans"),
+            &String::from_str(&env, "Ethiopia"),
+            &owner,
+        );
+
+        let coverage = client.add_insurance_coverage(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "POL-2024-001"),
+            &String::from_str(&env, "Lloyd's of London"),
+            &String::from_str(&env, "CARGO"),
+            &String::from_str(&env, "2024-01-01"),
+            &String::from_str(&env, "2025-01-01"),
+            &String::from_str(&env, "50000 USD"),
+        );
+
+        assert_eq!(coverage.policy_id, String::from_str(&env, "POL-2024-001"));
+        assert_eq!(coverage.provider, String::from_str(&env, "Lloyd's of London"));
+        assert_eq!(coverage.coverage_type, String::from_str(&env, "CARGO"));
+        assert_eq!(coverage.recorded_by, owner);
+
+        // Retrieve via get_insurance — also logs the read
+        let retrieved = client.get_insurance(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "AUDIT"),
+        );
+        assert!(retrieved.is_some());
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.policy_id, String::from_str(&env, "POL-2024-001"));
+    }
+
+    /// Authorized actor (not owner) can add insurance coverage.
+    #[test]
+    fn test_authorized_actor_can_add_insurance() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-ins-actor");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+        client.add_authorized_actor(&product_id, &actor);
+
+        let coverage = client.add_insurance_coverage(
+            &product_id,
+            &actor,
+            &String::from_str(&env, "POL-ACTOR-001"),
+            &String::from_str(&env, "Allianz"),
+            &String::from_str(&env, "ALL_RISK"),
+            &String::from_str(&env, "2024-06-01"),
+            &String::from_str(&env, "2025-06-01"),
+            &String::from_str(&env, "20000 EUR"),
+        );
+
+        assert_eq!(coverage.recorded_by, actor);
+    }
+
+    /// Unauthorized caller cannot add insurance coverage.
+    #[test]
+    #[should_panic(expected = "caller is not authorized")]
+    fn test_unauthorized_caller_cannot_add_insurance() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let stranger = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-ins-unauth");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        env.as_contract(&contract_id, || {
+            SupplyLinkContract::add_insurance_coverage(
+                env.clone(),
+                product_id.clone(),
+                stranger.clone(),
+                String::from_str(&env, "POL-FAKE"),
+                String::from_str(&env, "Fake Insurer"),
+                String::from_str(&env, "CARGO"),
+                String::from_str(&env, "2024-01-01"),
+                String::from_str(&env, "2025-01-01"),
+                String::from_str(&env, "0 USD"),
+            );
+        });
+    }
+
+    /// get_insurance returns None when no coverage has been recorded.
+    #[test]
+    fn test_get_insurance_returns_none_when_not_set() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-no-ins");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        let result = client.get_insurance(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "AUDIT"),
+        );
+        assert!(result.is_none());
+    }
+
+    /// Adding coverage twice overwrites the previous record.
+    #[test]
+    fn test_add_insurance_overwrites_previous() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-ins-overwrite");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        client.add_insurance_coverage(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "POL-OLD"),
+            &String::from_str(&env, "Old Insurer"),
+            &String::from_str(&env, "CARGO"),
+            &String::from_str(&env, "2023-01-01"),
+            &String::from_str(&env, "2024-01-01"),
+            &String::from_str(&env, "10000 USD"),
+        );
+
+        client.add_insurance_coverage(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "POL-NEW"),
+            &String::from_str(&env, "New Insurer"),
+            &String::from_str(&env, "ALL_RISK"),
+            &String::from_str(&env, "2024-01-01"),
+            &String::from_str(&env, "2025-01-01"),
+            &String::from_str(&env, "25000 USD"),
+        );
+
+        let retrieved = client.get_insurance(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "AUDIT"),
+        ).unwrap();
+        assert_eq!(retrieved.policy_id, String::from_str(&env, "POL-NEW"));
+        assert_eq!(retrieved.provider, String::from_str(&env, "New Insurer"));
+    }
+
+    // ── Claim proof tests ─────────────────────────────────────────────────────
+
+    /// Owner can add a claim proof and retrieve it.
+    #[test]
+    fn test_add_and_get_claim_proof() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-claim-001");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        let proof = client.add_claim_proof(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "CLM-2024-001"),
+            &String::from_str(&env, "QmXyz123abc"),
+            &String::from_str(&env, "Water damage during transit"),
+            &String::from_str(&env, "SUBMITTED"),
+        );
+
+        assert_eq!(proof.claim_id, String::from_str(&env, "CLM-2024-001"));
+        assert_eq!(proof.status, String::from_str(&env, "SUBMITTED"));
+        assert_eq!(proof.submitted_by, owner);
+
+        let proofs = client.get_claim_proofs(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "AUDIT"),
+        );
+        assert_eq!(proofs.len(), 1);
+        assert_eq!(proofs.get(0).unwrap().claim_id, String::from_str(&env, "CLM-2024-001"));
+    }
+
+    /// Multiple claim proofs accumulate (not overwritten).
+    #[test]
+    fn test_multiple_claim_proofs_accumulate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-multi-claim");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        for i in 0..3u32 {
+            let claim_id = String::from_str(&env, &soroban_sdk::String::from_str(&env, "CLM-00").to_string());
+            // Use distinct claim IDs via different string literals
+            let cid = match i {
+                0 => String::from_str(&env, "CLM-001"),
+                1 => String::from_str(&env, "CLM-002"),
+                _ => String::from_str(&env, "CLM-003"),
+            };
+            client.add_claim_proof(
+                &product_id,
+                &owner,
+                &cid,
+                &String::from_str(&env, "QmHash"),
+                &String::from_str(&env, "Damage claim"),
+                &String::from_str(&env, "PENDING"),
+            );
+            let _ = claim_id;
+        }
+
+        let proofs = client.get_claim_proofs(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "AUDIT"),
+        );
+        assert_eq!(proofs.len(), 3);
+    }
+
+    /// Unauthorized caller cannot add a claim proof.
+    #[test]
+    #[should_panic(expected = "caller is not authorized")]
+    fn test_unauthorized_caller_cannot_add_claim_proof() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let stranger = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-claim-unauth");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        env.as_contract(&contract_id, || {
+            SupplyLinkContract::add_claim_proof(
+                env.clone(),
+                product_id.clone(),
+                stranger.clone(),
+                String::from_str(&env, "CLM-FAKE"),
+                String::from_str(&env, "QmFake"),
+                String::from_str(&env, "Fraudulent claim"),
+                String::from_str(&env, "SUBMITTED"),
+            );
+        });
+    }
+
+    // ── Read-access audit log tests ───────────────────────────────────────────
+
+    /// log_read_access records an entry retrievable by the owner.
+    #[test]
+    fn test_log_read_access_records_entry() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let auditor = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-log-001");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        client.log_read_access(
+            &product_id,
+            &auditor,
+            &String::from_str(&env, "INSURANCE_VERIFY"),
+        );
+
+        let logs = client.get_read_logs(&product_id, &owner);
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs.get(0).unwrap().accessor, auditor);
+        assert_eq!(logs.get(0).unwrap().purpose, String::from_str(&env, "INSURANCE_VERIFY"));
+    }
+
+    /// Multiple read accesses accumulate in the log.
+    #[test]
+    fn test_multiple_read_accesses_accumulate() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-log-multi");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        for _ in 0..5 {
+            let accessor = soroban_sdk::Address::generate(&env);
+            client.log_read_access(
+                &product_id,
+                &accessor,
+                &String::from_str(&env, "AUDIT"),
+            );
+        }
+
+        let logs = client.get_read_logs(&product_id, &owner);
+        assert_eq!(logs.len(), 5);
+    }
+
+    /// log_read_access panics for an unknown product.
+    #[test]
+    #[should_panic(expected = "product not found")]
+    fn test_log_read_access_unknown_product_panics() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let accessor = soroban_sdk::Address::generate(&env);
+
+        client.log_read_access(
+            &String::from_str(&env, "does-not-exist"),
+            &accessor,
+            &String::from_str(&env, "AUDIT"),
+        );
+    }
+
+    /// get_insurance automatically appends a read log entry.
+    #[test]
+    fn test_get_insurance_appends_read_log() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-ins-log");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        // No logs yet
+        let logs_before = client.get_read_logs(&product_id, &owner);
+        assert_eq!(logs_before.len(), 0);
+
+        // get_insurance should append a log
+        client.get_insurance(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "INSURANCE_VERIFY"),
+        );
+
+        let logs_after = client.get_read_logs(&product_id, &owner);
+        assert_eq!(logs_after.len(), 1);
+        assert_eq!(
+            logs_after.get(0).unwrap().purpose,
+            String::from_str(&env, "INSURANCE_VERIFY")
+        );
+    }
+
+    /// get_claim_proofs automatically appends a read log entry.
+    #[test]
+    fn test_get_claim_proofs_appends_read_log() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-claim-log");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+
+        client.get_claim_proofs(
+            &product_id,
+            &owner,
+            &String::from_str(&env, "CLAIM_REVIEW"),
+        );
+
+        let logs = client.get_read_logs(&product_id, &owner);
+        assert_eq!(logs.len(), 1);
+        assert_eq!(
+            logs.get(0).unwrap().purpose,
+            String::from_str(&env, "CLAIM_REVIEW")
+        );
+    }
+
+    /// Property: log count equals number of explicit log_read_access calls.
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+        #[test]
+        fn prop_read_log_count_equals_access_calls(
+            product_id_str in "[a-z]{1,15}",
+            n in 0usize..=20,
+        ) {
+            let env = Env::default();
+            env.mock_all_auths();
+            let contract_id = env.register(SupplyLinkContract, ());
+            let client = SupplyLinkContractClient::new(&env, &contract_id);
+            let owner = soroban_sdk::Address::generate(&env);
+            let product_id = String::from_str(&env, &product_id_str);
+
+            client.register_product(
+                &product_id,
+                &String::from_str(&env, "Widget"),
+                &String::from_str(&env, "Origin"),
+                &owner,
+            );
+
+            for _ in 0..n {
+                let accessor = soroban_sdk::Address::generate(&env);
+                client.log_read_access(
+                    &product_id,
+                    &accessor,
+                    &String::from_str(&env, "AUDIT"),
+                );
+            }
+
+            let logs = client.get_read_logs(&product_id, &owner);
+            prop_assert_eq!(logs.len() as usize, n);
+        }
     }
 }

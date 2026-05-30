@@ -5,6 +5,7 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/products", label: "Products" },
   { href: "/tracking", label: "Tracking" },
+  { href: "/audit", label: "Audit Log" },
 ];
 
 export function Navbar() {

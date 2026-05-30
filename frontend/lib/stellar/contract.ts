@@ -188,4 +188,174 @@ export const contractClient = {
     }
     throw new Error("Failed to get product count");
   },
+
+  // ── Insurance coverage ──────────────────────────────────────────────────────
+
+  /**
+   * Call add_insurance_coverage on the Soroban contract.
+   * Only the product owner or an authorized actor may call this.
+   * Returns the transaction hash.
+   */
+  async addInsuranceCoverage(
+    productId: string,
+    callerAddress: string,
+    policyId: string,
+    provider: string,
+    coverageType: string,
+    validFrom: string,
+    validUntil: string,
+    insuredValue: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "add_insurance_coverage",
+      args: [
+        productId,
+        new Address(callerAddress),
+        policyId,
+        provider,
+        coverageType,
+        validFrom,
+        validUntil,
+        insuredValue,
+      ],
+      callerAddress,
+    });
+  },
+
+  /**
+   * Call get_insurance on the Soroban contract.
+   * Also logs the read access on-chain with the given purpose.
+   * Returns the InsuranceCoverage or null if none recorded.
+   */
+  async getInsurance(
+    productId: string,
+    callerAddress: string,
+    purpose: string
+  ): Promise<import("../types").InsuranceCoverage | null> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_insurance",
+      args: [productId, new Address(callerAddress), purpose],
+      callerAddress,
+    });
+
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      const raw = scValToNative(simulated.results?.[0]);
+      if (!raw) return null;
+      // Map snake_case contract fields to camelCase TypeScript interface
+      return {
+        policyId: raw.policy_id,
+        provider: raw.provider,
+        coverageType: raw.coverage_type,
+        validFrom: raw.valid_from,
+        validUntil: raw.valid_until,
+        insuredValue: raw.insured_value,
+        recordedBy: raw.recorded_by,
+        timestamp: Number(raw.timestamp) * 1000, // ledger seconds → ms
+      };
+    }
+    throw new Error("Failed to get insurance coverage");
+  },
+
+  /**
+   * Call add_claim_proof on the Soroban contract.
+   * Only the product owner or an authorized actor may call this.
+   * Returns the transaction hash.
+   */
+  async addClaimProof(
+    productId: string,
+    callerAddress: string,
+    claimId: string,
+    documentRef: string,
+    description: string,
+    status: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "add_claim_proof",
+      args: [
+        productId,
+        new Address(callerAddress),
+        claimId,
+        documentRef,
+        description,
+        status,
+      ],
+      callerAddress,
+    });
+  },
+
+  /**
+   * Call get_claim_proofs on the Soroban contract.
+   * Also logs the read access on-chain with the given purpose.
+   * Returns an array of ClaimProof objects.
+   */
+  async getClaimProofs(
+    productId: string,
+    callerAddress: string,
+    purpose: string
+  ): Promise<import("../types").ClaimProof[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_claim_proofs",
+      args: [productId, new Address(callerAddress), purpose],
+      callerAddress,
+    });
+
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      const raw: any[] = scValToNative(simulated.results?.[0]) || [];
+      return raw.map((r) => ({
+        claimId: r.claim_id,
+        documentRef: r.document_ref,
+        description: r.description,
+        status: r.status,
+        submittedBy: r.submitted_by,
+        timestamp: Number(r.timestamp) * 1000,
+      }));
+    }
+    throw new Error("Failed to get claim proofs");
+  },
+
+  // ── Read-access audit logging ───────────────────────────────────────────────
+
+  /**
+   * Call log_read_access on the Soroban contract.
+   * Records that callerAddress accessed productId for the given purpose.
+   * Returns the transaction hash.
+   */
+  async logReadAccess(
+    productId: string,
+    callerAddress: string,
+    purpose: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "log_read_access",
+      args: [productId, new Address(callerAddress), purpose],
+      callerAddress,
+    });
+  },
+
+  /**
+   * Call get_read_logs on the Soroban contract.
+   * Only the product owner may retrieve the full audit trail.
+   * Returns an array of ReadAccessLog objects.
+   */
+  async getReadLogs(
+    productId: string,
+    callerAddress: string
+  ): Promise<import("../types").ReadAccessLog[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_read_logs",
+      args: [productId, new Address(callerAddress)],
+      callerAddress,
+    });
+
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      const raw: any[] = scValToNative(simulated.results?.[0]) || [];
+      return raw.map((r) => ({
+        productId: r.product_id,
+        accessor: r.accessor,
+        timestamp: Number(r.timestamp) * 1000,
+        purpose: r.purpose,
+      }));
+    }
+    throw new Error("Failed to get read logs");
+  },
 };

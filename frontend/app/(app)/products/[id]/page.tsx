@@ -4,6 +4,8 @@ import { getProductById } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
+import { InsurancePanel } from "@/components/products/InsurancePanel";
+import { AuditLogPanel } from "@/components/products/AuditLogPanel";
 
 interface Props {
   params: { id: string };
@@ -48,6 +50,12 @@ export default function ProductDetailPage({ params }: Props) {
         </dl>
       </section>
 
+      {/* Insurance Coverage */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Insurance Coverage</h2>
+        <InsurancePanel productId={p.id} />
+      </section>
+
       {/* Authorized Actors */}
       <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Authorized Actors</h2>
@@ -55,7 +63,7 @@ export default function ProductDetailPage({ params }: Props) {
       </section>
 
       {/* Ownership History */}
-      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-8">
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
         <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Ownership History</h2>
         {!p.ownershipHistory || p.ownershipHistory.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">No history available.</p>
@@ -72,6 +80,12 @@ export default function ProductDetailPage({ params }: Props) {
             ))}
           </ol>
         )}
+      </section>
+
+      {/* Read Access Audit Log */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Audit Log</h2>
+        <AuditLogPanel productId={p.id} ownerAddress={p.owner} />
       </section>
 
       {/* Action Buttons */}

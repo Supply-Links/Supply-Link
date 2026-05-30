@@ -6,9 +6,10 @@ import { Search, Plus, Package, ChevronDown } from "lucide-react";
 import * as Select from "@radix-ui/react-select";
 import { useStore } from "@/lib/state/store";
 import { listProducts } from "@/lib/stellar/client";
-import { MOCK_PRODUCTS } from "@/lib/mock/products";
+import { MOCK_PRODUCTS, MOCK_INSURANCE } from "@/lib/mock/products";
 import { RegisterProductForm } from "@/components/products/RegisterProductForm";
 import ProductQRCode from "@/components/products/ProductQRCode";
+import { InsuranceStatusBadge } from "@/components/products/InsuranceStatusBadge";
 import type { EventType } from "@/lib/types";
 
 const EVENT_TYPES: EventType[] = ["HARVEST", "PROCESSING", "SHIPPING", "RETAIL"];
@@ -51,7 +52,7 @@ function EmptyState({ hasSearch, onRegister }: { hasSearch: boolean; onRegister:
 }
 
 export default function ProductsPage() {
-  const { products, setProducts } = useStore();
+  const { products, setProducts, insuranceCoverage, setInsuranceCoverage } = useStore();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [eventFilter, setEventFilter] = useState<EventType | "ALL">("ALL");
@@ -70,6 +71,16 @@ export default function ProductsPage() {
     }
     load();
   }, [setProducts]);
+
+  // Seed mock insurance into store on first load
+  useEffect(() => {
+    Object.entries(MOCK_INSURANCE).forEach(([productId, coverage]) => {
+      if (!insuranceCoverage[productId]) {
+        setInsuranceCoverage(productId, coverage);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = products.filter((p) => {
     const matchesSearch =
@@ -153,6 +164,9 @@ export default function ProductsPage() {
                 </div>
                 <p className="text-sm text-[var(--muted)] mt-1">Origin: {product.origin}</p>
                 <p className="text-xs text-[var(--muted)] mt-1 font-mono truncate">ID: {product.id}</p>
+                <div className="mt-2">
+                  <InsuranceStatusBadge coverage={insuranceCoverage[product.id]} compact />
+                </div>
               </div>
               <ProductQRCode productId={product.id} size={160} />
             </Link>
