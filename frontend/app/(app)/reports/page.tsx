@@ -1,6 +1,7 @@
 'use client';
 
 import { AuditReportBuilder } from '@/components/dashboard/AuditReportBuilder';
+import { ReadAccessAuditLog } from '@/components/dashboard/ReadAccessAuditLog';
 
 export default function ReportsPage() {
   return (
@@ -13,6 +14,11 @@ export default function ReportsPage() {
       </div>
 
       <AuditReportBuilder />
+
+      {/* Read Access Audit Log */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
+        <ReadAccessAuditLog limit={100} />
+      </section>
     </main>
   );
 }

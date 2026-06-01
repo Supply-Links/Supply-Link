@@ -11,7 +11,7 @@ import { ShareButton } from '@/components/ui/ShareButton';
 import { ProvenanceScoreGauge } from '@/components/products/ProvenanceScoreGauge';
 import ProductVerifyClient from './ProductVerifyClient';
 import { DocumentAnchorsPanel } from '@/components/products/DocumentAnchorsPanel';
-import type { QrProofPayload } from '@/lib/services/offlineVerify';
+import { recordReadAccess, anonymousActor } from '@/lib/services/readAccessAudit';
 
 interface Props {
   params: Promise<{ id: string; locale: string }>;
@@ -58,6 +58,15 @@ export default async function VerifyPage({ params }: Props) {
     getTrackingEvents(id),
     getTranslations({ locale, namespace: 'verify' }),
   ]);
+
+  // Record read access for audit log
+  recordReadAccess({
+    operation: 'product.verify',
+    productIds: [id],
+    actor: anonymousActor(),
+    requestPath: `/${locale}/verify/${id}`,
+    responseStatus: product ? 200 : 404,
+  });
 
   if (!product) {
     return (

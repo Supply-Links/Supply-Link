@@ -19,9 +19,13 @@ import { SustainabilityBadge } from '@/components/products/SustainabilityBadge';
 import { CertificationsPanel } from '@/components/products/CertificationBadge';
 import { AuditorAttestationsPanel } from '@/components/products/AuditorAttestationsPanel';
 import { BatchRecallBanner } from '@/components/products/BatchRecallBanner';
+import { EmergencyAlertBanner } from '@/components/products/EmergencyAlertBanner';
+import { RevocationRegistryPanel } from '@/components/certifications/RevocationRegistryPanel';
+import { InsuranceCoveragePanel } from '@/components/products/InsuranceCoveragePanel';
 import { getCategoryLabel, getSubcategoryLabel } from '@/lib/taxonomy';
 import { AnchorDocumentForm } from '@/components/products/AnchorDocumentForm';
 import { DocumentAnchorsPanel } from '@/components/products/DocumentAnchorsPanel';
+import { listActiveAlerts } from '@/lib/services/emergencyAlerts';
 
 interface Props {
   params: { id: string };
@@ -43,6 +47,9 @@ export default function ProductDetailPage({ params }: Props) {
   const allBatches = getBatchesByProductId(p.id);
   const recalledBatches = allBatches.filter((b) => b.recalled);
 
+  // Emergency alerts
+  const activeAlerts = listActiveAlerts(p.id);
+
   return (
     <main className="p-8 max-w-3xl mx-auto">
       <Link
@@ -56,6 +63,13 @@ export default function ProductDetailPage({ params }: Props) {
       {recalledBatches.length > 0 && (
         <div className="mb-6">
           <BatchRecallBanner recalledBatches={recalledBatches} />
+        </div>
+      )}
+
+      {/* Emergency alert banners */}
+      {activeAlerts.length > 0 && (
+        <div className="mb-6">
+          <EmergencyAlertBanner alerts={activeAlerts} />
         </div>
       )}
 
@@ -226,6 +240,22 @@ export default function ProductDetailPage({ params }: Props) {
           </h3>
           <AnchorDocumentForm productId={p.id} />
         </div>
+      </section>
+
+      {/* Revocation Registry */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">
+          Revocation Registry
+        </h2>
+        <RevocationRegistryPanel productId={p.id} canRevoke={false} />
+      </section>
+
+      {/* Insurance Coverage */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">
+          Insurance Coverage
+        </h2>
+        <InsuranceCoveragePanel productId={p.id} canAdd={false} />
       </section>
 
       {/* Product Actions */}

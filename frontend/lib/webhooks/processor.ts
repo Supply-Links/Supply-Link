@@ -206,3 +206,59 @@ export async function retryFailedDeliveries(): Promise<void> {
   // with exponential backoff
   console.log('Retry logic would run here as a scheduled task');
 }
+
+/**
+ * Send webhooks for an emergency alert event.
+ * Called when a new alert is created or a recall is propagated.
+ */
+export async function notifyWebhooksOfAlert(
+  alertId: string,
+  productId: string,
+  productName: string,
+  severity: 'info' | 'warning' | 'high' | 'critical',
+  title: string,
+  message: string,
+  eventType: 'EMERGENCY_ALERT_CREATED' | 'RECALL_ALERT_PROPAGATED' = 'EMERGENCY_ALERT_CREATED',
+): Promise<{
+  delivered: boolean;
+  successCount: number;
+  failureCount: number;
+}> {
+  try {
+    const webhooks = await getActiveWebhooks();
+    if (webhooks.length === 0) {
+      return { delivered: true, successCount: 0, failureCount: 0 };
+    }
+
+    const payload: WebhookPayload = {
+      event: {
+        type: eventType,
+        data: {
+          alertId,
+          productId,
+          productName,
+          severity,
+          title,
+          message,
+          timestamp: Date.now(),
+        },
+      },
+      timestamp: Date.now(),
+      id: randomBytes(8).toString('hex'),
+    };
+
+    const result = await broadcastWebhook(webhooks, payload);
+    console.log(
+      `[alerts] webhook delivery: ${result.successful} successful, ${result.failed} failed`,
+    );
+
+    return {
+      delivered: true,
+      successCount: result.successful,
+      failureCount: result.failed,
+    };
+  } catch (err) {
+    console.error('[alerts] Failed to notify webhooks of alert:', err);
+    return { delivered: false, successCount: 0, failureCount: 0 };
+  }
+}

@@ -10,6 +10,8 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ExportButton } from '@/components/dashboard/ExportButton';
 import { ChartSkeleton } from '@/components/skeletons/LoadingSkeletons';
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist';
+import { AlertSummaryBanner } from '@/components/products/EmergencyAlertBanner';
+import { getAlertStats } from '@/lib/services/emergencyAlerts';
 import type { EventType } from '@/lib/types';
 import { EVENT_TYPE_CONFIG } from '@/lib/eventTypeConfig';
 
@@ -55,10 +57,18 @@ export default function DashboardPage() {
     filteredEvents,
   } = useDashboardData(range);
 
+  const alertStats = getAlertStats();
+
   return (
     <main className="p-4 md:p-6 space-y-8 max-w-7xl mx-auto">
       {/* Onboarding Checklist */}
       <OnboardingChecklist />
+
+      {/* Emergency alert summary banner */}
+      <AlertSummaryBanner
+        criticalCount={alertStats.critical}
+        totalActiveCount={alertStats.active}
+      />
 
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
