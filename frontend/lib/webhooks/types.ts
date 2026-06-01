@@ -2,7 +2,11 @@
  * Webhook registration types and interfaces
  */
 
-export type WebhookEventType = 'TRACKING_EVENT_CREATED' | 'PRODUCT_EVENT_CHANGED';
+export type WebhookEventType =
+  | 'TRACKING_EVENT_CREATED'
+  | 'PRODUCT_EVENT_CHANGED'
+  | 'EMERGENCY_ALERT_CREATED'
+  | 'RECALL_ALERT_PROPAGATED';
 
 export type ProductEventType =
   | 'product_registered'
@@ -51,7 +55,7 @@ export interface WebhookPayload {
   id: string;
 }
 
-export type WebhookEvent = TrackingWebhookEvent | ProductWebhookEvent;
+export type WebhookEvent = TrackingWebhookEvent | ProductWebhookEvent | EmergencyAlertWebhookEvent;
 
 export interface TrackingWebhookEvent {
   type: 'TRACKING_EVENT_CREATED';
@@ -72,6 +76,19 @@ export interface ProductWebhookEvent {
     productId: string;
     timestamp: number;
     details: Record<string, any>; // Product or tracking event data
+  };
+}
+
+export interface EmergencyAlertWebhookEvent {
+  type: 'EMERGENCY_ALERT_CREATED' | 'RECALL_ALERT_PROPAGATED';
+  data: {
+    alertId: string;
+    productId: string;
+    productName: string;
+    severity: 'info' | 'warning' | 'high' | 'critical';
+    title: string;
+    message: string;
+    timestamp: number;
   };
 }
 

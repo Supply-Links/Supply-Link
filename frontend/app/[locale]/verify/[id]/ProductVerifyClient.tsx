@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { recordScan } from '@/lib/services/scanTracking';
 import type { Product } from '@/lib/types';
+import { EmergencyAlertBanner } from '@/components/products/EmergencyAlertBanner';
+import { listActiveAlerts } from '@/lib/services/emergencyAlerts';
+import { acknowledgeAlert } from '@/lib/services/emergencyAlerts';
+import type { EmergencyAlert } from '@/lib/services/emergencyAlerts';
 
 interface ProductVerifyClientProps {
   product: Product;
@@ -10,6 +14,13 @@ interface ProductVerifyClientProps {
 }
 
 export default function ProductVerifyClient({ product, children }: ProductVerifyClientProps) {
+  const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
+
+  useEffect(() => {
+    // Load active emergency alerts for this product
+    setAlerts(listActiveAlerts(product.id));
+  }, [product.id]);
+
   useEffect(() => {
     // Record this scan for recall notifications
     const recordProductScan = async () => {
@@ -21,7 +32,7 @@ export default function ProductVerifyClient({ product, children }: ProductVerify
         if (ip) {
           await recordScan(product.id, ip);
         }
-      } catch (error) {
+      } catch {
         // Silently fail - don't disrupt user experience
         console.debug('Could not record scan');
       }
@@ -30,8 +41,28 @@ export default function ProductVerifyClient({ product, children }: ProductVerify
     recordProductScan();
   }, [product.id]);
 
+  function handleAcknowledge(alertId: string) {
+    acknowledgeAlert(alertId, 'public-viewer');
+    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+  }
+
+  function handleDismiss(alertId: string) {
+    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+  }
+
   return (
     <>
+      {/* Emergency alert banners — shown above everything else */}
+      {alerts.length > 0 && (
+        <div className="max-w-2xl mx-auto px-6 pt-4">
+          <EmergencyAlertBanner
+            alerts={alerts}
+            onAcknowledge={handleAcknowledge}
+            onDismiss={handleDismiss}
+          />
+        </div>
+      )}
+
       {/* RECALLED Banner for deactivated products */}
       {!product.active && (
         <div className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 mb-6 rounded-lg border-2 border-red-800">
