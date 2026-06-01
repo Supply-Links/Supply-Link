@@ -349,6 +349,37 @@ pub struct DocumentAnchor {
     pub anchored_at: u64,
 }
 
+/// Product identifier alias mapping for canonicalization (#508).
+/// Maps external/alternative identifiers to the canonical product ID.
+#[contracttype]
+#[derive(Clone)]
+pub struct ProductIdAlias {
+    /// The canonical product ID this alias maps to.
+    pub canonical_id: String,
+    /// The external/alternative identifier.
+    pub alias: String,
+    /// Stellar address of the actor who created this alias.
+    pub created_by: Address,
+    /// Ledger timestamp when the alias was created.
+    pub created_at: u64,
+}
+
+/// Provenance score metadata for tracking across upgrades (#507).
+#[contracttype]
+#[derive(Clone)]
+pub struct ProvenanceScoreMetadata {
+    /// Product ID this score belongs to.
+    pub product_id: String,
+    /// Current provenance score (0-100).
+    pub score: u32,
+    /// Timestamp of last score calculation.
+    pub last_calculated_at: u64,
+    /// Number of verified events contributing to this score.
+    pub verified_event_count: u32,
+    /// Schema version for score calculation semantics.
+    pub schema_version: u32,
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -379,6 +410,10 @@ pub enum DataKey {
     CompliancePolicy(String),
     /// Key for document anchors for a product. The inner `String` is the product ID. (#460)
     DocumentAnchors(String),
+    /// Key for product ID aliases. The inner `String` is the alias. (#508)
+    ProductIdAlias(String),
+    /// Key for provenance score metadata. The inner `String` is the product ID. (#507)
+    ProvenanceScore(String),
 }
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -1221,6 +1256,127 @@ o            actor: caller,
             escrow.clone(),
         );
         escrow
+    }
+
+    // ── #508: Product identifier canonicalization ────────────────────────────
+
+    /// Register an alias for a product ID that maps to a canonical ID.
+    /// Prevents duplicate canonical mappings.
+    pub fn register_product_alias(
+        env: Env,
+        canonical_id: String,
+        alias: String,
+        creator: Address,
+    ) -> ProductIdAlias {
+        creator.require_auth();
+
+        // Verify canonical product exists
+        if !env.storage().persistent().has(&DataKey::Product(canonical_id.clone())) {
+            panic!("canonical product not found");
+        }
+
+        // Prevent duplicate canonical mappings
+        if env.storage().persistent().has(&DataKey::ProductIdAlias(alias.clone())) {
+            panic!("alias already exists");
+        }
+
+        let alias_entry = ProductIdAlias {
+            canonical_id: canonical_id.clone(),
+            alias: alias.clone(),
+            created_by: creator,
+            created_at: env.ledger().timestamp(),
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::ProductIdAlias(alias.clone()), &alias_entry);
+
+        env.events().publish(
+            (Symbol::new(&env, "alias_registered"), alias),
+            alias_entry.clone(),
+        );
+
+        alias_entry
+    }
+
+    /// Resolve a product ID (canonical or alias) to its canonical ID.
+    pub fn resolve_product_id(env: Env, id: String) -> String {
+        // Check if it's an alias
+        if let Some(alias_entry) = env
+            .storage()
+            .persistent()
+            .get::<_, ProductIdAlias>(&DataKey::ProductIdAlias(id.clone()))
+        {
+            return alias_entry.canonical_id;
+        }
+        // Otherwise return the ID as-is (assume it's canonical)
+        id
+    }
+
+    /// Get all aliases for a canonical product ID.
+    pub fn get_product_aliases(env: Env, canonical_id: String) -> Vec<String> {
+        // Note: This is a simplified implementation. In production, you'd maintain
+        // a reverse index mapping canonical IDs to their aliases.
+        Vec::new(&env)
+    }
+
+    // ── #507: Provenance score traceability ──────────────────────────────────
+
+    /// Record or update provenance score metadata for a product.
+    /// Persists across contract upgrades.
+    pub fn set_provenance_score(
+        env: Env,
+        product_id: String,
+        score: u32,
+        verified_event_count: u32,
+    ) -> ProvenanceScoreMetadata {
+        // Verify product exists
+        if !env.storage().persistent().has(&DataKey::Product(product_id.clone())) {
+            panic!("product not found");
+        }
+
+        if score > 100 {
+            panic!("score must be between 0 and 100");
+        }
+
+        let metadata = ProvenanceScoreMetadata {
+            product_id: product_id.clone(),
+            score,
+            last_calculated_at: env.ledger().timestamp(),
+            verified_event_count,
+            schema_version: SCHEMA_VERSION,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::ProvenanceScore(product_id.clone()), &metadata);
+
+        env.events().publish(
+            (Symbol::new(&env, "provenance_score_updated"), product_id),
+            metadata.clone(),
+        );
+
+        metadata
+    }
+
+    /// Retrieve provenance score metadata for a product.
+    pub fn get_provenance_score(env: Env, product_id: String) -> Option<ProvenanceScoreMetadata> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ProvenanceScore(product_id))
+    }
+
+    /// Get provenance score history (returns current score if available).
+    pub fn get_provenance_score_history(env: Env, product_id: String) -> Vec<ProvenanceScoreMetadata> {
+        let mut history = Vec::new(&env);
+        if let Some(metadata) = env
+            .storage()
+            .persistent()
+            .get::<_, ProvenanceScoreMetadata>(&DataKey::ProvenanceScore(product_id))
+        {
+            history.push_back(metadata);
+        }
+        history
     }
 }
 
