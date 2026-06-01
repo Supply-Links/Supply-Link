@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useStore } from "@/lib/state/store";
-import { MOCK_PRODUCTS, MOCK_EVENTS } from "@/lib/mock/products";
+import { MOCK_PRODUCTS, MOCK_EVENTS, MOCK_RECALL_ALERTS, MOCK_CERTIFICATES, MOCK_REVOCATIONS } from "@/lib/mock/products";
 import type { EventType } from "@/lib/types";
 
 const CACHE_TTL_MS = 60_000; // 1 minute
@@ -25,8 +25,17 @@ export interface EventTypeCount {
 }
 
 export function useDashboardData() {
-  const { products, events, lastFetched, setProducts, setEvents, setLastFetched } =
-    useStore();
+  const {
+    products,
+    events,
+    lastFetched,
+    setProducts,
+    setEvents,
+    setLastFetched,
+    setRecallAlerts,
+    setCertificates,
+    setRevocations,
+  } = useStore();
 
   useEffect(() => {
     const now = Date.now();
@@ -35,8 +44,11 @@ export function useDashboardData() {
     // In production this would be replaced by real Soroban RPC calls.
     setProducts(MOCK_PRODUCTS);
     setEvents(MOCK_EVENTS);
+    setRecallAlerts(MOCK_RECALL_ALERTS);
+    setCertificates(MOCK_CERTIFICATES);
+    setRevocations(MOCK_REVOCATIONS);
     setLastFetched(now);
-  }, [lastFetched, setProducts, setEvents, setLastFetched]);
+  }, [lastFetched, setProducts, setEvents, setLastFetched, setRecallAlerts, setCertificates, setRevocations]);
 
   const now = Date.now();
   const oneDayAgo = now - 86_400_000;

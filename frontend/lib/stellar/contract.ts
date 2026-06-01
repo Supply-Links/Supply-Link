@@ -188,4 +188,136 @@ export const contractClient = {
     }
     throw new Error("Failed to get product count");
   },
+
+  // ── Emergency Alert / Recall ──────────────────────────────────────────────
+
+  async issueRecallAlert(
+    productId: string,
+    issuer: string,
+    severity: string,
+    title: string,
+    description: string,
+    channels: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "issue_recall_alert",
+      args: [productId, new Address(issuer), severity, title, description, channels],
+      callerAddress,
+    });
+  },
+
+  async resolveRecallAlert(
+    productId: string,
+    resolver: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "resolve_recall_alert",
+      args: [productId, new Address(resolver)],
+      callerAddress,
+    });
+  },
+
+  async getRecallAlert(productId: string, callerAddress: string): Promise<any | null> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_recall_alert",
+      args: [productId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) ?? null;
+    }
+    throw new Error("Failed to get recall alert");
+  },
+
+  async getRecallAlertHistory(productId: string, callerAddress: string): Promise<any[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_recall_alert_history",
+      args: [productId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) || [];
+    }
+    throw new Error("Failed to get recall alert history");
+  },
+
+  // ── Certificate & Revocation Registry ────────────────────────────────────
+
+  async issueCertificate(
+    certId: string,
+    productId: string,
+    issuer: string,
+    certType: string,
+    metadata: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "issue_certificate",
+      args: [certId, productId, new Address(issuer), certType, metadata],
+      callerAddress,
+    });
+  },
+
+  async revokeCertificate(
+    certId: string,
+    revoker: string,
+    reason: string,
+    callerAddress: string
+  ): Promise<string> {
+    return buildSignAndSubmitTransaction({
+      method: "revoke_certificate",
+      args: [certId, new Address(revoker), reason],
+      callerAddress,
+    });
+  },
+
+  async getCertificate(certId: string, callerAddress: string): Promise<any> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_certificate",
+      args: [certId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]);
+    }
+    throw new Error("Failed to get certificate");
+  },
+
+  async getProductCertificates(productId: string, callerAddress: string): Promise<any[]> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_product_certificates",
+      args: [productId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) || [];
+    }
+    throw new Error("Failed to get product certificates");
+  },
+
+  async getRevocation(certId: string, callerAddress: string): Promise<any | null> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "get_revocation",
+      args: [certId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) ?? null;
+    }
+    throw new Error("Failed to get revocation");
+  },
+
+  async isCertificateValid(certId: string, callerAddress: string): Promise<boolean> {
+    const simulated = await buildAndSimulateTransaction({
+      method: "is_certificate_valid",
+      args: [certId],
+      callerAddress,
+    });
+    if (SorobanRpc.isSimulationSuccess(simulated)) {
+      return scValToNative(simulated.results?.[0]) ?? false;
+    }
+    throw new Error("Failed to check certificate validity");
+  },
 };

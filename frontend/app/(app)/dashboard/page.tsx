@@ -14,6 +14,8 @@ import {
 } from "recharts";
 import { Package, Activity, CheckCircle, Clock } from "lucide-react";
 import { useDashboardData } from "@/lib/hooks/useDashboardData";
+import { RecallAlertBanner } from "@/components/alerts/RecallAlertBanner";
+import { useStore } from "@/lib/state/store";
 
 const PIE_COLORS: Record<string, string> = {
   HARVEST: "#22c55e",
@@ -46,10 +48,21 @@ function StatCard({
 
 export default function DashboardPage() {
   const { stats, dailyCounts, eventTypeCounts, recentEvents } = useDashboardData();
+  const recallAlerts = useStore((s) => s.recallAlerts);
+  const activeAlerts = recallAlerts.filter((a) => a.active);
 
   return (
     <main className="p-6 space-y-8 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Dashboard</h1>
+
+      {/* Active recall alert banners */}
+      {activeAlerts.length > 0 && (
+        <section aria-label="Active recall alerts">
+          {activeAlerts.map((alert, i) => (
+            <RecallAlertBanner key={i} alert={alert} dismissible />
+          ))}
+        </section>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

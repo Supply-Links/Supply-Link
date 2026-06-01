@@ -1,4 +1,4 @@
-import type { Product, TrackingEvent } from "@/lib/types";
+import type { Product, TrackingEvent, RecallAlert, Certificate, RevocationRecord } from "@/lib/types";
 
 export const MOCK_PRODUCTS: Product[] = [
   {
@@ -74,10 +74,78 @@ export const MOCK_EVENTS: TrackingEvent[] = [
   },
 ];
 
+/** Mock recall alerts — prod-001 has an active critical recall. */
+export const MOCK_RECALL_ALERTS: RecallAlert[] = [
+  {
+    productId: "prod-001",
+    issuer: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    severity: "CRITICAL",
+    title: "Contamination Risk — Batch #ETH-2024-03",
+    description:
+      "Lab testing has identified potential allergen cross-contamination in batch #ETH-2024-03. All downstream stakeholders must halt distribution immediately.",
+    timestamp: 1710700000000,
+    channels: "banner,email,webhook",
+    active: true,
+  },
+];
+
+/** Mock certificates — prod-001 has an organic cert (valid) and a fair-trade cert (revoked). */
+export const MOCK_CERTIFICATES: Certificate[] = [
+  {
+    certId: "cert-001-organic",
+    productId: "prod-001",
+    issuer: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    issuedAt: 1710050000000,
+    certType: "ORGANIC",
+    metadata: JSON.stringify({ body: "USDA Organic", standard: "NOP" }),
+    revoked: false,
+  },
+  {
+    certId: "cert-001-fairtrade",
+    productId: "prod-001",
+    issuer: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    issuedAt: 1710060000000,
+    certType: "FAIR_TRADE",
+    metadata: JSON.stringify({ body: "Fairtrade International", license: "FLO-12345" }),
+    revoked: true,
+  },
+  {
+    certId: "cert-002-organic",
+    productId: "prod-002",
+    issuer: "GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    issuedAt: 1711050000000,
+    certType: "ORGANIC",
+    metadata: JSON.stringify({ body: "EU Organic", standard: "EC 834/2007" }),
+    revoked: false,
+  },
+];
+
+/** Mock revocation records. */
+export const MOCK_REVOCATIONS: RevocationRecord[] = [
+  {
+    certId: "cert-001-fairtrade",
+    revoker: "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    revokedAt: 1710650000000,
+    reason: "Supplier failed annual audit — license suspended by Fairtrade International.",
+  },
+];
+
 export function getProductById(id: string): Product | undefined {
   return MOCK_PRODUCTS.find((p) => p.id === id);
 }
 
 export function getEventsByProductId(id: string): TrackingEvent[] {
   return MOCK_EVENTS.filter((e) => e.productId === id);
+}
+
+export function getActiveAlertByProductId(id: string): RecallAlert | undefined {
+  return MOCK_RECALL_ALERTS.find((a) => a.productId === id && a.active);
+}
+
+export function getCertificatesByProductId(id: string): Certificate[] {
+  return MOCK_CERTIFICATES.filter((c) => c.productId === id);
+}
+
+export function getRevocationByCertId(certId: string): RevocationRecord | undefined {
+  return MOCK_REVOCATIONS.find((r) => r.certId === certId);
 }

@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getProductById } from "@/lib/mock/products";
+import { getProductById, getActiveAlertByProductId, getCertificatesByProductId, getRevocationByCertId } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
 import { AuthorizedActorsPanel } from "@/components/products/AuthorizedActorsPanel";
+import { RecallAlertBanner } from "@/components/alerts/RecallAlertBanner";
+import { AlertsPanel } from "@/components/alerts/AlertsPanel";
+import { CertificatesPanel } from "@/components/certificates/CertificatesPanel";
 
 interface Props {
   params: { id: string };
@@ -15,11 +18,23 @@ export default function ProductDetailPage({ params }: Props) {
   const p = product!;
   const registeredAt = new Date(p.timestamp).toLocaleString();
 
+  const activeAlert = getActiveAlertByProductId(p.id);
+  const certificates = getCertificatesByProductId(p.id);
+  const revocations = certificates
+    .filter((c) => c.revoked)
+    .map((c) => getRevocationByCertId(c.certId))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
+
   return (
     <main className="p-8 max-w-3xl mx-auto">
       <Link href="/products" className="text-sm text-[var(--muted)] hover:underline mb-6 inline-block">
         ← Back to Products
       </Link>
+
+      {/* Active recall alert banner — shown prominently at the top */}
+      {activeAlert && (
+        <RecallAlertBanner alert={activeAlert} />
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 mb-8">
         <div>
@@ -46,6 +61,25 @@ export default function ProductDetailPage({ params }: Props) {
             <dd className="font-mono text-xs mt-0.5 break-all text-[var(--foreground)]">{p.owner}</dd>
           </div>
         </dl>
+      </section>
+
+      {/* Recall Alerts */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Recall Alerts</h2>
+        <AlertsPanel
+          productId={p.id}
+          alerts={activeAlert ? [activeAlert] : []}
+        />
+      </section>
+
+      {/* Certificates & Revocations */}
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 mb-6">
+        <h2 className="text-base font-semibold mb-4 text-[var(--foreground)]">Certificates</h2>
+        <CertificatesPanel
+          productId={p.id}
+          certificates={certificates}
+          revocations={revocations}
+        />
       </section>
 
       {/* Authorized Actors */}

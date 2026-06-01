@@ -25,6 +25,56 @@ pub struct TrackingEvent {
     pub metadata: String,   // JSON string
 }
 
+/// Severity level for a recall / safety alert.
+/// Stored as a u32 to keep the contract type simple.
+/// 0 = LOW, 1 = MEDIUM, 2 = HIGH, 3 = CRITICAL
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum AlertSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// An emergency recall or safety alert attached to a product.
+#[contracttype]
+#[derive(Clone)]
+pub struct RecallAlert {
+    pub product_id: String,
+    pub issuer: Address,
+    pub severity: AlertSeverity,
+    pub title: String,
+    pub description: String,
+    pub timestamp: u64,
+    /// Comma-separated distribution channels: "email,webhook,banner"
+    pub channels: String,
+    pub active: bool,
+}
+
+/// A certificate or attestation reference that can be revoked.
+#[contracttype]
+#[derive(Clone)]
+pub struct Certificate {
+    pub cert_id: String,
+    pub product_id: String,
+    pub issuer: Address,
+    pub issued_at: u64,
+    pub cert_type: String, // e.g. "ORGANIC" | "FAIR_TRADE" | "ISO9001"
+    pub metadata: String,  // JSON string with additional details
+    pub revoked: bool,
+}
+
+/// A revocation record written when a certificate is revoked.
+#[contracttype]
+#[derive(Clone)]
+pub struct RevocationRecord {
+    pub cert_id: String,
+    pub revoker: Address,
+    pub revoked_at: u64,
+    pub reason: String,
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -33,6 +83,16 @@ pub enum DataKey {
     Events(String),
     ProductCount,
     ProductIndex(u64),
+    /// Active recall alert for a product (one active alert per product)
+    RecallAlert(String),
+    /// All recall alerts ever issued for a product (history)
+    RecallAlertHistory(String),
+    /// Certificate by cert_id
+    Certificate(String),
+    /// All cert_ids issued for a product
+    ProductCerts(String),
+    /// Revocation record by cert_id
+    Revocation(String),
 }
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -321,6 +381,278 @@ impl SupplyLinkContract {
         }
         
         products
+    }
+
+    // ── Emergency Alert / Recall methods ─────────────────────────────────────
+
+    /// Issue a recall or safety alert for a product.
+    /// Only the product owner or an authorized actor may issue an alert.
+    /// Replaces any previously active alert for the product.
+    pub fn issue_recall_alert(
+        env: Env,
+        product_id: String,
+        issuer: Address,
+        severity: AlertSeverity,
+        title: String,
+        description: String,
+        channels: String,
+    ) -> RecallAlert {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        let is_owner = product.owner == issuer;
+        let is_actor = product.authorized_actors.contains(&issuer);
+        if !is_owner && !is_actor {
+            panic!("caller is not authorized to issue alerts");
+        }
+        issuer.require_auth();
+
+        let alert = RecallAlert {
+            product_id: product_id.clone(),
+            issuer: issuer.clone(),
+            severity: severity.clone(),
+            title: title.clone(),
+            description,
+            timestamp: env.ledger().timestamp(),
+            channels,
+            active: true,
+        };
+
+        // Store as the current active alert
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecallAlert(product_id.clone()), &alert);
+
+        // Append to history
+        let mut history: Vec<RecallAlert> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RecallAlertHistory(product_id.clone()))
+            .unwrap_or_else(|| Vec::new(&env));
+        history.push_back(alert.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecallAlertHistory(product_id.clone()), &history);
+
+        // Emit event
+        env.events().publish(
+            (Symbol::new(&env, "recall_issued"), product_id, title),
+            alert.clone(),
+        );
+
+        alert
+    }
+
+    /// Resolve (deactivate) the active recall alert for a product.
+    /// Only the product owner may resolve an alert.
+    pub fn resolve_recall_alert(env: Env, product_id: String, resolver: Address) -> bool {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+        if product.owner != resolver {
+            panic!("only the product owner can resolve alerts");
+        }
+
+        let mut alert: RecallAlert = env
+            .storage()
+            .persistent()
+            .get(&DataKey::RecallAlert(product_id.clone()))
+            .expect("no active alert found");
+
+        alert.active = false;
+        env.storage()
+            .persistent()
+            .set(&DataKey::RecallAlert(product_id.clone()), &alert);
+
+        env.events().publish(
+            (Symbol::new(&env, "recall_resolved"), product_id),
+            resolver,
+        );
+
+        true
+    }
+
+    /// Get the current (most recently issued) recall alert for a product.
+    /// Returns None if no alert has been issued.
+    pub fn get_recall_alert(env: Env, product_id: String) -> Option<RecallAlert> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::RecallAlert(product_id))
+    }
+
+    /// Get the full recall alert history for a product.
+    pub fn get_recall_alert_history(env: Env, product_id: String) -> Vec<RecallAlert> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::RecallAlertHistory(product_id))
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    // ── Certificate & Revocation Registry methods ─────────────────────────────
+
+    /// Issue a certificate or attestation for a product.
+    /// Only the product owner or an authorized actor may issue certificates.
+    pub fn issue_certificate(
+        env: Env,
+        cert_id: String,
+        product_id: String,
+        issuer: Address,
+        cert_type: String,
+        metadata: String,
+    ) -> Certificate {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        let is_owner = product.owner == issuer;
+        let is_actor = product.authorized_actors.contains(&issuer);
+        if !is_owner && !is_actor {
+            panic!("caller is not authorized to issue certificates");
+        }
+        issuer.require_auth();
+
+        // Prevent duplicate cert IDs
+        if env.storage().persistent().has(&DataKey::Certificate(cert_id.clone())) {
+            panic!("certificate ID already exists");
+        }
+
+        let cert = Certificate {
+            cert_id: cert_id.clone(),
+            product_id: product_id.clone(),
+            issuer,
+            issued_at: env.ledger().timestamp(),
+            cert_type: cert_type.clone(),
+            metadata,
+            revoked: false,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Certificate(cert_id.clone()), &cert);
+
+        // Track cert IDs per product
+        let mut cert_ids: Vec<String> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ProductCerts(product_id.clone()))
+            .unwrap_or_else(|| Vec::new(&env));
+        cert_ids.push_back(cert_id.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::ProductCerts(product_id.clone()), &cert_ids);
+
+        env.events().publish(
+            (Symbol::new(&env, "cert_issued"), product_id, cert_type),
+            cert.clone(),
+        );
+
+        cert
+    }
+
+    /// Revoke a certificate. Only the original issuer or the product owner may revoke.
+    pub fn revoke_certificate(
+        env: Env,
+        cert_id: String,
+        revoker: Address,
+        reason: String,
+    ) -> RevocationRecord {
+        let mut cert: Certificate = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Certificate(cert_id.clone()))
+            .expect("certificate not found");
+
+        if cert.revoked {
+            panic!("certificate is already revoked");
+        }
+
+        // Verify revoker is the issuer or the product owner
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(cert.product_id.clone()))
+            .expect("product not found");
+
+        let is_issuer = cert.issuer == revoker;
+        let is_owner = product.owner == revoker;
+        if !is_issuer && !is_owner {
+            panic!("caller is not authorized to revoke this certificate");
+        }
+        revoker.require_auth();
+
+        cert.revoked = true;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Certificate(cert_id.clone()), &cert);
+
+        let record = RevocationRecord {
+            cert_id: cert_id.clone(),
+            revoker,
+            revoked_at: env.ledger().timestamp(),
+            reason,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Revocation(cert_id.clone()), &record);
+
+        env.events().publish(
+            (Symbol::new(&env, "cert_revoked"), cert_id, cert.product_id),
+            record.clone(),
+        );
+
+        record
+    }
+
+    /// Get a certificate by its ID.
+    pub fn get_certificate(env: Env, cert_id: String) -> Certificate {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Certificate(cert_id))
+            .expect("certificate not found")
+    }
+
+    /// Get all certificates issued for a product.
+    pub fn get_product_certificates(env: Env, product_id: String) -> Vec<Certificate> {
+        let cert_ids: Vec<String> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ProductCerts(product_id))
+            .unwrap_or_else(|| Vec::new(&env));
+
+        let mut certs = Vec::new(&env);
+        for i in 0..cert_ids.len() {
+            let cert_id = cert_ids.get(i).unwrap();
+            if let Some(cert) = env.storage().persistent().get::<DataKey, Certificate>(&DataKey::Certificate(cert_id)) {
+                certs.push_back(cert);
+            }
+        }
+        certs
+    }
+
+    /// Get the revocation record for a certificate, if it has been revoked.
+    pub fn get_revocation(env: Env, cert_id: String) -> Option<RevocationRecord> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Revocation(cert_id))
+    }
+
+    /// Returns true if the certificate exists and has NOT been revoked.
+    pub fn is_certificate_valid(env: Env, cert_id: String) -> bool {
+        env.storage()
+            .persistent()
+            .get::<DataKey, Certificate>(&DataKey::Certificate(cert_id))
+            .map(|c| !c.revoked)
+            .unwrap_or(false)
     }
 }
 
@@ -1069,5 +1401,341 @@ mod tests {
         assert_eq!(actors.get(0).unwrap(), actor1);
         assert_eq!(actors.get(1).unwrap(), actor2);
         assert_eq!(actors.get(2).unwrap(), actor3);
+    }
+
+    // ── Emergency Alert / Recall tests ───────────────────────────────────────
+
+    /// Alert: owner can issue a recall alert and it is stored as active
+    #[test]
+    fn test_issue_recall_alert_by_owner() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let alert = client.issue_recall_alert(
+            &product_id,
+            &owner,
+            &AlertSeverity::Critical,
+            &String::from_str(&env, "Contamination Risk"),
+            &String::from_str(&env, "Batch may contain allergens"),
+            &String::from_str(&env, "banner,email"),
+        );
+
+        assert!(alert.active);
+        assert_eq!(alert.product_id, product_id);
+        assert_eq!(alert.severity, AlertSeverity::Critical);
+    }
+
+    /// Alert: get_recall_alert returns the stored alert
+    #[test]
+    fn test_get_recall_alert_returns_stored() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        client.issue_recall_alert(
+            &product_id,
+            &owner,
+            &AlertSeverity::High,
+            &String::from_str(&env, "Safety Notice"),
+            &String::from_str(&env, "Potential defect"),
+            &String::from_str(&env, "banner"),
+        );
+
+        let stored = client.get_recall_alert(&product_id);
+        assert!(stored.is_some());
+        let alert = stored.unwrap();
+        assert!(alert.active);
+        assert_eq!(alert.severity, AlertSeverity::High);
+    }
+
+    /// Alert: no alert returns None
+    #[test]
+    fn test_get_recall_alert_returns_none_when_absent() {
+        let (env, contract_id, _owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let result = client.get_recall_alert(&product_id);
+        assert!(result.is_none());
+    }
+
+    /// Alert: owner can resolve an active alert
+    #[test]
+    fn test_resolve_recall_alert() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        client.issue_recall_alert(
+            &product_id,
+            &owner,
+            &AlertSeverity::Medium,
+            &String::from_str(&env, "Minor Issue"),
+            &String::from_str(&env, "Under investigation"),
+            &String::from_str(&env, "banner"),
+        );
+
+        let resolved = client.resolve_recall_alert(&product_id, &owner);
+        assert!(resolved);
+
+        let stored = client.get_recall_alert(&product_id).unwrap();
+        assert!(!stored.active);
+    }
+
+    /// Alert: history accumulates multiple alerts
+    #[test]
+    fn test_recall_alert_history_accumulates() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        for _ in 0..3 {
+            client.issue_recall_alert(
+                &product_id,
+                &owner,
+                &AlertSeverity::Low,
+                &String::from_str(&env, "Notice"),
+                &String::from_str(&env, "Details"),
+                &String::from_str(&env, "banner"),
+            );
+        }
+
+        let history = client.get_recall_alert_history(&product_id);
+        assert_eq!(history.len(), 3);
+    }
+
+    /// Alert: authorized actor (not owner) can also issue an alert
+    #[test]
+    fn test_authorized_actor_can_issue_alert() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(SupplyLinkContract, ());
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let owner = soroban_sdk::Address::generate(&env);
+        let actor = soroban_sdk::Address::generate(&env);
+        let product_id = String::from_str(&env, "prod-actor-alert");
+
+        client.register_product(
+            &product_id,
+            &String::from_str(&env, "Widget"),
+            &String::from_str(&env, "Factory"),
+            &owner,
+        );
+        client.add_authorized_actor(&product_id, &actor);
+
+        let alert = client.issue_recall_alert(
+            &product_id,
+            &actor,
+            &AlertSeverity::Critical,
+            &String::from_str(&env, "Urgent Recall"),
+            &String::from_str(&env, "Immediate action required"),
+            &String::from_str(&env, "banner,webhook"),
+        );
+        assert!(alert.active);
+        assert_eq!(alert.issuer, actor);
+    }
+
+    // ── Certificate & Revocation tests ───────────────────────────────────────
+
+    /// Cert: owner can issue a certificate
+    #[test]
+    fn test_issue_certificate_by_owner() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        let cert = client.issue_certificate(
+            &String::from_str(&env, "cert-001"),
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+
+        assert!(!cert.revoked);
+        assert_eq!(cert.cert_type, String::from_str(&env, "ORGANIC"));
+    }
+
+    /// Cert: is_certificate_valid returns true for a fresh certificate
+    #[test]
+    fn test_certificate_valid_after_issue() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-valid-001");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "FAIR_TRADE"),
+            &String::from_str(&env, "{}"),
+        );
+
+        assert!(client.is_certificate_valid(&cert_id));
+    }
+
+    /// Cert: is_certificate_valid returns false for unknown cert
+    #[test]
+    fn test_certificate_valid_returns_false_for_unknown() {
+        let (env, contract_id, _owner, _product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        assert!(!client.is_certificate_valid(&String::from_str(&env, "nonexistent")));
+    }
+
+    /// Cert: owner can revoke a certificate
+    #[test]
+    fn test_revoke_certificate_by_owner() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-revoke-001");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ISO9001"),
+            &String::from_str(&env, "{}"),
+        );
+
+        let record = client.revoke_certificate(
+            &cert_id,
+            &owner,
+            &String::from_str(&env, "Standards no longer met"),
+        );
+
+        assert_eq!(record.cert_id, cert_id);
+        assert!(!client.is_certificate_valid(&cert_id));
+    }
+
+    /// Cert: revoked certificate shows revoked=true in get_certificate
+    #[test]
+    fn test_get_certificate_shows_revoked_status() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-status-001");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+        client.revoke_certificate(
+            &cert_id,
+            &owner,
+            &String::from_str(&env, "Audit failed"),
+        );
+
+        let cert = client.get_certificate(&cert_id);
+        assert!(cert.revoked);
+    }
+
+    /// Cert: get_revocation returns the revocation record
+    #[test]
+    fn test_get_revocation_returns_record() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-rev-record-001");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "FAIR_TRADE"),
+            &String::from_str(&env, "{}"),
+        );
+        client.revoke_certificate(
+            &cert_id,
+            &owner,
+            &String::from_str(&env, "Supplier delisted"),
+        );
+
+        let record = client.get_revocation(&cert_id);
+        assert!(record.is_some());
+        let r = record.unwrap();
+        assert_eq!(r.cert_id, cert_id);
+        assert_eq!(r.reason, String::from_str(&env, "Supplier delisted"));
+    }
+
+    /// Cert: get_revocation returns None for non-revoked cert
+    #[test]
+    fn test_get_revocation_returns_none_for_valid_cert() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-no-rev-001");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+
+        assert!(client.get_revocation(&cert_id).is_none());
+    }
+
+    /// Cert: get_product_certificates returns all certs for a product
+    #[test]
+    fn test_get_product_certificates_returns_all() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+
+        client.issue_certificate(
+            &String::from_str(&env, "cert-a"),
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+        client.issue_certificate(
+            &String::from_str(&env, "cert-b"),
+            &product_id,
+            &owner,
+            &String::from_str(&env, "FAIR_TRADE"),
+            &String::from_str(&env, "{}"),
+        );
+
+        let certs = client.get_product_certificates(&product_id);
+        assert_eq!(certs.len(), 2);
+    }
+
+    /// Cert: duplicate cert_id panics
+    #[test]
+    #[should_panic(expected = "certificate ID already exists")]
+    fn test_duplicate_cert_id_panics() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-dup");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+        // Second call with same cert_id must panic
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+    }
+
+    /// Cert: revoking an already-revoked cert panics
+    #[test]
+    #[should_panic(expected = "certificate is already revoked")]
+    fn test_double_revoke_panics() {
+        let (env, contract_id, owner, product_id) = setup();
+        let client = SupplyLinkContractClient::new(&env, &contract_id);
+        let cert_id = String::from_str(&env, "cert-double-rev");
+
+        client.issue_certificate(
+            &cert_id,
+            &product_id,
+            &owner,
+            &String::from_str(&env, "ORGANIC"),
+            &String::from_str(&env, "{}"),
+        );
+        client.revoke_certificate(&cert_id, &owner, &String::from_str(&env, "First revocation"));
+        client.revoke_certificate(&cert_id, &owner, &String::from_str(&env, "Second revocation"));
     }
 }

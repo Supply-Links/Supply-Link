@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product, TrackingEvent } from "../types";
+import type { Product, TrackingEvent, RecallAlert, Certificate, RevocationRecord } from "../types";
 import { isConnected } from "@stellar/freighter-api";
 
 interface SupplyLinkStore {
@@ -16,6 +16,11 @@ interface SupplyLinkStore {
   eventPage: number;
   eventPageSize: number;
   eventTotal: number;
+  // Alert state
+  recallAlerts: RecallAlert[];
+  // Certificate / revocation state
+  certificates: Certificate[];
+  revocations: RevocationRecord[];
   setWalletAddress: (address: string | null) => void;
   setXlmBalance: (balance: string | null) => void;
   setNetworkMismatch: (mismatch: boolean) => void;
@@ -33,11 +38,22 @@ interface SupplyLinkStore {
   setEventPageSize: (size: number) => void;
   setEventTotal: (total: number) => void;
   disconnect: () => void;
+  // Alert actions
+  addRecallAlert: (alert: RecallAlert) => void;
+  resolveRecallAlert: (productId: string) => void;
+  setRecallAlerts: (alerts: RecallAlert[]) => void;
+  getActiveAlertForProduct: (productId: string) => RecallAlert | undefined;
+  // Certificate / revocation actions
+  addCertificate: (cert: Certificate) => void;
+  setCertificates: (certs: Certificate[]) => void;
+  addRevocation: (record: RevocationRecord) => void;
+  setRevocations: (records: RevocationRecord[]) => void;
+  revokeCertificateInStore: (certId: string, record: RevocationRecord) => void;
 }
 
 export const useStore = create<SupplyLinkStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       products: [],
       events: [],
       walletAddress: null,
@@ -50,6 +66,9 @@ export const useStore = create<SupplyLinkStore>()(
       eventPage: 0,
       eventPageSize: 20,
       eventTotal: 0,
+      recallAlerts: [],
+      certificates: [],
+      revocations: [],
       setWalletAddress: (address) => set({ walletAddress: address }),
       setXlmBalance: (balance) => set({ xlmBalance: balance }),
       setNetworkMismatch: (mismatch) => set({ networkMismatch: mismatch }),
@@ -87,6 +106,38 @@ export const useStore = create<SupplyLinkStore>()(
           productPage: 0,
           eventPage: 0,
         }),
+      // Alert actions
+      addRecallAlert: (alert) =>
+        set((state) => ({
+          // Replace existing alert for same product, then prepend new one
+          recallAlerts: [
+            alert,
+            ...state.recallAlerts.filter((a) => a.productId !== alert.productId),
+          ],
+        })),
+      resolveRecallAlert: (productId) =>
+        set((state) => ({
+          recallAlerts: state.recallAlerts.map((a) =>
+            a.productId === productId ? { ...a, active: false } : a
+          ),
+        })),
+      setRecallAlerts: (alerts) => set({ recallAlerts: alerts }),
+      getActiveAlertForProduct: (productId) =>
+        get().recallAlerts.find((a) => a.productId === productId && a.active),
+      // Certificate / revocation actions
+      addCertificate: (cert) =>
+        set((state) => ({ certificates: [...state.certificates, cert] })),
+      setCertificates: (certs) => set({ certificates: certs }),
+      addRevocation: (record) =>
+        set((state) => ({ revocations: [...state.revocations, record] })),
+      setRevocations: (records) => set({ revocations: records }),
+      revokeCertificateInStore: (certId, record) =>
+        set((state) => ({
+          certificates: state.certificates.map((c) =>
+            c.certId === certId ? { ...c, revoked: true } : c
+          ),
+          revocations: [...state.revocations, record],
+        })),
     }),
     {
       name: "supply-link-store",
