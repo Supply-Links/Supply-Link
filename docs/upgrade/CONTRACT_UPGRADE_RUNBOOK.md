@@ -90,6 +90,29 @@ SOURCE=$SOURCE bash smart-contract/scripts/deploy.sh
 export NEW_CONTRACT=<printed-address>
 ```
 
+### 2.1.1 Authorize the new contract on the live contract
+
+Before the new contract becomes the active target for clients, register the new
+contract address with the existing live contract and emit an on-chain authorization
+record. This establishes a permissioned upgrade path and lets clients verify that
+`NEW_CONTRACT` was explicitly approved by an upgrade guardian.
+
+> Call from an authorized guardian address:
+> - `authorize_contract_upgrade(NEW_CONTRACT)`
+
+You can run this through the supplied script:
+
+```bash
+NETWORK=testnet \
+  SOURCE=<guardian-alias> \
+  CONTRACT_ID=$OLD_CONTRACT \
+  NEW_CONTRACT=$NEW_CONTRACT \
+  bash smart-contract/scripts/authorize_upgrade.sh
+```
+
+If your front-end or indexer supports it, verify `is_contract_upgrade_authorized(
+NEW_CONTRACT)` before switching the active contract address.
+
 ### 2.2 Migrate state
 
 ```bash
