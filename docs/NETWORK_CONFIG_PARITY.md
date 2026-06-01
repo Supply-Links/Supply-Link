@@ -85,6 +85,11 @@ Set the variable to `testnet` or `mainnet` in your deployment environment and re
 
 Verify the contract address was copied correctly from the deployment output. It must be exactly 56 characters starting with `C`. Re-run `bash scripts/deploy.sh` if needed and copy the output address.
 
+When upgrading contracts, also confirm the new contract address is explicitly authorized by the live contract's upgrade guardian list. If the live contract implements `is_contract_upgrade_authorized`, the address should return `true` before you switch `NEXT_PUBLIC_CONTRACT_ID`.
+
+If your frontend uses the contract client, validate this on the new address before connecting:
+`contractClient.isContractUpgradeAuthorized(newContractId, callerAddress)`.
+
 ### RPC hostname mismatch
 
 Ensure `NEXT_PUBLIC_RPC_URL` (if set) matches the declared network:

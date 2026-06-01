@@ -14,3 +14,6 @@ stellar contract deploy \
   --wasm "$WASM" \
   --network "$NETWORK" \
   --source "$SOURCE"
+
+echo "Deploy complete. If this is a new upgrade target, authorize it on the live contract before switching clients:"
+echo "  NETWORK=$NETWORK SOURCE=$SOURCE CONTRACT_ID=\$OLD_CONTRACT NEW_CONTRACT=\$NEW_CONTRACT bash smart-contract/scripts/authorize_upgrade.sh"

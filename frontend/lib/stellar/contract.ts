@@ -435,6 +435,104 @@ export const contractClient = {
     });
   },
 
+  async registerUpgradeGuardian(guardian: string, callerAddress: string): Promise<string> {
+    return withContractWriteRetry(() =>
+      buildSignAndSubmitTransaction({
+        method: 'register_upgrade_guardian',
+        args: [new Address(guardian)],
+        callerAddress,
+      }),
+    );
+  },
+
+  async revokeUpgradeGuardian(guardian: string, callerAddress: string): Promise<string> {
+    return withContractWriteRetry(() =>
+      buildSignAndSubmitTransaction({
+        method: 'revoke_upgrade_guardian',
+        args: [new Address(guardian)],
+        callerAddress,
+      }),
+    );
+  },
+
+  async authorizeContractUpgrade(contractId: string, callerAddress: string): Promise<string> {
+    return withContractWriteRetry(() =>
+      buildSignAndSubmitTransaction({
+        method: 'authorize_contract_upgrade',
+        args: [new Address(contractId)],
+        callerAddress,
+      }),
+    );
+  },
+
+  async revokeContractUpgrade(contractId: string, callerAddress: string): Promise<string> {
+    return withContractWriteRetry(() =>
+      buildSignAndSubmitTransaction({
+        method: 'revoke_contract_upgrade',
+        args: [new Address(contractId)],
+        callerAddress,
+      }),
+    );
+  },
+
+  async getUpgradeGuardians(callerAddress: string): Promise<string[]> {
+    return withContractRetry(async () => {
+      const simulated = await buildAndSimulateTransaction({
+        method: 'get_upgrade_guardians',
+        args: [],
+        callerAddress,
+      });
+      if (rpc.Api.isSimulationSuccess(simulated)) {
+        recordDependency('soroban-rpc', true);
+        return scValToNative(simulated.result!.retval) || [];
+      }
+      throw new Error('Failed to get upgrade guardians');
+    }).catch((err) => {
+      recordDependency('soroban-rpc', false);
+      throw err;
+    });
+  },
+
+  async getAuthorizedContractUpgrades(callerAddress: string): Promise<string[]> {
+    return withContractRetry(async () => {
+      const simulated = await buildAndSimulateTransaction({
+        method: 'get_authorized_contract_upgrades',
+        args: [],
+        callerAddress,
+      });
+      if (rpc.Api.isSimulationSuccess(simulated)) {
+        recordDependency('soroban-rpc', true);
+        return scValToNative(simulated.result!.retval) || [];
+      }
+      throw new Error('Failed to get authorized contract upgrades');
+    }).catch((err) => {
+      recordDependency('soroban-rpc', false);
+      throw err;
+    });
+  },
+
+  async isContractUpgradeAuthorized(contractId: string, callerAddress: string): Promise<boolean> {
+    return withContractRetry(async () => {
+      const simulated = await buildAndSimulateTransaction({
+        method: 'is_contract_upgrade_authorized',
+        args: [new Address(contractId)],
+        callerAddress,
+      });
+      if (rpc.Api.isSimulationSuccess(simulated)) {
+        recordDependency('soroban-rpc', true);
+        return Boolean(scValToNative(simulated.result!.retval));
+      }
+      throw new Error('Failed to verify contract upgrade authorization');
+    }).catch((err) => {
+      recordDependency('soroban-rpc', false);
+      throw err;
+    });
+  },
+
+  async validateContractUpgradeTarget(contractId: string, callerAddress: string): Promise<boolean> {
+    return contractClient.isContractUpgradeAuthorized(contractId, callerAddress);
+  },
+
   async getProvenanceRoot(productId: string, callerAddress: string): Promise<Uint8Array> {
     const simulated = await buildAndSimulateTransaction({
       method: 'get_provenance_root',

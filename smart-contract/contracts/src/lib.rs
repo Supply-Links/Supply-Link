@@ -35,6 +35,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Address, 
 pub const EVENT_SCHEMA_VERSION: u32 = 2;
 
 mod tests;
+mod upgrade_tests;
 mod resilience_tests;
 mod compliance_tests;
 mod archival_tests;
@@ -355,6 +356,21 @@ pub struct Auditor {
     pub active: bool,
     /// Ledger timestamp when the auditor was registered.
     pub registered_at: u64,
+}
+
+/// A contract upgrade authorization record that is emitted whenever an upgrade
+/// target is approved or revoked by an upgrade guardian.
+#[contracttype]
+#[derive(Clone)]
+pub struct ContractUpgradeAuthorization {
+    /// The approved contract address.
+    pub contract_id: Address,
+    /// Guardian address that approved or revoked the upgrade.
+    pub guardian: Address,
+    /// Ledger timestamp when the action occurred.
+    pub timestamp: u64,
+    /// Whether the contract address was authorized (`true`) or revoked (`false`).
+    pub authorized: bool,
 }
 
 /// A signed attestation from a registered auditor for a product event or product.
@@ -1684,6 +1700,196 @@ o            actor: caller,
             paused,
         );
         paused
+    }
+
+    fn require_admin(env: &Env) -> Address {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Admin)
+            .expect("admin not initialized")
+    }
+
+    fn is_upgrade_guardian_internal(env: &Env, guardian: Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::UpgradeGuardian(guardian))
+            .unwrap_or(false)
+    }
+
+    pub fn register_upgrade_guardian(env: Env, guardian: Address) -> bool {
+        let admin = Self::require_admin(&env);
+        admin.require_auth();
+
+        if Self::is_upgrade_guardian_internal(&env, guardian.clone()) {
+            panic!("guardian already registered");
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::UpgradeGuardian(guardian.clone()), &true);
+
+        let mut guardians: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::UpgradeGuardians)
+            .unwrap_or_else(|| Vec::new(&env));
+        guardians.push_back(guardian.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::UpgradeGuardians, &guardians);
+
+        env.events().publish(
+            (Symbol::new(&env, "upgrade_guardian_registered"),),
+            guardian,
+        );
+        true
+    }
+
+    pub fn revoke_upgrade_guardian(env: Env, guardian: Address) -> bool {
+        let admin = Self::require_admin(&env);
+        admin.require_auth();
+
+        if !Self::is_upgrade_guardian_internal(&env, guardian.clone()) {
+            panic!("guardian not registered");
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::UpgradeGuardian(guardian.clone()), &false);
+
+        let guardians: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::UpgradeGuardians)
+            .unwrap_or_else(|| Vec::new(&env));
+        let mut remaining = Vec::new(&env);
+        for i in 0..guardians.len() {
+            let current = guardians.get(i).unwrap();
+            if current != &guardian {
+                remaining.push_back(current.clone());
+            }
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::UpgradeGuardians, &remaining);
+
+        env.events().publish(
+            (Symbol::new(&env, "upgrade_guardian_revoked"),),
+            guardian,
+        );
+        true
+    }
+
+    pub fn get_upgrade_guardians(env: Env) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::UpgradeGuardians)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    pub fn is_upgrade_guardian(env: Env, guardian: Address) -> bool {
+        Self::is_upgrade_guardian_internal(&env, guardian)
+    }
+
+    pub fn authorize_contract_upgrade(env: Env, guardian: Address, new_contract_id: Address) -> bool {
+        guardian.require_auth();
+        if !Self::is_upgrade_guardian_internal(&env, guardian.clone()) {
+            panic!("guardian is not authorized");
+        }
+
+        let already_authorized: bool = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AuthorizedUpgrade(new_contract_id.clone()))
+            .unwrap_or(false);
+        if already_authorized {
+            return true;
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::AuthorizedUpgrade(new_contract_id.clone()), &true);
+        let mut targets: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AuthorizedUpgradeTargets)
+            .unwrap_or_else(|| Vec::new(&env));
+        targets.push_back(new_contract_id.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::AuthorizedUpgradeTargets, &targets);
+
+        env.events().publish(
+            (Symbol::new(&env, "contract_upgrade_authorized"),),
+            ContractUpgradeAuthorization {
+                contract_id: new_contract_id,
+                guardian,
+                timestamp: env.ledger().timestamp(),
+                authorized: true,
+            },
+        );
+        true
+    }
+
+    pub fn revoke_contract_upgrade(env: Env, guardian: Address, contract_id: Address) -> bool {
+        guardian.require_auth();
+        if !Self::is_upgrade_guardian_internal(&env, guardian.clone()) {
+            panic!("guardian is not authorized");
+        }
+
+        if !env
+            .storage()
+            .persistent()
+            .get(&DataKey::AuthorizedUpgrade(contract_id.clone()))
+            .unwrap_or(false)
+        {
+            panic!("contract upgrade target not authorized");
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::AuthorizedUpgrade(contract_id.clone()), &false);
+
+        let targets: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AuthorizedUpgradeTargets)
+            .unwrap_or_else(|| Vec::new(&env));
+        let mut remaining = Vec::new(&env);
+        for i in 0..targets.len() {
+            let current = targets.get(i).unwrap();
+            if current != &contract_id {
+                remaining.push_back(current.clone());
+            }
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::AuthorizedUpgradeTargets, &remaining);
+
+        env.events().publish(
+            (Symbol::new(&env, "contract_upgrade_revoked"),),
+            ContractUpgradeAuthorization {
+                contract_id,
+                guardian,
+                timestamp: env.ledger().timestamp(),
+                authorized: false,
+            },
+        );
+        true
+    }
+
+    pub fn get_authorized_contract_upgrades(env: Env) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::AuthorizedUpgradeTargets)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    pub fn is_contract_upgrade_authorized(env: Env, contract_id: Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::AuthorizedUpgrade(contract_id))
+            .unwrap_or(false)
     }
 }
 
