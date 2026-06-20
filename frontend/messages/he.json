@@ -1,0 +1,282 @@
+{
+  "nav": {
+    "dashboard": "לוח בקרה",
+    "getStarted": "התחל עכשיו",
+    "products": "מוצרים",
+    "tracking": "מעקב",
+    "reports": "דוחות"
+  },
+  "hero": {
+    "badge": "מופעל על ידי Stellar ו-Soroban",
+    "title": "שרשראות אספקה שקופות,",
+    "titleHighlight": "על הבלוקצ'יין",
+    "subtitle": "רשום מוצרים, עקוב אחר כל אירוע מהקציר ועד הקמעונאות, ואפשר לכל אחד לאמת אותנטיות בסריקת QR — הכל מאובטח על ידי חוזים חכמים של Soroban.",
+    "cta": "התחל עכשיו",
+    "verify": "אמת מוצר"
+  },
+  "journey": {
+    "harvest": "קציר",
+    "processing": "עיבוד",
+    "shipping": "משלוח",
+    "retail": "קמעונאות"
+  },
+  "features": {
+    "heading": "כל מה שאתה צריך",
+    "subheading": "ערכת כלים מלאה ליצרנים, שותפי לוגיסטיקה וצרכנים.",
+    "registration": {
+      "title": "רישום מוצרים",
+      "desc": "רשום כל מוצר פיזי על הבלוקצ'יין עם מזהה ייחודי, מקור ומטא-נתונים."
+    },
+    "tracking": {
+      "title": "מעקב אירועים",
+      "desc": "תעד כל אירוע בשרשרת האספקה — קציר, עיבוד, משלוח, קמעונאות — עם חותמות זמן."
+    },
+    "qr": {
+      "title": "אימות QR",
+      "desc": "צרכנים סורקים קוד QR לאימות מיידי של אותנטיות המוצר והיסטוריה מלאה."
+    },
+    "auth": {
+      "title": "אימות רב-צדדי",
+      "desc": "הרשה מספר שחקנים לכל מוצר. רק צדדים מאושרים יכולים להוסיף אירועים."
+    }
+  },
+  "howItWorks": {
+    "heading": "איך זה עובד",
+    "subheading": "ארבעה שלבים מהרישום לאימות הצרכן.",
+    "step1": {
+      "title": "רשום את המוצר שלך",
+      "desc": "חבר את ארנק Freighter ורשום מוצר בחוזה החכם של Soroban. תקבל מזהה ייחודי על הבלוקצ'יין."
+    },
+    "step2": {
+      "title": "הרשה שחקני שרשרת האספקה",
+      "desc": "הוסף שותפי לוגיסטיקה, מעבדים וקמעונאים כשחקנים מורשים שיכולים לתעד אירועים."
+    },
+    "step3": {
+      "title": "תעד אירועים בכל שלב",
+      "desc": "כל שחקן מורשה מתעד אירועים (קציר, עיבוד, משלוח, קמעונאות) עם מיקום ומטא-נתונים."
+    },
+    "step4": {
+      "title": "צרכנים מאמתים עם QR",
+      "desc": "קוד QR מקשר להיסטוריה המלאה על הבלוקצ'יין. כל אחד יכול לאמת אותנטיות ללא ארנק."
+    }
+  },
+  "useCases": {
+    "heading": "בנוי לכל תעשייה",
+    "subheading": "מהחווה לבית המרקחת, Supply-Link מתאים לכל שרשרת אספקה פיזית.",
+    "food": {
+      "title": "מזון ומשקאות",
+      "desc": "עקוב אחר תעודות אורגניות, עמידה בשרשרת קרה ומקוריות מהחווה לשולחן."
+    },
+    "pharma": {
+      "title": "תרופות",
+      "desc": "הבטח אותנטיות תרופות, עקוב אחר מספרי אצווה ומנע מוצרים מזויפים."
+    },
+    "fashion": {
+      "title": "אופנה",
+      "desc": "אמת רכש אתי, מקורות חומרים ואישורי סחר הוגן."
+    },
+    "electronics": {
+      "title": "אלקטרוניקה",
+      "desc": "עקוב אחר מקורות רכיבים, מיקומי הרכבה ושרשראות אחריות."
+    }
+  },
+  "cta": {
+    "heading": "מוכן להתחיל?",
+    "subheading": "חבר את ארנק Freighter ורשום את המוצר הראשון שלך בפחות מדקה.",
+    "button": "הפעל אפליקציה"
+  },
+  "footer": {
+    "copyright": "© {year} Supply-Link. רישיון MIT."
+  },
+  "dashboard": {
+    "title": "לוח בקרה",
+    "totalProducts": "סה״כ מוצרים",
+    "totalEvents": "סה״כ אירועים",
+    "activeProducts": "מוצרים פעילים",
+    "last24h": "24 שעות אחרונות",
+    "eventsPerDay": "אירועים ליום (30 ימים אחרונים)",
+    "eventTypeDistribution": "התפלגות לפי סוג אירוע",
+    "recentEvents": "אירועים אחרונים",
+    "noEvents": "אין אירועים עדיין.",
+    "product": "מוצר",
+    "type": "סוג",
+    "location": "מיקום",
+    "time": "זמן"
+  },
+  "verify": {
+    "notFound": {
+      "title": "המוצר לא נמצא",
+      "desc": "לא קיים מוצר עם מזהה זה ברשת זו:",
+      "hint": "קוד ה-QR עשוי להיות לא חוקי או שהמוצר הוסר.",
+      "scanAnother": "סרוק קוד QR אחר"
+    },
+    "origin": "מקור",
+    "registered": "נרשם",
+    "owner": "בעלים",
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "verifiedBadge": "אומת על Stellar · צפה בחוזה",
+    "journey": "מסע המוצר",
+    "scanAnother": "סרוק קוד QR אחר",
+    "communityRatings": "דירוגי קהילה",
+    "noEvents": "לא נרשמו אירועים עבור מוצר זה עדיין.",
+    "eventTypes": {
+      "HARVEST": "קציר",
+      "PROCESSING": "עיבוד",
+      "SHIPPING": "משלוח",
+      "RETAIL": "קמעונאות"
+    }
+  },
+  "ratings": {
+    "count": "{count, plural, =0 {אין דירוגים עדיין} one {דירוג אחד} two {שני דירוגים} many {# דירוגים} other {# דירוגים}}",
+    "leaveRating": "השאר דירוג",
+    "commentPlaceholder": "הוסף תגובה (אופציונלי, עד 500 תווים)",
+    "submitButton": "שלח דירוג",
+    "submitting": "שולח...",
+    "connectPrompt": "חבר ארנק כדי להשאיר דירוג",
+    "connectWalletFirst": "אנא חבר ארנק תחילה",
+    "selectRating": "אנא בחר דירוג",
+    "submitSuccess": "הדירוג נשלח בהצלחה",
+    "submitError": "שליחת הדירוג נכשלה"
+  },
+  "errors": {
+    "PRODUCT_NOT_FOUND": "המוצר המבוקש אינו קיים על הבלוקצ'יין.",
+    "NOT_AUTHORIZED": "אינך מורשה לבצע פעולה זו על מוצר זה.",
+    "APPROVER_NOT_AUTHORIZED": "המאשר אינו בעל המוצר ולא שחקן מורשה.",
+    "OWNER_ONLY": "רק בעל המוצר יכול לבצע פעולה זו.",
+    "NO_PENDING_EVENTS": "אין אירועים ממתינים בתור האישורים עבור מוצר זה.",
+    "PENDING_EVENT_EXPIRED": "אירוע ממתין זה פג תוקפו ואין עוד אפשרות לאשרו.",
+    "INVALID_NONCE": "ה-nonce שסופק אינו תואם לערך הצפוי. רענן ונסה שנית.",
+    "UNKNOWN": "אירעה שגיאת חוזה בלתי צפויה. אנא נסה שנית."
+  },
+  "privateMetadata": {
+    "title": "מטא-נתונים פרטיים",
+    "locked": "מטא-נתונים אלה פרטיים",
+    "lockedHint": "רק צדדים מורשים המחזיקים במפתח הפענוח יכולים לצפות בהם. המקוריות עדיין מוכחת על הבלוקצ'יין.",
+    "onChainCommitment": "מחויבות על הבלוקצ'יין",
+    "keyPlaceholder": "הדבק את מפתח הפענוח",
+    "keyRequired": "נדרש מפתח פענוח.",
+    "decrypt": "פענח",
+    "decrypting": "מפענח…",
+    "payloadUnavailable": "המטען המוצפן אינו זמין.",
+    "commitmentMismatch": "המטען מחוץ לשרשרת אינו תואם למחויבות על הבלוקצ'יין.",
+    "decryptFailed": "הפענוח נכשל. בדוק שהמפתח נכון.",
+    "verified": "אומת מול המחויבות על הבלוקצ'יין",
+    "markPrivate": "סמן מטא-נתונים כפרטיים",
+    "markPrivateHint": "מצפין את המטא-נתונים בדפדפן; רק התחייבות hash נשמרת על הבלוקצ'יין.",
+    "submitSuccess": "אירוע פרטי נוסף",
+    "saveKeyTitle": "שמור את מפתח הפענוח שלך עכשיו",
+    "saveKeyWarning": "מפתח זה מוצג פעם אחת בלבד ולעולם אינו נשלח לשרת. כל אחד שמחזיק בו יכול לקרוא מטא-נתונים אלה; ללא מפתח, הנתונים אינם ניתנים לשחזור.",
+    "generatedKey": "מפתח פענוח",
+    "dismiss": "סיום"
+  },
+  "languageSwitcher": {
+    "label": "בחר שפה"
+  },
+  "wallet": {
+    "connect": "חבר ארנק",
+    "connectFreighter": "חבר Freighter",
+    "connecting": "מתחבר…",
+    "disconnect": "נתק ארנק",
+    "viewOnExplorer": "צפה ב-Stellar Expert",
+    "readOnly": "קריאה בלבד"
+  },
+  "installPrompt": {
+    "title": "התקן את Supply-Link",
+    "description": "התקן לגישה לא מקוונת וחוויה מהירה יותר.",
+    "iosInstructions": "הקש על שתף ⎋ ואז הוסף למסך הבית ➕",
+    "install": "התקן",
+    "dismiss": "סגור הנחיית התקנה"
+  },
+  "auditReport": {
+    "title": "מחולל דוחות ביקורת",
+    "startDate": "תאריך התחלה",
+    "endDate": "תאריך סיום",
+    "eventTypes": "סוגי אירועים",
+    "allEventTypes": "כל סוגי האירועים",
+    "selectedCount": "{count} נבחרו",
+    "generating": "מייצר…",
+    "generateReport": "צור דוח",
+    "reportSummary": "סיכום דוח",
+    "totalProducts": "סה״כ מוצרים",
+    "totalEvents": "סה״כ אירועים",
+    "productsWithEvents": "מוצרים עם אירועים",
+    "dateRange": "טווח תאריכים",
+    "eventsByType": "אירועים לפי סוג",
+    "exportJson": "ייצא JSON",
+    "exportCsv": "ייצא CSV"
+  },
+  "snapshotHistory": {
+    "title": "תמונות מצב ביקורת",
+    "loading": "טוען תמונות מצב…",
+    "empty": "אין תמונות מצב ביקורת עדיין.",
+    "eventCount": "{count} אירועים",
+    "by": "על ידי"
+  },
+  "advancedCharts": {
+    "avgTimeBetweenEvents": "זמן ממוצע בין אירועים (שעות)",
+    "avgTime": "זמן ממוצע",
+    "topProductsByEventCount": "מוצרים מובילים לפי מספר אירועים",
+    "actorLeaderboard": "טבלת מובילים של שחקנים",
+    "noDataInRange": "אין נתונים בטווח הנבחר.",
+    "events": "אירועים"
+  },
+  "readAccessAuditLog": {
+    "title": "יומן ביקורת גישת קריאה",
+    "entries": "רשומות",
+    "refresh": "רענן יומן ביקורת",
+    "filterByActor": "סנן לפי מזהה שחקן",
+    "allOperations": "כל הפעולות",
+    "noEntries": "לא נמצאו רשומות ביומן הגישה.",
+    "privacyNote": "היומנים מכבדים פרטיות: מזהות שחקנים קוצרו וכתובות IP הוצפנו.",
+    "colTimestamp": "חותמת זמן",
+    "colOperation": "פעולה",
+    "colActor": "שחקן",
+    "colProducts": "מוצרים",
+    "colPath": "נתיב",
+    "colStatus": "סטטוס"
+  },
+  "recall": {
+    "emergencyRecall": "שידור חזרה חירום",
+    "productId": "מזהה מוצר",
+    "recallReason": "סיבת החזרה",
+    "recallReasonPlaceholder": "תאר את סיבת החזרה…",
+    "severity": "חומרה",
+    "severityLow": "נמוכה",
+    "severityMedium": "בינונית",
+    "severityHigh": "גבוהה",
+    "severityCritical": "קריטית",
+    "stakeholders": "בעלי עניין",
+    "stakeholdersPlaceholder": "כתובות מופרדות בפסיקים",
+    "stakeholdersCount": "בעלי עניין: {count}",
+    "broadcasting": "משדר…",
+    "initiateBroadcast": "יזום שידור חזרה",
+    "broadcastStats": "סטטיסטיקות שידור",
+    "totalBroadcasts": "סה״כ שידורים",
+    "active": "פעיל",
+    "resolved": "נפתר",
+    "notifications": "התראות",
+    "acknowledged": "אושר",
+    "activeBroadcasts": "שידורים פעילים",
+    "noActiveBroadcasts": "אין שידורים פעילים",
+    "delivered": "נמסר",
+    "yourNotifications": "ההתראות שלך",
+    "noNotifications": "אין התראות",
+    "acknowledge": "אשר"
+  },
+  "batchImport": {
+    "title": "ייבוא מוצרים בכמות",
+    "instructions": "העלה CSV עם עמודות:",
+    "clickToSelect": "לחץ לבחירת קובץ CSV",
+    "close": "סגור",
+    "cancel": "ביטול",
+    "importing": "מייבא…",
+    "importButton": "{count, plural, =0 {ייבא מוצרים} one {ייבא מוצר אחד} two {ייבא שני מוצרים} many {ייבא # מוצרים} other {ייבא # מוצרים}}"
+  },
+  "certifications": {
+    "noCertifications": "לא נרשמו אישורים עבור מוצר זה.",
+    "downloadBadge": "הורד תגית אישור",
+    "badge": "תגית",
+    "revoked": "בוטל"
+  }
+}

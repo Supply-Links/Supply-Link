@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Eye, RefreshCw, AlertCircle, Search, Filter } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import type { ReadAccessLog, SensitiveOperation } from '@/lib/services/readAccessAudit';
 import { queryReadAccessLogs, getReadAuditStats } from '@/lib/services/readAccessAudit';
 
@@ -105,6 +106,7 @@ interface ReadAccessAuditLogProps {
  * Supports filtering by product ID, actor, and operation type.
  */
 export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLogProps) {
+  const t = useTranslations('readAccessAuditLog');
   const [logs, setLogs] = useState<ReadAccessLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -138,15 +140,15 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
   }, [load]);
 
   return (
-    <section aria-label="Read access audit log">
+    <section aria-label={t('title')}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Eye size={16} className="text-[var(--muted)]" aria-hidden="true" />
           <h3 className="text-sm font-semibold text-[var(--foreground)]">
-            Read Access Audit Log
+            {t('title')}
             {total > 0 && (
               <span className="ml-2 text-xs font-normal text-[var(--muted)]">
-                ({total} entries)
+                ({total} {t('entries')})
               </span>
             )}
           </h3>
@@ -156,7 +158,7 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
           onClick={load}
           disabled={loading}
           className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors disabled:opacity-40"
-          aria-label="Refresh audit log"
+          aria-label={t('refresh')}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -183,7 +185,7 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
             type="text"
             value={searchActor}
             onChange={(e) => setSearchActor(e.target.value)}
-            placeholder="Filter by actor ID"
+            placeholder={t('filterByActor')}
             className="w-full pl-7 pr-2 py-1.5 text-xs rounded border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
           />
         </div>
@@ -198,7 +200,7 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
             onChange={(e) => setFilterOp(e.target.value as SensitiveOperation | '')}
             className="pl-7 pr-2 py-1.5 text-xs rounded border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
           >
-            <option value="">All operations</option>
+            <option value="">{t('allOperations')}</option>
             {(Object.keys(OPERATION_LABELS) as SensitiveOperation[]).map((op) => (
               <option key={op} value={op}>
                 {OPERATION_LABELS[op]}
@@ -216,7 +218,7 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
       )}
 
       {!loading && logs.length === 0 && (
-        <p className="text-sm text-[var(--muted)]">No access log entries found.</p>
+        <p className="text-sm text-[var(--muted)]">{t('noEntries')}</p>
       )}
 
       {logs.length > 0 && (
@@ -224,12 +226,12 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--muted)] border-b border-[var(--card-border)] bg-[var(--muted-bg)]">
-                <th className="px-4 py-2.5 text-xs font-medium">Timestamp</th>
-                <th className="px-4 py-2.5 text-xs font-medium">Operation</th>
-                <th className="px-4 py-2.5 text-xs font-medium">Actor</th>
-                <th className="px-4 py-2.5 text-xs font-medium hidden md:table-cell">Products</th>
-                <th className="px-4 py-2.5 text-xs font-medium hidden lg:table-cell">Path</th>
-                <th className="px-4 py-2.5 text-xs font-medium">Status</th>
+                <th className="px-4 py-2.5 text-xs font-medium">{t('colTimestamp')}</th>
+                <th className="px-4 py-2.5 text-xs font-medium">{t('colOperation')}</th>
+                <th className="px-4 py-2.5 text-xs font-medium">{t('colActor')}</th>
+                <th className="px-4 py-2.5 text-xs font-medium hidden md:table-cell">{t('colProducts')}</th>
+                <th className="px-4 py-2.5 text-xs font-medium hidden lg:table-cell">{t('colPath')}</th>
+                <th className="px-4 py-2.5 text-xs font-medium">{t('colStatus')}</th>
               </tr>
             </thead>
             <tbody>
@@ -242,7 +244,7 @@ export function ReadAccessAuditLog({ productId, limit = 50 }: ReadAccessAuditLog
       )}
 
       <p className="mt-3 text-xs text-[var(--muted)]">
-        Logs are privacy-aware: actor IDs are truncated and IP addresses are hashed.
+        {t('privacyNote')}
       </p>
     </section>
   );

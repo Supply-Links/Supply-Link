@@ -1,7 +1,10 @@
 {
   "nav": {
     "dashboard": "Tableau de bord",
-    "getStarted": "Commencer"
+    "getStarted": "Commencer",
+    "products": "Produits",
+    "tracking": "Suivi",
+    "reports": "Rapports"
   },
   "hero": {
     "badge": "Propulsé par Stellar et Soroban",
@@ -166,5 +169,114 @@
     "saveKeyWarning": "Cette clé n'est affichée qu'une seule fois et n'est jamais envoyée au serveur. Quiconque la possède peut lire ces métadonnées ; sans elle, les données sont irrécupérables.",
     "generatedKey": "Clé de déchiffrement",
     "dismiss": "Terminé"
+  },
+  "languageSwitcher": {
+    "label": "Sélectionner la langue"
+  },
+  "wallet": {
+    "connect": "Connecter le portefeuille",
+    "connectFreighter": "Connecter Freighter",
+    "connecting": "Connexion…",
+    "disconnect": "Déconnecter le portefeuille",
+    "viewOnExplorer": "Voir sur Stellar Expert",
+    "readOnly": "Lecture seule"
+  },
+  "installPrompt": {
+    "title": "Installer Supply-Link",
+    "description": "Installez pour un accès hors ligne et une expérience plus rapide.",
+    "iosInstructions": "Appuyez sur Partager ⎋ puis Ajouter à l'écran d'accueil ➕",
+    "install": "Installer",
+    "dismiss": "Ignorer l'invite d'installation"
+  },
+  "auditReport": {
+    "title": "Générateur de rapport d'audit",
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "eventTypes": "Types d'événements",
+    "allEventTypes": "Tous les types d'événements",
+    "selectedCount": "{count} sélectionnés",
+    "generating": "Génération…",
+    "generateReport": "Générer le rapport",
+    "reportSummary": "Résumé du rapport",
+    "totalProducts": "Total des produits",
+    "totalEvents": "Total des événements",
+    "productsWithEvents": "Produits avec événements",
+    "dateRange": "Plage de dates",
+    "eventsByType": "Événements par type",
+    "exportJson": "Exporter JSON",
+    "exportCsv": "Exporter CSV"
+  },
+  "snapshotHistory": {
+    "title": "Instantanés d'audit",
+    "loading": "Chargement des instantanés…",
+    "empty": "Aucun instantané d'audit pour l'instant.",
+    "eventCount": "{count} événements",
+    "by": "Par"
+  },
+  "advancedCharts": {
+    "avgTimeBetweenEvents": "Temps moyen entre les événements (heures)",
+    "avgTime": "Temps moyen",
+    "topProductsByEventCount": "Principaux produits par nombre d'événements",
+    "actorLeaderboard": "Classement des acteurs",
+    "noDataInRange": "Aucune donnée dans la plage sélectionnée.",
+    "events": "Événements"
+  },
+  "readAccessAuditLog": {
+    "title": "Journal d'accès en lecture",
+    "entries": "entrées",
+    "refresh": "Actualiser le journal d'audit",
+    "filterByActor": "Filtrer par ID d'acteur",
+    "allOperations": "Toutes les opérations",
+    "noEntries": "Aucune entrée trouvée dans le journal d'accès.",
+    "privacyNote": "Les journaux respectent la vie privée : les IDs d'acteurs sont tronqués et les adresses IP sont hachées.",
+    "colTimestamp": "Horodatage",
+    "colOperation": "Opération",
+    "colActor": "Acteur",
+    "colProducts": "Produits",
+    "colPath": "Chemin",
+    "colStatus": "Statut"
+  },
+  "recall": {
+    "emergencyRecall": "Diffusion de rappel d'urgence",
+    "productId": "ID du produit",
+    "recallReason": "Motif du rappel",
+    "recallReasonPlaceholder": "Décrivez le motif du rappel…",
+    "severity": "Gravité",
+    "severityLow": "Faible",
+    "severityMedium": "Moyenne",
+    "severityHigh": "Élevée",
+    "severityCritical": "Critique",
+    "stakeholders": "Parties prenantes",
+    "stakeholdersPlaceholder": "Adresses séparées par des virgules",
+    "stakeholdersCount": "Parties prenantes : {count}",
+    "broadcasting": "Diffusion en cours…",
+    "initiateBroadcast": "Lancer la diffusion de rappel",
+    "broadcastStats": "Statistiques de diffusion",
+    "totalBroadcasts": "Total des diffusions",
+    "active": "Actif",
+    "resolved": "Résolu",
+    "notifications": "Notifications",
+    "acknowledged": "Confirmé",
+    "activeBroadcasts": "Diffusions actives",
+    "noActiveBroadcasts": "Aucune diffusion active",
+    "delivered": "Livré",
+    "yourNotifications": "Vos notifications",
+    "noNotifications": "Aucune notification",
+    "acknowledge": "Confirmer"
+  },
+  "batchImport": {
+    "title": "Importation groupée de produits",
+    "instructions": "Téléchargez un CSV avec les colonnes :",
+    "clickToSelect": "Cliquez pour sélectionner un fichier CSV",
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "importing": "Importation…",
+    "importButton": "{count, plural, =0 {Importer des produits} one {Importer # produit} other {Importer # produits}}"
+  },
+  "certifications": {
+    "noCertifications": "Aucune certification enregistrée pour ce produit.",
+    "downloadBadge": "Télécharger le badge de certification",
+    "badge": "Badge",
+    "revoked": "Révoqué"
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ShieldCheck, ShieldX, Download } from 'lucide-react';
 import type { Certification } from '@/lib/types';
 import { getCertificationType, getCertificationLabel } from '@/lib/certifications';
@@ -80,6 +81,7 @@ interface CertificationsPanelProps {
 }
 
 export function CertificationsPanel({ certifications, productId }: CertificationsPanelProps) {
+  const t = useTranslations('certifications');
   const active = certifications.filter((c) => !c.revoked);
   const revoked = certifications.filter((c) => c.revoked);
 
@@ -104,7 +106,7 @@ export function CertificationsPanel({ certifications, productId }: Certification
 
   if (certifications.length === 0) {
     return (
-      <p className="text-sm text-[var(--muted)]">No certifications registered for this product.</p>
+      <p className="text-sm text-[var(--muted)]">{t('noCertifications')}</p>
     );
   }
 
@@ -119,11 +121,11 @@ export function CertificationsPanel({ certifications, productId }: Certification
               </div>
               <button
                 onClick={() => handleDownloadBadge(cert)}
-                title="Download certification badge"
+                title={t('downloadBadge')}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--card-border)] text-xs text-[var(--muted)] hover:bg-[var(--muted-bg)] transition-colors"
               >
                 <Download size={12} />
-                Badge
+                {t('badge')}
               </button>
             </div>
           ))}
@@ -131,7 +133,7 @@ export function CertificationsPanel({ certifications, productId }: Certification
       )}
       {revoked.length > 0 && (
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wide">Revoked</p>
+          <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wide">{t('revoked')}</p>
           {revoked.map((cert) => (
             <CertificationBadge key={cert.id} certification={cert} compact />
           ))}

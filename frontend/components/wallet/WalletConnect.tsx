@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ExternalLink, LogOut, Eye } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { getWalletAddress, FreighterNotInstalledError } from '@/lib/stellar/client';
 import { getWalletNetwork, isNetworkMatching } from '@/lib/stellar/network';
 import { getXlmBalance, formatBalance } from '@/lib/stellar/balance';
@@ -12,6 +13,7 @@ import { WalletRecoveryDialog } from './WalletRecoveryDialog';
 import { recordDependency, recordOperation } from '@/lib/api/metrics';
 
 export function WalletConnect() {
+  const t = useTranslations('wallet');
   const {
     walletAddress,
     setWalletAddress,
@@ -86,7 +88,7 @@ export function WalletConnect() {
         <button
           onClick={() => window.open(accountUrl(walletAddress), '_blank', 'noopener,noreferrer')}
           className="text-sm font-mono text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 flex items-center gap-1 transition-colors"
-          title="View on Stellar Expert"
+          title={t('viewOnExplorer')}
         >
           {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
           <ExternalLink size={14} />
@@ -99,8 +101,8 @@ export function WalletConnect() {
         <button
           onClick={handleDisconnect}
           className="p-2 rounded hover:bg-[var(--muted-bg)] text-[var(--foreground)]"
-          aria-label="Disconnect wallet"
-          title="Disconnect wallet"
+          aria-label={t('disconnect')}
+          title={t('disconnect')}
         >
           <LogOut size={18} />
         </button>
@@ -113,7 +115,7 @@ export function WalletConnect() {
       <div className="flex items-center gap-2">
         <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2 py-1 rounded">
           <Eye size={12} />
-          Read-only
+          {t('readOnly')}
         </span>
         <button
           onClick={() => {
@@ -122,7 +124,7 @@ export function WalletConnect() {
           }}
           className="text-xs text-violet-600 hover:underline"
         >
-          Connect wallet
+          {t('connect')}
         </button>
       </div>
     );
@@ -135,7 +137,7 @@ export function WalletConnect() {
         disabled={loading}
         className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50 hover:bg-violet-700 transition-colors"
       >
-        {loading ? 'Connecting…' : 'Connect Freighter'}
+        {loading ? t('connecting') : t('connectFreighter')}
       </button>
       <FreighterNotInstalledModal
         isOpen={showFreighterModal}
