@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
-import { Plus, List, BarChart2, RefreshCw, Download, Map } from 'lucide-react';
+import { useState, useEffect, type ChangeEvent } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Plus, List, BarChart2, RefreshCw, Download, Map, QrCode, X } from 'lucide-react';
 import { exportToCSV, exportToJSON } from '@/lib/utils/export';
 import { MOCK_PRODUCTS } from '@/lib/mock/products';
 import type { TrackingEvent } from '@/lib/types';
@@ -11,12 +12,25 @@ import { EventTimelineSkeleton } from '@/components/tracking/EventTimelineSkelet
 import { AddEventModal } from '@/components/tracking/AddEventModal';
 import { TimelineChart } from '@/components/tracking/TimelineChart';
 import { LazyEventMap } from '@/components/lazy/LazyEventMap';
+import { MobileCameraScanner } from '@/components/tracking/MobileCameraScanner';
 
 export default function TrackingPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState(MOCK_PRODUCTS[0]?.id ?? '');
   const [showModal, setShowModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [view, setView] = useState<'list' | 'chart' | 'map'>('list');
   const [highlightedEvent, setHighlightedEvent] = useState<TrackingEvent | null>(null);
+
+  // Open scanner if ?scan=1 or mobile viewport
+  useEffect(() => {
+    if (searchParams.get('scan') === '1') {
+      setShowScanner(true);
+    } else if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setShowScanner(true);
+    }
+  }, [searchParams]);
 
   const { events: allEvents, loading, error, refresh, addEventOptimistic } = useEvents();
 
@@ -37,9 +51,45 @@ export default function TrackingPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/60 flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl w-full max-w-sm shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
+              <div className="flex items-center gap-2 text-[var(--foreground)]">
+                <QrCode size={16} />
+                <span className="text-sm font-semibold">Scan QR Code</span>
+              </div>
+              <button
+                onClick={() => setShowScanner(false)}
+                aria-label="Close scanner"
+                className="p-2 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)] min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4">
+              <MobileCameraScanner
+                onScan={(result) => {
+                  setShowScanner(false);
+                  router.push(`/verify/${encodeURIComponent(result)}`);
+                }}
+                onError={(err) => console.warn('QR scan error:', err)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Tracking</h1>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowScanner(true)}
+            title="Scan QR code"
+            className="flex items-center gap-2 px-3 py-2.5 border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted-bg)] rounded-lg text-sm transition-colors min-h-[44px]"
+          >
+            <QrCode size={15} />
+          </button>
           {/* Refresh button (#48) */}
           <button
             onClick={refresh}
