@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -34,36 +34,20 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ── RTL language support ───────────────────────────────────────────────────
-   Applied automatically via the `dir` attribute set on the locale wrapper.
-   Flips margins, paddings, borders and flex directions for RTL scripts
-   (Arabic, Hebrew) using Tailwind's logical-property equivalents where
-   possible, plus explicit overrides for components that use physical CSS. */
-
-[dir="rtl"] {
-  text-align: right;
-}
-
-[dir="rtl"] .space-x-1 > * + *,
-[dir="rtl"] .space-x-2 > * + *,
-[dir="rtl"] .space-x-3 > * + *,
-[dir="rtl"] .space-x-4 > * + *,
-[dir="rtl"] .space-x-6 > * + * {
-  --tw-space-x-reverse: 1;
-}
-
-/* Flip icon-before-text gaps in RTL */
-[dir="rtl"] .flex {
-  flex-direction: row;
-}
-
-/* Ensure fixed/absolute dropdowns open on the correct side */
-[dir="rtl"] .right-0 {
-  right: auto;
-  left: 0;
-}
-
-[dir="rtl"] .left-0 {
-  left: auto;
-  right: 0;
+@layer utilities {
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+  .touch-pan-y {
+    touch-action: pan-y;
+  }
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
 }

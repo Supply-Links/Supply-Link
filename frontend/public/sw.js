@@ -5,8 +5,8 @@
 //   API     (/api/*)                    → network-first (5 s timeout, no offline fallback)
 //   NAV     everything else             → network-first with offline fallback
 
-const STATIC_CACHE = "sl-static-v1";
-const DYNAMIC_CACHE = "sl-dynamic-v1";
+const STATIC_CACHE = "sl-static-v2";
+const DYNAMIC_CACHE = "sl-dynamic-v2";
 const OFFLINE_URL = "/offline";
 
 // ── Install: pre-cache app shell ─────────────────────────────────────────────
@@ -14,7 +14,17 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((c) => c.addAll(["/", OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"]))
+      .then((c) =>
+        c.addAll([
+          "/",
+          OFFLINE_URL,
+          "/icons/icon-192.png",
+          "/icons/icon-512.png",
+          "/dashboard",
+          "/products",
+          "/tracking",
+        ])
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -69,6 +79,92 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 });
+
+// ── Push notifications ────────────────────────────────────────────────────────
+self.addEventListener("push", (event) => {
+  const data = event.data ? event.data.json() : {};
+  const { title = "Supply-Link", body = "", url = "/" } = data;
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      data: { url },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? "/";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        const match = clients.find((c) => c.url === url && "focus" in c);
+        return match ? match.focus() : self.clients.openWindow(url);
+      })
+  );
+});
+
+// ── Background sync ───────────────────────────────────────────────────────────
+self.addEventListener("sync", (event) => {
+  if (event.tag === "offline-queue") {
+    event.waitUntil(replayOfflineQueue());
+  }
+});
+
+async function replayOfflineQueue() {
+  const db = await openSyncDB();
+  const tx = db.transaction("sync-queue", "readwrite");
+  const store = tx.objectStore("sync-queue");
+  const records = await idbGetAll(store);
+
+  await Promise.all(
+    records.map(async (record) => {
+      try {
+        const response = await fetch(record.url, {
+          method: record.method,
+          headers: record.headers,
+          body: record.body,
+        });
+        if (response.ok) {
+          await idbDelete(store, record.id);
+        }
+      } catch {
+        // Leave in queue to retry next sync
+      }
+    })
+  );
+}
+
+function openSyncDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("sl-sync", 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains("sync-queue")) {
+        req.result.createObjectStore("sync-queue", { keyPath: "id", autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbDelete(store, id) {
+  return new Promise((resolve, reject) => {
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
 
 // ── Strategies ────────────────────────────────────────────────────────────────
 
