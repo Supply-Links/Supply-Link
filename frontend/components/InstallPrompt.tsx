@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Download } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -9,6 +10,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function InstallPrompt() {
+  const t = useTranslations("installPrompt");
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -52,29 +54,24 @@ export function InstallPrompt() {
     >
       <Download size={20} className="mt-0.5 shrink-0 text-[var(--primary)]" />
       <div className="flex-1 text-sm">
-        <p className="font-medium text-[var(--foreground)]">Install Supply-Link</p>
+        <p className="font-medium text-[var(--foreground)]">{t("title")}</p>
         {isIOS && !prompt ? (
-          <p className="text-xs text-[var(--muted)] mt-0.5">
-            Tap <span className="font-semibold">Share ⎋</span> then{" "}
-            <span className="font-semibold">Add to Home Screen ➕</span>
-          </p>
+          <p className="text-xs text-[var(--muted)] mt-0.5">{t("iosInstructions")}</p>
         ) : (
-          <p className="text-xs text-[var(--muted)] mt-0.5">
-            Install for offline access and a faster experience.
-          </p>
+          <p className="text-xs text-[var(--muted)] mt-0.5">{t("description")}</p>
         )}
         {prompt && (
           <button
             onClick={install}
             className="mt-2 px-3 py-1 text-xs rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 transition-opacity"
           >
-            Install
+            {t("install")}
           </button>
         )}
       </div>
       <button
         onClick={dismiss}
-        aria-label="Dismiss install prompt"
+        aria-label={t("dismiss")}
         className="shrink-0 p-1 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)] transition-colors"
       >
         <X size={16} />

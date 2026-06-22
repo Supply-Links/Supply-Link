@@ -1,0 +1,282 @@
+{
+  "nav": {
+    "dashboard": "控制台",
+    "getStarted": "开始使用",
+    "products": "产品",
+    "tracking": "追踪",
+    "reports": "报告"
+  },
+  "hero": {
+    "badge": "由 Stellar 和 Soroban 驱动",
+    "title": "透明供应链，",
+    "titleHighlight": "链上可信",
+    "subtitle": "注册产品，追踪从收获到零售的每个环节，让任何人通过扫描二维码验证真实性——一切由 Soroban 智能合约保障。",
+    "cta": "开始使用",
+    "verify": "验证产品"
+  },
+  "journey": {
+    "harvest": "收获",
+    "processing": "加工",
+    "shipping": "运输",
+    "retail": "零售"
+  },
+  "features": {
+    "heading": "您所需要的一切",
+    "subheading": "为生产商、物流合作伙伴和消费者提供完整工具包。",
+    "registration": {
+      "title": "产品注册",
+      "desc": "在链上注册任何实物产品，包含唯一 ID、来源和元数据。"
+    },
+    "tracking": {
+      "title": "事件追踪",
+      "desc": "记录每个供应链事件——收获、加工、运输、零售——并附带时间戳。"
+    },
+    "qr": {
+      "title": "二维码验证",
+      "desc": "消费者扫描二维码即可即时验证产品真实性和完整历史。"
+    },
+    "auth": {
+      "title": "多方认证",
+      "desc": "为每个产品授权多个参与者。只有经批准的各方才能添加事件。"
+    }
+  },
+  "howItWorks": {
+    "heading": "工作原理",
+    "subheading": "从注册到消费者验证的四个步骤。",
+    "step1": {
+      "title": "注册您的产品",
+      "desc": "连接 Freighter 钱包，在 Soroban 智能合约上注册产品。您将获得唯一的链上 ID。"
+    },
+    "step2": {
+      "title": "授权供应链参与者",
+      "desc": "将物流合作伙伴、加工商和零售商添加为可记录事件的授权参与者。"
+    },
+    "step3": {
+      "title": "在每个阶段记录事件",
+      "desc": "每个授权参与者记录事件（收获、加工、运输、零售）及位置和元数据。"
+    },
+    "step4": {
+      "title": "消费者用二维码验证",
+      "desc": "二维码链接至完整链上历史。任何人无需钱包即可验证真实性。"
+    }
+  },
+  "useCases": {
+    "heading": "适用于每个行业",
+    "subheading": "从农场到药房，Supply-Link 适应任何实物供应链。",
+    "food": {
+      "title": "食品和饮料",
+      "desc": "追踪有机认证、冷链合规性及农场到餐桌的来源证明。"
+    },
+    "pharma": {
+      "title": "制药",
+      "desc": "确保药品真实性，追踪批号，防止假冒产品。"
+    },
+    "fashion": {
+      "title": "时尚",
+      "desc": "验证道德采购、材料来源和公平贸易认证。"
+    },
+    "electronics": {
+      "title": "电子产品",
+      "desc": "追踪组件来源、组装地点和保修链。"
+    }
+  },
+  "cta": {
+    "heading": "准备好开始了吗？",
+    "subheading": "连接您的 Freighter 钱包，在一分钟内注册您的第一个产品。",
+    "button": "启动应用"
+  },
+  "footer": {
+    "copyright": "© {year} Supply-Link. MIT 许可证。"
+  },
+  "dashboard": {
+    "title": "控制台",
+    "totalProducts": "产品总数",
+    "totalEvents": "事件总数",
+    "activeProducts": "活跃产品",
+    "last24h": "过去 24 小时",
+    "eventsPerDay": "每日事件数（过去 30 天）",
+    "eventTypeDistribution": "事件类型分布",
+    "recentEvents": "最近事件",
+    "noEvents": "暂无事件。",
+    "product": "产品",
+    "type": "类型",
+    "location": "位置",
+    "time": "时间"
+  },
+  "verify": {
+    "notFound": {
+      "title": "未找到产品",
+      "desc": "该网络上不存在此 ID 的产品：",
+      "hint": "二维码可能无效或产品已被移除。",
+      "scanAnother": "扫描其他二维码"
+    },
+    "origin": "来源",
+    "registered": "注册时间",
+    "owner": "所有者",
+    "active": "活跃",
+    "inactive": "非活跃",
+    "verifiedBadge": "已在 Stellar 验证 · 查看合约",
+    "journey": "产品历程",
+    "scanAnother": "扫描其他二维码",
+    "communityRatings": "社区评分",
+    "noEvents": "该产品暂无事件记录。",
+    "eventTypes": {
+      "HARVEST": "收获",
+      "PROCESSING": "加工",
+      "SHIPPING": "运输",
+      "RETAIL": "零售"
+    }
+  },
+  "ratings": {
+    "count": "{count, plural, =0 {暂无评分} other {# 个评分}}",
+    "leaveRating": "发表评分",
+    "commentPlaceholder": "添加评论（可选，最多 500 字）",
+    "submitButton": "提交评分",
+    "submitting": "提交中...",
+    "connectPrompt": "连接钱包以发表评分",
+    "connectWalletFirst": "请先连接钱包",
+    "selectRating": "请选择评分",
+    "submitSuccess": "评分提交成功",
+    "submitError": "评分提交失败"
+  },
+  "errors": {
+    "PRODUCT_NOT_FOUND": "所请求的产品在链上不存在。",
+    "NOT_AUTHORIZED": "您无权对此产品执行此操作。",
+    "APPROVER_NOT_AUTHORIZED": "审批者不是产品所有者或授权参与者。",
+    "OWNER_ONLY": "只有产品所有者才能执行此操作。",
+    "NO_PENDING_EVENTS": "此产品的审批队列中没有待处理事件。",
+    "PENDING_EVENT_EXPIRED": "此待处理事件已过期，无法再批准。",
+    "INVALID_NONCE": "提供的 nonce 与预期值不匹配。请刷新后重试。",
+    "UNKNOWN": "发生了意外的合约错误。请重试。"
+  },
+  "privateMetadata": {
+    "title": "私有元数据",
+    "locked": "此元数据为私有",
+    "lockedHint": "只有持有解密密钥的授权方才能查看。来源证明仍在链上。",
+    "onChainCommitment": "链上承诺",
+    "keyPlaceholder": "粘贴解密密钥",
+    "keyRequired": "需要解密密钥。",
+    "decrypt": "解密",
+    "decrypting": "解密中…",
+    "payloadUnavailable": "加密负载不可用。",
+    "commitmentMismatch": "链下负载与链上承诺不匹配。",
+    "decryptFailed": "解密失败。请检查密钥是否正确。",
+    "verified": "已对照链上承诺验证",
+    "markPrivate": "将元数据标记为私有",
+    "markPrivateHint": "在浏览器中加密元数据；链上仅存储哈希承诺。",
+    "submitSuccess": "私有事件已添加",
+    "saveKeyTitle": "立即保存您的解密密钥",
+    "saveKeyWarning": "此密钥仅显示一次，绝不会发送至服务器。任何持有此密钥的人均可读取这些元数据；没有密钥则数据无法恢复。",
+    "generatedKey": "解密密钥",
+    "dismiss": "完成"
+  },
+  "languageSwitcher": {
+    "label": "选择语言"
+  },
+  "wallet": {
+    "connect": "连接钱包",
+    "connectFreighter": "连接 Freighter",
+    "connecting": "连接中…",
+    "disconnect": "断开钱包",
+    "viewOnExplorer": "在 Stellar Expert 上查看",
+    "readOnly": "只读"
+  },
+  "installPrompt": {
+    "title": "安装 Supply-Link",
+    "description": "安装以获得离线访问和更快的体验。",
+    "iosInstructions": "点击分享 ⎋，然后点击添加到主屏幕 ➕",
+    "install": "安装",
+    "dismiss": "关闭安装提示"
+  },
+  "auditReport": {
+    "title": "审计报告生成器",
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "eventTypes": "事件类型",
+    "allEventTypes": "所有事件类型",
+    "selectedCount": "已选 {count} 个",
+    "generating": "生成中…",
+    "generateReport": "生成报告",
+    "reportSummary": "报告摘要",
+    "totalProducts": "产品总数",
+    "totalEvents": "事件总数",
+    "productsWithEvents": "有事件的产品",
+    "dateRange": "日期范围",
+    "eventsByType": "按类型分类的事件",
+    "exportJson": "导出 JSON",
+    "exportCsv": "导出 CSV"
+  },
+  "snapshotHistory": {
+    "title": "审计快照",
+    "loading": "加载快照中…",
+    "empty": "暂无审计快照。",
+    "eventCount": "{count} 个事件",
+    "by": "创建者"
+  },
+  "advancedCharts": {
+    "avgTimeBetweenEvents": "事件间平均时间（小时）",
+    "avgTime": "平均时间",
+    "topProductsByEventCount": "按事件数排名的产品",
+    "actorLeaderboard": "参与者排行榜",
+    "noDataInRange": "所选范围内无数据。",
+    "events": "事件"
+  },
+  "readAccessAuditLog": {
+    "title": "读取访问审计日志",
+    "entries": "条记录",
+    "refresh": "刷新审计日志",
+    "filterByActor": "按参与者 ID 筛选",
+    "allOperations": "所有操作",
+    "noEntries": "未找到访问日志记录。",
+    "privacyNote": "日志遵循隐私保护：参与者 ID 已截断，IP 地址已哈希处理。",
+    "colTimestamp": "时间戳",
+    "colOperation": "操作",
+    "colActor": "参与者",
+    "colProducts": "产品",
+    "colPath": "路径",
+    "colStatus": "状态"
+  },
+  "recall": {
+    "emergencyRecall": "紧急召回广播",
+    "productId": "产品 ID",
+    "recallReason": "召回原因",
+    "recallReasonPlaceholder": "描述召回原因…",
+    "severity": "严重程度",
+    "severityLow": "低",
+    "severityMedium": "中",
+    "severityHigh": "高",
+    "severityCritical": "严重",
+    "stakeholders": "利益相关方",
+    "stakeholdersPlaceholder": "以逗号分隔的地址",
+    "stakeholdersCount": "利益相关方：{count}",
+    "broadcasting": "广播中…",
+    "initiateBroadcast": "发起召回广播",
+    "broadcastStats": "广播统计",
+    "totalBroadcasts": "广播总数",
+    "active": "活跃",
+    "resolved": "已解决",
+    "notifications": "通知",
+    "acknowledged": "已确认",
+    "activeBroadcasts": "活跃广播",
+    "noActiveBroadcasts": "无活跃广播",
+    "delivered": "已送达",
+    "yourNotifications": "您的通知",
+    "noNotifications": "无通知",
+    "acknowledge": "确认"
+  },
+  "batchImport": {
+    "title": "批量导入产品",
+    "instructions": "上传包含以下列的 CSV：",
+    "clickToSelect": "点击选择 CSV 文件",
+    "close": "关闭",
+    "cancel": "取消",
+    "importing": "导入中…",
+    "importButton": "{count, plural, =0 {导入产品} other {导入 # 个产品}}"
+  },
+  "certifications": {
+    "noCertifications": "此产品暂无认证记录。",
+    "downloadBadge": "下载认证徽章",
+    "badge": "徽章",
+    "revoked": "已撤销"
+  }
+}

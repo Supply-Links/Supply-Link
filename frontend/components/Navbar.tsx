@@ -1,14 +1,19 @@
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ThemeToggle } from './ThemeToggle';
-
-const NAV_LINKS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/products', label: 'Products' },
-  { href: '/tracking', label: 'Tracking' },
-  { href: '/reports', label: 'Reports' },
-];
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { WalletConnect } from './wallet/WalletConnect';
 
 export function Navbar() {
+  const t = useTranslations('nav');
+
+  const NAV_LINKS = [
+    { href: '/dashboard', label: t('dashboard') },
+    { href: '/products', label: t('products') },
+    { href: '/tracking', label: t('tracking') },
+    { href: '/reports', label: t('reports') },
+  ];
+
   return (
     <nav className="border-b border-[var(--card-border)] bg-[var(--background)] sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -31,7 +36,11 @@ export function Navbar() {
             ))}
           </div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <ThemeToggle />
+          <WalletConnect />
+        </div>
       </div>
     </nav>
   );

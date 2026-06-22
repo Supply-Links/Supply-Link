@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { contractClient } from '@/lib/stellar/contract';
 import { useStore } from '@/lib/state/store';
 
@@ -21,6 +22,7 @@ interface SnapshotHistoryProps {
  * Displays the audit snapshot history for a product (#400).
  */
 export default function SnapshotHistory({ productId }: SnapshotHistoryProps) {
+  const t = useTranslations('snapshotHistory');
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const walletAddress = useStore((s) => s.walletAddress);
@@ -34,13 +36,13 @@ export default function SnapshotHistory({ productId }: SnapshotHistoryProps) {
       .finally(() => setLoading(false));
   }, [productId, walletAddress]);
 
-  if (loading) return <p className="text-sm text-[var(--muted)]">Loading snapshots…</p>;
+  if (loading) return <p className="text-sm text-[var(--muted)]">{t('loading')}</p>;
   if (snapshots.length === 0)
-    return <p className="text-sm text-[var(--muted)]">No audit snapshots yet.</p>;
+    return <p className="text-sm text-[var(--muted)]">{t('empty')}</p>;
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-[var(--foreground)]">Audit Snapshots</h3>
+      <h3 className="text-sm font-semibold text-[var(--foreground)]">{t('title')}</h3>
       {snapshots.map((s) => (
         <div
           key={s.id}
@@ -50,11 +52,11 @@ export default function SnapshotHistory({ productId }: SnapshotHistoryProps) {
             <span className="font-medium text-[var(--foreground)]">
               {new Date(s.timestamp * 1000).toLocaleString()}
             </span>
-            <span className="text-[var(--muted)]">{s.event_count} events</span>
+            <span className="text-[var(--muted)]">{t('eventCount', { count: s.event_count })}</span>
           </div>
           <p className="text-[var(--muted)] font-mono break-all">{s.snapshot_hash}</p>
           <p className="text-[var(--muted)]">
-            By: <span className="font-mono">{s.created_by.slice(0, 12)}…</span>
+            {t('by')}: <span className="font-mono">{s.created_by.slice(0, 12)}…</span>
           </p>
         </div>
       ))}
