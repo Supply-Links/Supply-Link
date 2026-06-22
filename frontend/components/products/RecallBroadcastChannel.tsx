@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { RecallBroadcast, RecallNotification } from '@/lib/services/recallBroadcastService';
@@ -31,6 +32,7 @@ const severityColors = {
 };
 
 export function RecallBroadcastChannel() {
+  const t = useTranslations('recall');
   const [state, setState] = useState<RecallState>({
     productId: '',
     reason: '',
@@ -137,11 +139,11 @@ export function RecallBroadcastChannel() {
     <div className="space-y-6">
       <Card className="border-red-200 bg-red-50">
         <CardHeader>
-          <CardTitle className="text-red-900">Emergency Recall Broadcast</CardTitle>
+          <CardTitle className="text-red-900">{t('emergencyRecall')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Product ID</label>
+            <label className="block text-sm font-medium mb-2">{t('productId')}</label>
             <input
               type="text"
               placeholder="prod-001"
@@ -152,9 +154,9 @@ export function RecallBroadcastChannel() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Recall Reason</label>
+            <label className="block text-sm font-medium mb-2">{t('recallReason')}</label>
             <textarea
-              placeholder="Describe the reason for recall..."
+              placeholder={t('recallReasonPlaceholder')}
               value={state.reason}
               onChange={(e) => setState((s) => ({ ...s, reason: e.target.value }))}
               className="w-full px-3 py-2 border rounded"
@@ -164,7 +166,7 @@ export function RecallBroadcastChannel() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Severity</label>
+              <label className="block text-sm font-medium mb-2">{t('severity')}</label>
               <select
                 value={state.severity}
                 onChange={(e) =>
@@ -175,18 +177,18 @@ export function RecallBroadcastChannel() {
                 }
                 className="w-full px-3 py-2 border rounded"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
+                <option value="low">{t('severityLow')}</option>
+                <option value="medium">{t('severityMedium')}</option>
+                <option value="high">{t('severityHigh')}</option>
+                <option value="critical">{t('severityCritical')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Stakeholders</label>
+              <label className="block text-sm font-medium mb-2">{t('stakeholders')}</label>
               <input
                 type="text"
-                placeholder="Comma-separated addresses"
+                placeholder={t('stakeholdersPlaceholder')}
                 onChange={(e) =>
                   setState((s) => ({
                     ...s,
@@ -203,7 +205,7 @@ export function RecallBroadcastChannel() {
             disabled={state.loading}
             className="w-full bg-red-600 hover:bg-red-700"
           >
-            {state.loading ? 'Broadcasting...' : 'Initiate Recall Broadcast'}
+            {state.loading ? t('broadcasting') : t('initiateBroadcast')}
           </Button>
 
           {state.error && <div className="text-red-600 text-sm">{state.error}</div>}
@@ -213,35 +215,35 @@ export function RecallBroadcastChannel() {
       {state.stats && (
         <Card>
           <CardHeader>
-            <CardTitle>Broadcast Statistics</CardTitle>
+            <CardTitle>{t('broadcastStats')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold">{state.stats.totalBroadcasts}</div>
-                <div className="text-sm text-gray-600">Total Broadcasts</div>
+                <div className="text-sm text-gray-600">{t('totalBroadcasts')}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">
                   {state.stats.activeBroadcasts}
                 </div>
-                <div className="text-sm text-gray-600">Active</div>
+                <div className="text-sm text-gray-600">{t('active')}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
                   {state.stats.resolvedBroadcasts}
                 </div>
-                <div className="text-sm text-gray-600">Resolved</div>
+                <div className="text-sm text-gray-600">{t('resolved')}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">{state.stats.totalNotifications}</div>
-                <div className="text-sm text-gray-600">Notifications</div>
+                <div className="text-sm text-gray-600">{t('notifications')}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
                   {state.stats.acknowledgedNotifications}
                 </div>
-                <div className="text-sm text-gray-600">Acknowledged</div>
+                <div className="text-sm text-gray-600">{t('acknowledged')}</div>
               </div>
             </div>
           </CardContent>
@@ -250,12 +252,12 @@ export function RecallBroadcastChannel() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Active Broadcasts</CardTitle>
+          <CardTitle>{t('activeBroadcasts')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {state.broadcasts.length === 0 ? (
-              <p className="text-gray-500 text-sm">No active broadcasts</p>
+              <p className="text-gray-500 text-sm">{t('noActiveBroadcasts')}</p>
             ) : (
               state.broadcasts.map((broadcast) => (
                 <div key={broadcast.id} className="border rounded p-4">
@@ -271,13 +273,13 @@ export function RecallBroadcastChannel() {
                     </span>
                   </div>
                   <div className="text-sm text-gray-600 mb-2">
-                    <p>Stakeholders: {broadcast.stakeholders.length}</p>
+                    <p>{t('stakeholdersCount', { count: broadcast.stakeholders.length })}</p>
                     <p>
-                      Delivered:{' '}
+                      {t('delivered')}:{' '}
                       {broadcast.broadcastLog.filter((e) => e.status === 'delivered').length}
                     </p>
                     <p>
-                      Acknowledged:{' '}
+                      {t('acknowledged')}:{' '}
                       {broadcast.broadcastLog.filter((e) => e.status === 'acknowledged').length}
                     </p>
                   </div>
@@ -290,12 +292,12 @@ export function RecallBroadcastChannel() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your Notifications</CardTitle>
+          <CardTitle>{t('yourNotifications')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {state.notifications.length === 0 ? (
-              <p className="text-gray-500 text-sm">No notifications</p>
+              <p className="text-gray-500 text-sm">{t('noNotifications')}</p>
             ) : (
               state.notifications.map((notification) => (
                 <div
@@ -319,11 +321,11 @@ export function RecallBroadcastChannel() {
                       onClick={() => handleAcknowledge(notification.broadcastId)}
                       className="mt-2"
                     >
-                      Acknowledge
+                      {t('acknowledge')}
                     </Button>
                   )}
                   {notification.acknowledged && (
-                    <p className="text-sm text-green-600 mt-2">✓ Acknowledged</p>
+                    <p className="text-sm text-green-600 mt-2">✓ {t('acknowledged')}</p>
                   )}
                 </div>
               ))

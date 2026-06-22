@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { useTranslations } from "next-intl";
 import type { ProcessingTime, TopProduct, ActorActivity } from "@/lib/hooks/useDashboardData";
 import { EVENT_TYPE_CONFIG } from "@/lib/eventTypeConfig";
 import type { EventType } from "@/lib/types";
@@ -36,10 +37,11 @@ interface Props {
 }
 
 export default function AdvancedCharts({ processingTimes, topProducts, actorLeaderboard }: Props) {
+  const t = useTranslations("advancedCharts");
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Avg processing time per stage */}
-      <ChartCard title="Avg. time between events (hours)">
+      <ChartCard title={t("avgTimeBetweenEvents")}>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={processingTimes} layout="vertical" margin={{ left: 8 }}>
             <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted)" }} tickLine={false} axisLine={false} />
@@ -51,7 +53,7 @@ export default function AdvancedCharts({ processingTimes, topProducts, actorLead
               axisLine={false}
               width={72}
             />
-            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v} h`, "Avg time"]} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v} h`, t("avgTime")]} />
             <Bar dataKey="avgHours" radius={[0, 4, 4, 0]}>
               {processingTimes.map(({ stage }) => (
                 <Cell
@@ -65,9 +67,9 @@ export default function AdvancedCharts({ processingTimes, topProducts, actorLead
       </ChartCard>
 
       {/* Top products by event count */}
-      <ChartCard title="Top products by event count">
+      <ChartCard title={t("topProductsByEventCount")}>
         {topProducts.length === 0 ? (
-          <p className="text-xs text-[var(--muted)] mt-2">No data in selected range.</p>
+          <p className="text-xs text-[var(--muted)] mt-2">{t("noDataInRange")}</p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={topProducts} layout="vertical" margin={{ left: 8 }}>
@@ -81,7 +83,7 @@ export default function AdvancedCharts({ processingTimes, topProducts, actorLead
                 width={90}
                 tickFormatter={(v: string) => (v.length > 12 ? v.slice(0, 12) + "…" : v)}
               />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, "Events"]} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, t("events")]} />
               <Bar dataKey="count" fill="var(--primary)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -89,9 +91,9 @@ export default function AdvancedCharts({ processingTimes, topProducts, actorLead
       </ChartCard>
 
       {/* Actor leaderboard */}
-      <ChartCard title="Actor leaderboard">
+      <ChartCard title={t("actorLeaderboard")}>
         {actorLeaderboard.length === 0 ? (
-          <p className="text-xs text-[var(--muted)] mt-2">No data in selected range.</p>
+          <p className="text-xs text-[var(--muted)] mt-2">{t("noDataInRange")}</p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={actorLeaderboard} layout="vertical" margin={{ left: 8 }}>
@@ -104,7 +106,7 @@ export default function AdvancedCharts({ processingTimes, topProducts, actorLead
                 axisLine={false}
                 width={80}
               />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, "Events"]} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, t("events")]} />
               <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>

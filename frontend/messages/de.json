@@ -1,0 +1,282 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "getStarted": "Loslegen",
+    "products": "Produkte",
+    "tracking": "Nachverfolgung",
+    "reports": "Berichte"
+  },
+  "hero": {
+    "badge": "Unterstützt von Stellar & Soroban",
+    "title": "Transparente Lieferketten,",
+    "titleHighlight": "On-Chain",
+    "subtitle": "Produkte registrieren, jeden Schritt von der Ernte bis zum Verkauf verfolgen und jedermann die Echtheitsprüfung per QR-Scan ermöglichen — gesichert durch Soroban Smart Contracts.",
+    "cta": "Loslegen",
+    "verify": "Produkt prüfen"
+  },
+  "journey": {
+    "harvest": "Ernte",
+    "processing": "Verarbeitung",
+    "shipping": "Versand",
+    "retail": "Einzelhandel"
+  },
+  "features": {
+    "heading": "Alles was Sie brauchen",
+    "subheading": "Ein vollständiges Toolkit für Produzenten, Logistikpartner und Verbraucher.",
+    "registration": {
+      "title": "Produktregistrierung",
+      "desc": "Registrieren Sie jedes physische Produkt on-chain mit eindeutiger ID, Herkunft und Metadaten."
+    },
+    "tracking": {
+      "title": "Ereignisverfolgung",
+      "desc": "Protokollieren Sie jeden Lieferkettenereignis — Ernte, Verarbeitung, Versand, Verkauf — mit Zeitstempeln."
+    },
+    "qr": {
+      "title": "QR-Verifizierung",
+      "desc": "Verbraucher scannen einen QR-Code zur sofortigen Überprüfung von Echtheit und vollständiger Produkthistorie."
+    },
+    "auth": {
+      "title": "Mehrparteien-Auth",
+      "desc": "Autorisieren Sie mehrere Akteure pro Produkt. Nur genehmigte Parteien können Ereignisse hinzufügen."
+    }
+  },
+  "howItWorks": {
+    "heading": "So funktioniert es",
+    "subheading": "Vier Schritte von der Registrierung bis zur Verbraucherkontrolle.",
+    "step1": {
+      "title": "Produkt registrieren",
+      "desc": "Verbinden Sie Ihr Freighter-Wallet und registrieren Sie ein Produkt im Soroban Smart Contract. Sie erhalten eine eindeutige On-Chain-ID."
+    },
+    "step2": {
+      "title": "Lieferkettenakteure autorisieren",
+      "desc": "Fügen Sie Logistikpartner, Verarbeiter und Händler als autorisierte Akteure hinzu, die Ereignisse protokollieren können."
+    },
+    "step3": {
+      "title": "Ereignisse auf jeder Stufe protokollieren",
+      "desc": "Jeder autorisierte Akteur protokolliert Ereignisse (Ernte, Verarbeitung, Versand, Verkauf) mit Standort und Metadaten."
+    },
+    "step4": {
+      "title": "Verbraucher prüfen per QR",
+      "desc": "Ein QR-Code verlinkt zur vollständigen On-Chain-Historie. Jeder kann die Echtheit ohne Wallet überprüfen."
+    }
+  },
+  "useCases": {
+    "heading": "Für jede Branche",
+    "subheading": "Vom Bauernhof bis zur Apotheke — Supply-Link passt sich jeder physischen Lieferkette an.",
+    "food": {
+      "title": "Lebensmittel & Getränke",
+      "desc": "Bio-Zertifizierungen, Kühlketteneinhaltung und Herkunftsnachweis vom Feld bis zum Tisch."
+    },
+    "pharma": {
+      "title": "Pharmazeutika",
+      "desc": "Arzneimittelauthentizität sicherstellen, Chargennummern verfolgen und Fälschungen verhindern."
+    },
+    "fashion": {
+      "title": "Mode",
+      "desc": "Ethische Beschaffung, Materialherkunft und Fair-Trade-Zertifizierungen überprüfen."
+    },
+    "electronics": {
+      "title": "Elektronik",
+      "desc": "Komponentenherkunft, Montagestandorte und Garantieketten verfolgen."
+    }
+  },
+  "cta": {
+    "heading": "Bereit loszulegen?",
+    "subheading": "Verbinden Sie Ihr Freighter-Wallet und registrieren Sie Ihr erstes Produkt in unter einer Minute.",
+    "button": "App starten"
+  },
+  "footer": {
+    "copyright": "© {year} Supply-Link. MIT-Lizenz."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalProducts": "Produkte gesamt",
+    "totalEvents": "Ereignisse gesamt",
+    "activeProducts": "Aktive Produkte",
+    "last24h": "Letzte 24 Std.",
+    "eventsPerDay": "Ereignisse pro Tag (letzte 30 Tage)",
+    "eventTypeDistribution": "Verteilung nach Ereignistyp",
+    "recentEvents": "Neueste Ereignisse",
+    "noEvents": "Noch keine Ereignisse.",
+    "product": "Produkt",
+    "type": "Typ",
+    "location": "Ort",
+    "time": "Zeit"
+  },
+  "verify": {
+    "notFound": {
+      "title": "Produkt nicht gefunden",
+      "desc": "Kein Produkt mit dieser ID existiert in diesem Netzwerk:",
+      "hint": "Der QR-Code ist möglicherweise ungültig oder das Produkt wurde entfernt.",
+      "scanAnother": "Anderen QR scannen"
+    },
+    "origin": "Herkunft",
+    "registered": "Registriert",
+    "owner": "Eigentümer",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "verifiedBadge": "Verifiziert auf Stellar · Vertrag anzeigen",
+    "journey": "Produktreise",
+    "scanAnother": "Anderen QR scannen",
+    "communityRatings": "Community-Bewertungen",
+    "noEvents": "Noch keine Ereignisse für dieses Produkt aufgezeichnet.",
+    "eventTypes": {
+      "HARVEST": "Ernte",
+      "PROCESSING": "Verarbeitung",
+      "SHIPPING": "Versand",
+      "RETAIL": "Einzelhandel"
+    }
+  },
+  "ratings": {
+    "count": "{count, plural, =0 {Noch keine Bewertungen} one {# Bewertung} other {# Bewertungen}}",
+    "leaveRating": "Bewertung abgeben",
+    "commentPlaceholder": "Kommentar hinzufügen (optional, max. 500 Zeichen)",
+    "submitButton": "Bewertung absenden",
+    "submitting": "Wird gesendet...",
+    "connectPrompt": "Wallet verbinden, um eine Bewertung abzugeben",
+    "connectWalletFirst": "Bitte zuerst Wallet verbinden",
+    "selectRating": "Bitte eine Bewertung auswählen",
+    "submitSuccess": "Bewertung erfolgreich eingereicht",
+    "submitError": "Bewertung konnte nicht eingereicht werden"
+  },
+  "errors": {
+    "PRODUCT_NOT_FOUND": "Das angeforderte Produkt existiert nicht on-chain.",
+    "NOT_AUTHORIZED": "Sie sind nicht berechtigt, diese Aktion für dieses Produkt durchzuführen.",
+    "APPROVER_NOT_AUTHORIZED": "Der Genehmiger ist weder der Produkteigentümer noch ein autorisierter Akteur.",
+    "OWNER_ONLY": "Nur der Produkteigentümer kann diese Aktion durchführen.",
+    "NO_PENDING_EVENTS": "Es gibt keine ausstehenden Ereignisse in der Genehmigungswarteschlange für dieses Produkt.",
+    "PENDING_EVENT_EXPIRED": "Dieses ausstehende Ereignis ist abgelaufen und kann nicht mehr genehmigt werden.",
+    "INVALID_NONCE": "Der angegebene Nonce stimmt nicht mit dem erwarteten Wert überein. Seite neu laden und erneut versuchen.",
+    "UNKNOWN": "Ein unerwarteter Vertragsfehler ist aufgetreten. Bitte erneut versuchen."
+  },
+  "privateMetadata": {
+    "title": "Private Metadaten",
+    "locked": "Diese Metadaten sind privat",
+    "lockedHint": "Nur autorisierte Parteien mit dem Entschlüsselungsschlüssel können sie einsehen. Die Herkunft ist weiterhin on-chain nachgewiesen.",
+    "onChainCommitment": "On-Chain-Commitment",
+    "keyPlaceholder": "Entschlüsselungsschlüssel einfügen",
+    "keyRequired": "Ein Entschlüsselungsschlüssel ist erforderlich.",
+    "decrypt": "Entschlüsseln",
+    "decrypting": "Entschlüsseln…",
+    "payloadUnavailable": "Die verschlüsselte Nutzlast ist nicht verfügbar.",
+    "commitmentMismatch": "Die Off-Chain-Nutzlast stimmt nicht mit dem On-Chain-Commitment überein.",
+    "decryptFailed": "Entschlüsselung fehlgeschlagen. Überprüfen Sie, ob der Schlüssel korrekt ist.",
+    "verified": "Gegen On-Chain-Commitment verifiziert",
+    "markPrivate": "Metadaten als privat markieren",
+    "markPrivateHint": "Verschlüsselt die Metadaten im Browser; nur ein Hash-Commitment wird on-chain gespeichert.",
+    "submitSuccess": "Privates Ereignis hinzugefügt",
+    "saveKeyTitle": "Entschlüsselungsschlüssel jetzt speichern",
+    "saveKeyWarning": "Dieser Schlüssel wird nur einmal angezeigt und nie an den Server gesendet. Jeder mit diesem Schlüssel kann diese Metadaten lesen; ohne ihn sind die Daten nicht wiederherstellbar.",
+    "generatedKey": "Entschlüsselungsschlüssel",
+    "dismiss": "Fertig"
+  },
+  "languageSwitcher": {
+    "label": "Sprache auswählen"
+  },
+  "wallet": {
+    "connect": "Wallet verbinden",
+    "connectFreighter": "Freighter verbinden",
+    "connecting": "Verbinden…",
+    "disconnect": "Wallet trennen",
+    "viewOnExplorer": "Auf Stellar Expert anzeigen",
+    "readOnly": "Nur lesen"
+  },
+  "installPrompt": {
+    "title": "Supply-Link installieren",
+    "description": "Für Offline-Zugriff und schnellere Nutzung installieren.",
+    "iosInstructions": "Tippen Sie auf Teilen ⎋ und dann auf Zum Home-Bildschirm ➕",
+    "install": "Installieren",
+    "dismiss": "Installationsaufforderung schließen"
+  },
+  "auditReport": {
+    "title": "Audit-Berichtsgenerator",
+    "startDate": "Startdatum",
+    "endDate": "Enddatum",
+    "eventTypes": "Ereignistypen",
+    "allEventTypes": "Alle Ereignistypen",
+    "selectedCount": "{count} ausgewählt",
+    "generating": "Wird generiert…",
+    "generateReport": "Bericht generieren",
+    "reportSummary": "Berichtsübersicht",
+    "totalProducts": "Produkte gesamt",
+    "totalEvents": "Ereignisse gesamt",
+    "productsWithEvents": "Produkte mit Ereignissen",
+    "dateRange": "Datumsbereich",
+    "eventsByType": "Ereignisse nach Typ",
+    "exportJson": "JSON exportieren",
+    "exportCsv": "CSV exportieren"
+  },
+  "snapshotHistory": {
+    "title": "Audit-Snapshots",
+    "loading": "Snapshots werden geladen…",
+    "empty": "Noch keine Audit-Snapshots vorhanden.",
+    "eventCount": "{count} Ereignisse",
+    "by": "Von"
+  },
+  "advancedCharts": {
+    "avgTimeBetweenEvents": "Durchschn. Zeit zwischen Ereignissen (Stunden)",
+    "avgTime": "Durchschn. Zeit",
+    "topProductsByEventCount": "Top-Produkte nach Ereignisanzahl",
+    "actorLeaderboard": "Akteur-Rangliste",
+    "noDataInRange": "Keine Daten im ausgewählten Bereich.",
+    "events": "Ereignisse"
+  },
+  "readAccessAuditLog": {
+    "title": "Lesezugriff-Auditprotokoll",
+    "entries": "Einträge",
+    "refresh": "Auditprotokoll aktualisieren",
+    "filterByActor": "Nach Akteur-ID filtern",
+    "allOperations": "Alle Operationen",
+    "noEntries": "Keine Zugriffsprotokolleintrage gefunden.",
+    "privacyNote": "Protokolle sind datenschutzkonform: Akteur-IDs sind gekürzt und IP-Adressen sind gehasht.",
+    "colTimestamp": "Zeitstempel",
+    "colOperation": "Operation",
+    "colActor": "Akteur",
+    "colProducts": "Produkte",
+    "colPath": "Pfad",
+    "colStatus": "Status"
+  },
+  "recall": {
+    "emergencyRecall": "Notfall-Rückrufbenachrichtigung",
+    "productId": "Produkt-ID",
+    "recallReason": "Rückrufgrund",
+    "recallReasonPlaceholder": "Rückrufgrund beschreiben…",
+    "severity": "Schweregrad",
+    "severityLow": "Niedrig",
+    "severityMedium": "Mittel",
+    "severityHigh": "Hoch",
+    "severityCritical": "Kritisch",
+    "stakeholders": "Stakeholder",
+    "stakeholdersPlaceholder": "Kommagetrennte Adressen",
+    "stakeholdersCount": "Stakeholder: {count}",
+    "broadcasting": "Wird gesendet…",
+    "initiateBroadcast": "Rückruf einleiten",
+    "broadcastStats": "Sendestatistiken",
+    "totalBroadcasts": "Sendungen gesamt",
+    "active": "Aktiv",
+    "resolved": "Gelöst",
+    "notifications": "Benachrichtigungen",
+    "acknowledged": "Bestätigt",
+    "activeBroadcasts": "Aktive Sendungen",
+    "noActiveBroadcasts": "Keine aktiven Sendungen",
+    "delivered": "Zugestellt",
+    "yourNotifications": "Ihre Benachrichtigungen",
+    "noNotifications": "Keine Benachrichtigungen",
+    "acknowledge": "Bestätigen"
+  },
+  "batchImport": {
+    "title": "Massenimport von Produkten",
+    "instructions": "CSV mit Spalten hochladen:",
+    "clickToSelect": "CSV-Datei auswählen",
+    "close": "Schließen",
+    "cancel": "Abbrechen",
+    "importing": "Importieren…",
+    "importButton": "{count, plural, =0 {Produkte importieren} one {# Produkt importieren} other {# Produkte importieren}}"
+  },
+  "certifications": {
+    "noCertifications": "Keine Zertifizierungen für dieses Produkt registriert.",
+    "downloadBadge": "Zertifizierungsabzeichen herunterladen",
+    "badge": "Abzeichen",
+    "revoked": "Widerrufen"
+  }
+}

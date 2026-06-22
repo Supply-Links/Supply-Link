@@ -1,0 +1,2578 @@
+[
+  {
+    "id": "6b443fa39939d023afc1705b6d556616",
+    "webhookId": "test-webhook-123",
+    "name": "Test Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735372,
+    "updatedAt": 1781939735372
+  },
+  {
+    "id": "1f428fbafe738684018d4023c9fd4e1a",
+    "webhookId": "test-webhook-123",
+    "name": "Custom Subscription",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 3,
+      "backoffMs": 2000,
+      "maxBackoffMs": 60000
+    },
+    "active": true,
+    "createdAt": 1781939735376,
+    "updatedAt": 1781939735376
+  },
+  {
+    "id": "56aa6391ec30a3a6c8baeb58319d6013",
+    "webhookId": "test-webhook-123",
+    "name": "Filtered Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated", "event_added"],
+      "productIds": ["prod-123", "prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735378,
+    "updatedAt": 1781939735378
+  },
+  {
+    "id": "c0ea05ba7a3784b0c5340851e9aba5b5",
+    "webhookId": "test-webhook-123",
+    "name": "Retrieve Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735380,
+    "updatedAt": 1781939735380
+  },
+  {
+    "id": "cbecd66a9854a1da1d80e977bf206060",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 1",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735381,
+    "updatedAt": 1781939735381
+  },
+  {
+    "id": "63ba04b4d73408b7c2d95c80bafdb2c0",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735382,
+    "updatedAt": 1781939735382
+  },
+  {
+    "id": "b3e3431e155075d3ed9a97ff20050d1f",
+    "webhookId": "test-webhook-123",
+    "name": "Updated Name",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939735384,
+    "updatedAt": 1781939735385
+  },
+  {
+    "id": "53f1b7bbab2af9bf7f630a279e011940",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735393,
+    "updatedAt": 1781939735393
+  },
+  {
+    "id": "dd0cf8f12e5c6a89cdc20f953627b769",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735394,
+    "updatedAt": 1781939735394
+  },
+  {
+    "id": "324f39f01e1843a65a757054b67d41db",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735395,
+    "updatedAt": 1781939735395
+  },
+  {
+    "id": "6ba60ff0f28d44d9081107caabb25bca",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735395,
+    "updatedAt": 1781939735395
+  },
+  {
+    "id": "21e24966aafbcd3a182ea05cccddf37f",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735396,
+    "updatedAt": 1781939735396
+  },
+  {
+    "id": "51401d0d3288154e026c48c35b50cdcd",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939735396,
+    "updatedAt": 1781939735401
+  },
+  {
+    "id": "72149da7481f7884c89d71cb3546f6a7",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735403,
+    "updatedAt": 1781939735403
+  },
+  {
+    "id": "77282e1a9c5149d9fafcb75b378b1af9",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735404,
+    "updatedAt": 1781939735404
+  },
+  {
+    "id": "d2955c6f45bf1fa16a3baf0b5d5bb471",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735404,
+    "updatedAt": 1781939735404
+  },
+  {
+    "id": "cfab181f9b181f244840e670510d0c4c",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735405,
+    "updatedAt": 1781939735405
+  },
+  {
+    "id": "54ca5d29b60253799c13bf0d6145a6d0",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735406,
+    "updatedAt": 1781939735406
+  },
+  {
+    "id": "1c06c23763fe6efda97e9a966bbaf507",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939735406,
+    "updatedAt": 1781939735407
+  },
+  {
+    "id": "9eaed869a67e1e1bb88470f64d59abab",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735408,
+    "updatedAt": 1781939735408
+  },
+  {
+    "id": "00595b2a698006a7fa3aff1e51fb028c",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735409,
+    "updatedAt": 1781939735409
+  },
+  {
+    "id": "7829e71bd35998402235e1109fa6a6fc",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735409,
+    "updatedAt": 1781939735409
+  },
+  {
+    "id": "a195bf12d4b50fa7682f7479cab0f144",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735410,
+    "updatedAt": 1781939735410
+  },
+  {
+    "id": "15bb1dd6d7e27fe1a45bddd89680c326",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735411,
+    "updatedAt": 1781939735411
+  },
+  {
+    "id": "92826c94e728cc056510185957cb918d",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939735411,
+    "updatedAt": 1781939735412
+  },
+  {
+    "id": "9e9d70f2cd44f8775d039dfa9cf504e3",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735415,
+    "updatedAt": 1781939735415
+  },
+  {
+    "id": "2facd48b95bb080fa77a64913817776f",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735416,
+    "updatedAt": 1781939735416
+  },
+  {
+    "id": "b21660c5120cd8d6eb925a59a76624af",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735418,
+    "updatedAt": 1781939735418
+  },
+  {
+    "id": "405ff14f07c55f16297f0c12f8c3feb3",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735419,
+    "updatedAt": 1781939735419
+  },
+  {
+    "id": "1ab4ed1c8eaae8ae81651dadb5425a92",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735419,
+    "updatedAt": 1781939735419
+  },
+  {
+    "id": "b2359604a99a30663ad0938a3b59844a",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939735420,
+    "updatedAt": 1781939735421
+  },
+  {
+    "id": "5a0fc1869d590f22d9fbe54d8cd9f66f",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735422,
+    "updatedAt": 1781939735422
+  },
+  {
+    "id": "3faba852992faa04454a2a0281d05559",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735423,
+    "updatedAt": 1781939735423
+  },
+  {
+    "id": "2522648255bde49a1fd175b2694ee914",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735423,
+    "updatedAt": 1781939735423
+  },
+  {
+    "id": "37aecc68713efdf46b6547792eceb646",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735424,
+    "updatedAt": 1781939735424
+  },
+  {
+    "id": "adfe60fbcf0c8534035c4f0bf18bc7be",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735425,
+    "updatedAt": 1781939735425
+  },
+  {
+    "id": "2ae7a5cacd249a60f669d55fea9a333b",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939735425,
+    "updatedAt": 1781939735426
+  },
+  {
+    "id": "c3df90168d5b6a693bd73d483dac1cc8",
+    "webhookId": "test-webhook-123",
+    "name": "Trigger Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735428,
+    "updatedAt": 1781939735430,
+    "lastTriggeredAt": 1781939735429
+  },
+  {
+    "id": "69af0d7df3b190ecfc639d3da33853d3",
+    "webhookId": "test-webhook-123",
+    "name": "Multiple Triggers",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735430,
+    "updatedAt": 1781939735520,
+    "lastTriggeredAt": 1781939735519
+  },
+  {
+    "id": "21dc95cf9146a4914e733333ebc3ac0f",
+    "webhookId": "notify-webhook",
+    "name": "Notification Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735522,
+    "updatedAt": 1781939735522
+  },
+  {
+    "id": "96ae3b246f8daad47adcb296681beaee",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 1",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735525,
+    "updatedAt": 1781939735525
+  },
+  {
+    "id": "10a619eaa7f4f635afa0994fc429ab25",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939735526,
+    "updatedAt": 1781939735526
+  },
+  {
+    "id": "6df6f51b8348dcda7c5b3f1eed9e3f2f",
+    "webhookId": "test-webhook-123",
+    "name": "Test Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924331,
+    "updatedAt": 1781939924331
+  },
+  {
+    "id": "52aeef9639989f0df12cbf6d9dff8927",
+    "webhookId": "test-webhook-123",
+    "name": "Custom Subscription",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 3,
+      "backoffMs": 2000,
+      "maxBackoffMs": 60000
+    },
+    "active": true,
+    "createdAt": 1781939924341,
+    "updatedAt": 1781939924341
+  },
+  {
+    "id": "53f0331649884c1929b9845ec68f58e2",
+    "webhookId": "test-webhook-123",
+    "name": "Filtered Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated", "event_added"],
+      "productIds": ["prod-123", "prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924343,
+    "updatedAt": 1781939924343
+  },
+  {
+    "id": "1a94cabd7fab7743b56f003071202391",
+    "webhookId": "test-webhook-123",
+    "name": "Retrieve Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924344,
+    "updatedAt": 1781939924344
+  },
+  {
+    "id": "afb4ec42f22a22894d6b5af77abcf70e",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 1",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924346,
+    "updatedAt": 1781939924346
+  },
+  {
+    "id": "0bf9d134e417e110adf8b38d8005f5ef",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924347,
+    "updatedAt": 1781939924347
+  },
+  {
+    "id": "3a1cc90f3fa401cd9a8254cd60d2508a",
+    "webhookId": "test-webhook-123",
+    "name": "Updated Name",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939924352,
+    "updatedAt": 1781939924354
+  },
+  {
+    "id": "be3259ea0ced1ffc3afa00d27bc5e10e",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924364,
+    "updatedAt": 1781939924364
+  },
+  {
+    "id": "4bc643a76cc6042c6298cda9e4729c64",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924365,
+    "updatedAt": 1781939924365
+  },
+  {
+    "id": "e8e48250cb8b87c8a266cbbd76afe250",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924366,
+    "updatedAt": 1781939924366
+  },
+  {
+    "id": "96ea25eeabdabf92eb61edb04fad213b",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924366,
+    "updatedAt": 1781939924366
+  },
+  {
+    "id": "f57438d9222f8ab0016f866fc83d243b",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924367,
+    "updatedAt": 1781939924367
+  },
+  {
+    "id": "0ad58bf7849edd6e52b5ddf24f778ec1",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939924368,
+    "updatedAt": 1781939924369
+  },
+  {
+    "id": "187c78352be157b8a14213a3a97b4321",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924371,
+    "updatedAt": 1781939924371
+  },
+  {
+    "id": "a4643c6055db1b020b40287917f4de29",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924372,
+    "updatedAt": 1781939924372
+  },
+  {
+    "id": "cb6f180aaa2beda2ca7715a7fb935b81",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924372,
+    "updatedAt": 1781939924372
+  },
+  {
+    "id": "224f50856e4dc2db206b2d6f38b3eac7",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924373,
+    "updatedAt": 1781939924373
+  },
+  {
+    "id": "e514144a52cc0fc91af617d6fce01f81",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924374,
+    "updatedAt": 1781939924374
+  },
+  {
+    "id": "8d8c622a96011f9dc8a609e38f24729b",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939924375,
+    "updatedAt": 1781939924376
+  },
+  {
+    "id": "d44a2d4eabda955ae7e0dc1e6886b0f0",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924377,
+    "updatedAt": 1781939924377
+  },
+  {
+    "id": "c99b22fe1ba06231182c536b3d6f2940",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924405,
+    "updatedAt": 1781939924405
+  },
+  {
+    "id": "3526b0122f475ff4d944e256e9760d40",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924431,
+    "updatedAt": 1781939924431
+  },
+  {
+    "id": "b621c4065faf0a30cf636d744f1b1bc6",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924444,
+    "updatedAt": 1781939924444
+  },
+  {
+    "id": "e3388ec94587304f1350aa917495f196",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924458,
+    "updatedAt": 1781939924458
+  },
+  {
+    "id": "41f6e09d90d5c22a52ed7a07669ce3cd",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939924462,
+    "updatedAt": 1781939924463
+  },
+  {
+    "id": "789d2a812ebe1cfb6858ca480406bb5d",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924466,
+    "updatedAt": 1781939924466
+  },
+  {
+    "id": "3430078b34d0f13d0f4202aaa80ee1ec",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924467,
+    "updatedAt": 1781939924467
+  },
+  {
+    "id": "96fe422564dd9ec43c0c462374ece3cd",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924468,
+    "updatedAt": 1781939924468
+  },
+  {
+    "id": "7866e8b3b1e797246f2ae62e82bb4cbe",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924469,
+    "updatedAt": 1781939924469
+  },
+  {
+    "id": "e553f4830e42f961ca8248e28008ca22",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924470,
+    "updatedAt": 1781939924470
+  },
+  {
+    "id": "890c55a22c3ad86ded5af444069b81f4",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939924471,
+    "updatedAt": 1781939924472
+  },
+  {
+    "id": "420645df6b57a267b0707ef648f5494a",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924473,
+    "updatedAt": 1781939924473
+  },
+  {
+    "id": "df2d9d7cec95c9fe9cac4793bf84c4d8",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924474,
+    "updatedAt": 1781939924474
+  },
+  {
+    "id": "b9e24ddd1adc66333376070a424ba2e4",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924475,
+    "updatedAt": 1781939924475
+  },
+  {
+    "id": "092a83528adf0502b50794f81459c7ef",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924476,
+    "updatedAt": 1781939924476
+  },
+  {
+    "id": "a1309a613fdb105c9f75be67a610eb1d",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924477,
+    "updatedAt": 1781939924477
+  },
+  {
+    "id": "ede6906df75da4a971130c25b6c6f3b8",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781939924478,
+    "updatedAt": 1781939924480
+  },
+  {
+    "id": "76cf8978c919ed57d45c4046caf6d026",
+    "webhookId": "test-webhook-123",
+    "name": "Trigger Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924483,
+    "updatedAt": 1781939924484,
+    "lastTriggeredAt": 1781939924484
+  },
+  {
+    "id": "0fa6facd5259481bd08f572f1507f764",
+    "webhookId": "test-webhook-123",
+    "name": "Multiple Triggers",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924485,
+    "updatedAt": 1781939924498,
+    "lastTriggeredAt": 1781939924498
+  },
+  {
+    "id": "16656a97ff9b0a15867c382729430043",
+    "webhookId": "notify-webhook",
+    "name": "Notification Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924499,
+    "updatedAt": 1781939924499
+  },
+  {
+    "id": "d654499800120cb44fa52eaba2018bca",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 1",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924501,
+    "updatedAt": 1781939924501
+  },
+  {
+    "id": "5e8fa9325a4555c9b26c7365bcbaeb1b",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781939924502,
+    "updatedAt": 1781939924502
+  },
+  {
+    "id": "336a2448a83561faea131f01391c9046",
+    "webhookId": "test-webhook-123",
+    "name": "Test Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940071982,
+    "updatedAt": 1781940071982
+  },
+  {
+    "id": "029538839a55dcfccb2c2c77b93b93c3",
+    "webhookId": "test-webhook-123",
+    "name": "Custom Subscription",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 3,
+      "backoffMs": 2000,
+      "maxBackoffMs": 60000
+    },
+    "active": true,
+    "createdAt": 1781940071986,
+    "updatedAt": 1781940071986
+  },
+  {
+    "id": "a5302d73acfbf1edc937a452ec887957",
+    "webhookId": "test-webhook-123",
+    "name": "Filtered Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated", "event_added"],
+      "productIds": ["prod-123", "prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940071988,
+    "updatedAt": 1781940071988
+  },
+  {
+    "id": "483738b7f7d4cd63453dc1b65541d72a",
+    "webhookId": "test-webhook-123",
+    "name": "Retrieve Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940071989,
+    "updatedAt": 1781940071989
+  },
+  {
+    "id": "a58e7b720392a58cbfb13343b13d2df3",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 1",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940071991,
+    "updatedAt": 1781940071991
+  },
+  {
+    "id": "683d234f72ba6c2677297ffc772fae30",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940071992,
+    "updatedAt": 1781940071992
+  },
+  {
+    "id": "29c56dd9f7e84dc31816b716d17fad99",
+    "webhookId": "test-webhook-123",
+    "name": "Updated Name",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940071997,
+    "updatedAt": 1781940072000
+  },
+  {
+    "id": "d7c8bd56bbf5137ce568118cd8b9d85d",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072009,
+    "updatedAt": 1781940072009
+  },
+  {
+    "id": "94ea737c1b0444a0329cfa9aa06187e1",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072010,
+    "updatedAt": 1781940072010
+  },
+  {
+    "id": "107ceeb8c8fd444dc52e0666898e9160",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072011,
+    "updatedAt": 1781940072011
+  },
+  {
+    "id": "66ff96c70a645db9b976abd39d81f62e",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072011,
+    "updatedAt": 1781940072011
+  },
+  {
+    "id": "d1da32d46e44c90947d76a3ab9eebb73",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072012,
+    "updatedAt": 1781940072012
+  },
+  {
+    "id": "4aea8f7628dd1a3b4e015bc955b6af18",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940072014,
+    "updatedAt": 1781940072043
+  },
+  {
+    "id": "9e89e6b072dcad66a609a029a89d5d93",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072111,
+    "updatedAt": 1781940072111
+  },
+  {
+    "id": "49b842f251294e3d54245602c0fe171a",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072154,
+    "updatedAt": 1781940072154
+  },
+  {
+    "id": "f777ad2fc6c8e5cda02ab890fb5f7558",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072157,
+    "updatedAt": 1781940072157
+  },
+  {
+    "id": "bd1ad230521d9012c302d482dfb22426",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072159,
+    "updatedAt": 1781940072159
+  },
+  {
+    "id": "3e651f74855db635146d1e78eb2445c6",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072161,
+    "updatedAt": 1781940072161
+  },
+  {
+    "id": "3342f77db0a3955e72fb14da8aba2ff3",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940072164,
+    "updatedAt": 1781940072166
+  },
+  {
+    "id": "991fe95bb0f1b49c55479e1235787cd3",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072169,
+    "updatedAt": 1781940072169
+  },
+  {
+    "id": "c58e65ca772a3ef761c3c9efc0fc9c4a",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072170,
+    "updatedAt": 1781940072170
+  },
+  {
+    "id": "ee34dfb20419fa074c6490a076ab87dc",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072172,
+    "updatedAt": 1781940072172
+  },
+  {
+    "id": "e5296282667cd3ba5e54a1bd6a39f3e8",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072174,
+    "updatedAt": 1781940072174
+  },
+  {
+    "id": "a66c60422875583a422573ebb49f3714",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072175,
+    "updatedAt": 1781940072175
+  },
+  {
+    "id": "93c2db49ee5b93036f2d09696cc64ffd",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940072178,
+    "updatedAt": 1781940072185
+  },
+  {
+    "id": "a8724f485d6425929dba0d367025e4a3",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072189,
+    "updatedAt": 1781940072189
+  },
+  {
+    "id": "273ed2cb9414981a40acd8f229f824d7",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072191,
+    "updatedAt": 1781940072191
+  },
+  {
+    "id": "3e88b1848543bc719fe6a65dff83466e",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072192,
+    "updatedAt": 1781940072192
+  },
+  {
+    "id": "55ea4e81660fe182616fa2876b490e84",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072194,
+    "updatedAt": 1781940072194
+  },
+  {
+    "id": "94bc79918df3f1784d53692315665afd",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072196,
+    "updatedAt": 1781940072196
+  },
+  {
+    "id": "8834b711653a4244d2795d1f881b4a6b",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940072197,
+    "updatedAt": 1781940072199
+  },
+  {
+    "id": "fe6ea592e30866ea91b66f8d48cf80a3",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072202,
+    "updatedAt": 1781940072202
+  },
+  {
+    "id": "747f0498c27063343593f9c727ce261f",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072206,
+    "updatedAt": 1781940072206
+  },
+  {
+    "id": "a13bd8326f05c5231ea38e9cee187728",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072210,
+    "updatedAt": 1781940072210
+  },
+  {
+    "id": "3f548f22886e7b5a22157b1779f06530",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072212,
+    "updatedAt": 1781940072212
+  },
+  {
+    "id": "6a0c08c48adf38f16603e6752192a806",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072216,
+    "updatedAt": 1781940072216
+  },
+  {
+    "id": "2e29518e25ed6b27d0024a8d010500c8",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940072222,
+    "updatedAt": 1781940072226
+  },
+  {
+    "id": "d99391cfb325fa9676e9ec65974ce7f6",
+    "webhookId": "test-webhook-123",
+    "name": "Trigger Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072229,
+    "updatedAt": 1781940072231,
+    "lastTriggeredAt": 1781940072231
+  },
+  {
+    "id": "dcd2295e6356650be165920733de42c3",
+    "webhookId": "test-webhook-123",
+    "name": "Multiple Triggers",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072232,
+    "updatedAt": 1781940072245,
+    "lastTriggeredAt": 1781940072244
+  },
+  {
+    "id": "838f3b234e9d1796dd532cda75742074",
+    "webhookId": "notify-webhook",
+    "name": "Notification Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072247,
+    "updatedAt": 1781940072247
+  },
+  {
+    "id": "23c86448d28b0b90dd22196e9c8259b2",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 1",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072251,
+    "updatedAt": 1781940072251
+  },
+  {
+    "id": "6caa43c553a41d77fb101d6ff3f910f2",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940072251,
+    "updatedAt": 1781940072251
+  },
+  {
+    "id": "4b731d2b6bc291f02373688cce4b87a6",
+    "webhookId": "test-webhook-123",
+    "name": "Test Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176272,
+    "updatedAt": 1781940176272
+  },
+  {
+    "id": "3d3c6c195c8c18849f8f41cd87a506e7",
+    "webhookId": "test-webhook-123",
+    "name": "Custom Subscription",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 3,
+      "backoffMs": 2000,
+      "maxBackoffMs": 60000
+    },
+    "active": true,
+    "createdAt": 1781940176286,
+    "updatedAt": 1781940176286
+  },
+  {
+    "id": "970335ed24ed98289d932235846140d0",
+    "webhookId": "test-webhook-123",
+    "name": "Filtered Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated", "event_added"],
+      "productIds": ["prod-123", "prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176288,
+    "updatedAt": 1781940176288
+  },
+  {
+    "id": "824f660381d647c0b4d48438576b9ac6",
+    "webhookId": "test-webhook-123",
+    "name": "Retrieve Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176289,
+    "updatedAt": 1781940176289
+  },
+  {
+    "id": "ea681513279a8de2c24da9c53b88ab50",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 1",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176292,
+    "updatedAt": 1781940176292
+  },
+  {
+    "id": "0bfb7b1c601fdbd3a250a2929c5594d4",
+    "webhookId": "test-webhook-123",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176293,
+    "updatedAt": 1781940176293
+  },
+  {
+    "id": "c952176fb7776b453825f5c0242819e7",
+    "webhookId": "test-webhook-123",
+    "name": "Updated Name",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940176296,
+    "updatedAt": 1781940176298
+  },
+  {
+    "id": "1bdb97f8a800bee5fbca7d1df5339d6f",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176307,
+    "updatedAt": 1781940176307
+  },
+  {
+    "id": "9575df1d10679e6b8a8f366f673bc239",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176308,
+    "updatedAt": 1781940176308
+  },
+  {
+    "id": "abda86bc91e395eba4c594f78f66d7e1",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176309,
+    "updatedAt": 1781940176309
+  },
+  {
+    "id": "99b0c9411904ebf08d85c79a8e6abe85",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176310,
+    "updatedAt": 1781940176310
+  },
+  {
+    "id": "0abd5a9b85cdd6a61ad7a58a71e2c71a",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176310,
+    "updatedAt": 1781940176310
+  },
+  {
+    "id": "afbb29870e661299a0398b50adf4db2a",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940176312,
+    "updatedAt": 1781940176313
+  },
+  {
+    "id": "f435f5f826c55d7921f89b768cd71ee7",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176315,
+    "updatedAt": 1781940176315
+  },
+  {
+    "id": "c7142684a24c3ed6225a73b03fa0eb61",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176316,
+    "updatedAt": 1781940176316
+  },
+  {
+    "id": "dcf33f62ba9f0b33281565361313e47c",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176317,
+    "updatedAt": 1781940176317
+  },
+  {
+    "id": "6a3b32d492853792b17dd50f9cb7e274",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176318,
+    "updatedAt": 1781940176318
+  },
+  {
+    "id": "4e2c87f258f287841916960e3167110d",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176319,
+    "updatedAt": 1781940176319
+  },
+  {
+    "id": "2da2bb36d546a7cb18def47614b6087f",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940176322,
+    "updatedAt": 1781940176324
+  },
+  {
+    "id": "343f700f5b3e89f0aa0986cf713ab6ee",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176326,
+    "updatedAt": 1781940176326
+  },
+  {
+    "id": "cded32857fa6fbcef2836e9885776c88",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176328,
+    "updatedAt": 1781940176328
+  },
+  {
+    "id": "597aeb82cbe432e3aa84d8cb40f899a5",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176329,
+    "updatedAt": 1781940176329
+  },
+  {
+    "id": "32c8faec886c1f9c5c18edd81110045a",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176330,
+    "updatedAt": 1781940176330
+  },
+  {
+    "id": "1d8d171837a6bb33564585072696199c",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176330,
+    "updatedAt": 1781940176330
+  },
+  {
+    "id": "0c019d978235c114d2bee5db79428e9d",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940176332,
+    "updatedAt": 1781940176333
+  },
+  {
+    "id": "a5b7c25a03a6bb71e3cbebd6e9352128",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176334,
+    "updatedAt": 1781940176334
+  },
+  {
+    "id": "76a6127d800f437dc4195a6cfd62bc23",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176335,
+    "updatedAt": 1781940176335
+  },
+  {
+    "id": "d6205b3c6c0dcbc54f728644a22aba00",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176336,
+    "updatedAt": 1781940176336
+  },
+  {
+    "id": "1d7ba34d3b7672050b1e0d8416e9a623",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176337,
+    "updatedAt": 1781940176337
+  },
+  {
+    "id": "ee57eab139b1f8509e777ab6a3c8d8b1",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176338,
+    "updatedAt": 1781940176338
+  },
+  {
+    "id": "a9ffae1b5c9347889369bfb20be3114b",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940176339,
+    "updatedAt": 1781940176341
+  },
+  {
+    "id": "a24eb73662328d3a813d79ae318f4966",
+    "webhookId": "test-webhook-123",
+    "name": "All Product Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176342,
+    "updatedAt": 1781940176342
+  },
+  {
+    "id": "1ffa742e4b0a30f1e3c0f5c3bf945375",
+    "webhookId": "test-webhook-123",
+    "name": "Product Updates Only",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176345,
+    "updatedAt": 1781940176345
+  },
+  {
+    "id": "6d0706aaccfc0577935e59c2cd4fed03",
+    "webhookId": "test-webhook-123",
+    "name": "Product 123 Events",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "productIds": ["prod-123"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176348,
+    "updatedAt": 1781940176348
+  },
+  {
+    "id": "90af63f1f961bda2ed17d160248d6cff",
+    "webhookId": "test-webhook-123",
+    "name": "Specific Product and Event Type",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "productEventFilter": {
+      "types": ["product_updated"],
+      "productIds": ["prod-456"]
+    },
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176353,
+    "updatedAt": 1781940176353
+  },
+  {
+    "id": "a140185812126c8e8572d869c0e27637",
+    "webhookId": "test-webhook-123",
+    "name": "Tracking Events Only",
+    "eventTypes": ["TRACKING_EVENT_CREATED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176355,
+    "updatedAt": 1781940176355
+  },
+  {
+    "id": "596d5e30e2a162fd24ac41720ad49be8",
+    "webhookId": "test-webhook-123",
+    "name": "Inactive Subscription",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": false,
+    "createdAt": 1781940176356,
+    "updatedAt": 1781940176358
+  },
+  {
+    "id": "29aedb3d6cc8001c8ced40a9e3e5c85f",
+    "webhookId": "test-webhook-123",
+    "name": "Trigger Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176362,
+    "updatedAt": 1781940176365,
+    "lastTriggeredAt": 1781940176364
+  },
+  {
+    "id": "422b986ce6c7c4d8d1c81f876c0c0eb9",
+    "webhookId": "test-webhook-123",
+    "name": "Multiple Triggers",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176366,
+    "updatedAt": 1781940176382,
+    "lastTriggeredAt": 1781940176381
+  },
+  {
+    "id": "444c1c7ece8db0aef2e41d55c76ba961",
+    "webhookId": "notify-webhook",
+    "name": "Notification Test",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176383,
+    "updatedAt": 1781940176383
+  },
+  {
+    "id": "a74e7360e408a954b48b5b7dfac97b5a",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 1",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176387,
+    "updatedAt": 1781940176387
+  },
+  {
+    "id": "c366bd0ddef24790a4a405c6c984f67a",
+    "webhookId": "notify-webhook-2",
+    "name": "Sub 2",
+    "eventTypes": ["PRODUCT_EVENT_CHANGED"],
+    "retryPolicy": {
+      "maxRetries": 5,
+      "backoffMs": 1000,
+      "maxBackoffMs": 3600000
+    },
+    "active": true,
+    "createdAt": 1781940176388,
+    "updatedAt": 1781940176388
+  }
+]

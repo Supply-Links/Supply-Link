@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Papa from "papaparse";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useTranslations } from "next-intl";
 import { X, Upload, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { registerProduct } from "@/lib/stellar/client";
 import { useStore } from "@/lib/state/store";
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function BatchImportForm({ open, onOpenChange }: Props) {
+  const t = useTranslations('batchImport');
   const { walletAddress, addProduct } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<RowResult[]>([]);
@@ -137,7 +139,7 @@ export function BatchImportForm({ open, onOpenChange }: Props) {
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg bg-[var(--background)] border border-[var(--card-border)] rounded-2xl p-6 shadow-xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold">Batch Import Products</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold">{t('title')}</Dialog.Title>
             <Dialog.Close
               disabled={running}
               className="p-1 rounded-lg hover:bg-[var(--muted-bg)] transition-colors disabled:opacity-40"
@@ -147,13 +149,13 @@ export function BatchImportForm({ open, onOpenChange }: Props) {
           </div>
 
           <p className="text-sm text-[var(--muted)]">
-            Upload a CSV with columns: <code className="font-mono text-xs bg-[var(--muted-bg)] px-1 py-0.5 rounded">id, name, origin</code>
+            {t('instructions')} <code className="font-mono text-xs bg-[var(--muted-bg)] px-1 py-0.5 rounded">id, name, origin</code>
           </p>
 
           {/* File input */}
           <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[var(--card-border)] rounded-xl p-6 cursor-pointer hover:border-violet-500 transition-colors">
             <Upload size={24} className="text-[var(--muted)]" />
-            <span className="text-sm text-[var(--muted)]">Click to select a CSV file</span>
+            <span className="text-sm text-[var(--muted)]">{t('clickToSelect')}</span>
             <input
               ref={fileRef}
               type="file"
@@ -210,14 +212,14 @@ export function BatchImportForm({ open, onOpenChange }: Props) {
               disabled={running}
               className="flex-1 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium hover:bg-[var(--muted-bg)] transition-colors disabled:opacity-40"
             >
-              {done ? "Close" : "Cancel"}
+              {done ? t('close') : t('cancel')}
             </Dialog.Close>
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
               className="flex-1 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {running ? "Importing…" : `Import ${pendingCount > 0 ? pendingCount : ""} Product${pendingCount !== 1 ? "s" : ""}`}
+              {running ? t('importing') : t('importButton', { count: pendingCount })}
             </button>
           </div>
         </Dialog.Content>

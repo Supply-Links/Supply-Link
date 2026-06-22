@@ -909,8 +909,6 @@ impl SupplyLinkContract {
         location: String,
         event_type: String,
         metadata: String,
-    ) -> TrackingEvent {
-        let mut product: Product = env
     ) -> Result<TrackingEvent, Error> {
         let product: Product = env
             .storage()
@@ -1234,7 +1232,6 @@ o            actor: caller,
 
     // ── Read-only queries ─────────────────────────────────────────────────────
 
-    pub fn get_product(env: Env, id: String) -> Product {
     /// Retrieve a product by its ID.
     ///
     /// # Returns
@@ -1256,9 +1253,6 @@ o            actor: caller,
             .unwrap_or_else(|| Vec::new(&env))
     }
 
-    /// Transfer product ownership.
-    /// Panics if the product is spoiled — spoiled products cannot be transferred.
-    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> bool {
     /// Check whether a product ID is registered.
     ///
     /// Useful for pre-flight checks before calling functions that panic on
@@ -1349,7 +1343,6 @@ o            actor: caller,
 
     // ── Ownership & actor management ──────────────────────────────────────────
 
-    pub fn transfer_ownership(env: Env, product_id: String, new_owner: Address) -> bool {
     /// Transfer product ownership to a new address.
     ///
     /// Updates the `owner` field of the [`Product`] in storage. The previous
@@ -1472,14 +1465,9 @@ o            actor: caller,
 
     pub fn remove_authorized_actor(env: Env, product_id: String, actor: Address) -> bool {
         let mut product: Product = env
-    // ── #404: Lifecycle helpers ───────────────────────────────────────────────
-
-    /// Get the current lifecycle stage of a product.
-    pub fn get_lifecycle_stage(env: Env, product_id: String) -> LifecycleStage {
-        let product: Product = env
             .storage()
             .persistent()
-            .get(&DataKey::Product(product_id))
+            .get(&DataKey::Product(product_id.clone()))
             .expect("product not found");
 
         product.owner.require_auth();
@@ -1503,8 +1491,38 @@ o            actor: caller,
         found
     }
 
-    pub fn update_product_metadata(
+    // ── #404: Lifecycle helpers ───────────────────────────────────────────────
+
+    /// Get the current lifecycle stage of a product.
+    pub fn get_lifecycle_stage(env: Env, product_id: String) -> LifecycleStage {
+        let product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id))
+            .expect("product not found");
+
         product.lifecycle_stage
+    }
+
+    pub fn update_product_metadata(
+        env: Env,
+        product_id: String,
+        new_metadata: String,
+    ) -> bool {
+        let mut product: Product = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Product(product_id.clone()))
+            .expect("product not found");
+
+        product.owner.require_auth();
+        
+        // Metadata field update would go here
+        env.storage()
+            .persistent()
+            .set(&DataKey::Product(product_id), &product);
+
+        true
     }
 
     // ── #396: Ownership transfer escrow ──────────────────────────────────────

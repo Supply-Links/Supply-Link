@@ -1,7 +1,10 @@
 {
   "nav": {
     "dashboard": "Dashboard",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "products": "Products",
+    "tracking": "Tracking",
+    "reports": "Reports"
   },
   "hero": {
     "badge": "Powered by Stellar & Soroban",
@@ -166,5 +169,114 @@
     "saveKeyWarning": "This key is shown only once and is never sent to the server. Anyone with it can read this metadata; without it the data is unrecoverable.",
     "generatedKey": "Decryption key",
     "dismiss": "Done"
+  },
+  "languageSwitcher": {
+    "label": "Select language"
+  },
+  "wallet": {
+    "connect": "Connect wallet",
+    "connectFreighter": "Connect Freighter",
+    "connecting": "Connecting…",
+    "disconnect": "Disconnect wallet",
+    "viewOnExplorer": "View on Stellar Expert",
+    "readOnly": "Read-only"
+  },
+  "installPrompt": {
+    "title": "Install Supply-Link",
+    "description": "Install for offline access and a faster experience.",
+    "iosInstructions": "Tap Share ⎋ then Add to Home Screen ➕",
+    "install": "Install",
+    "dismiss": "Dismiss install prompt"
+  },
+  "auditReport": {
+    "title": "Audit Report Builder",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "eventTypes": "Event Types",
+    "allEventTypes": "All event types",
+    "selectedCount": "{count} selected",
+    "generating": "Generating…",
+    "generateReport": "Generate Report",
+    "reportSummary": "Report Summary",
+    "totalProducts": "Total Products",
+    "totalEvents": "Total Events",
+    "productsWithEvents": "Products with Events",
+    "dateRange": "Date Range",
+    "eventsByType": "Events by Type",
+    "exportJson": "Export JSON",
+    "exportCsv": "Export CSV"
+  },
+  "snapshotHistory": {
+    "title": "Audit Snapshots",
+    "loading": "Loading snapshots…",
+    "empty": "No audit snapshots yet.",
+    "eventCount": "{count} events",
+    "by": "By"
+  },
+  "advancedCharts": {
+    "avgTimeBetweenEvents": "Avg. time between events (hours)",
+    "avgTime": "Avg time",
+    "topProductsByEventCount": "Top products by event count",
+    "actorLeaderboard": "Actor leaderboard",
+    "noDataInRange": "No data in selected range.",
+    "events": "Events"
+  },
+  "readAccessAuditLog": {
+    "title": "Read Access Audit Log",
+    "entries": "entries",
+    "refresh": "Refresh audit log",
+    "filterByActor": "Filter by actor ID",
+    "allOperations": "All operations",
+    "noEntries": "No access log entries found.",
+    "privacyNote": "Logs are privacy-aware: actor IDs are truncated and IP addresses are hashed.",
+    "colTimestamp": "Timestamp",
+    "colOperation": "Operation",
+    "colActor": "Actor",
+    "colProducts": "Products",
+    "colPath": "Path",
+    "colStatus": "Status"
+  },
+  "recall": {
+    "emergencyRecall": "Emergency Recall Broadcast",
+    "productId": "Product ID",
+    "recallReason": "Recall Reason",
+    "recallReasonPlaceholder": "Describe the reason for recall…",
+    "severity": "Severity",
+    "severityLow": "Low",
+    "severityMedium": "Medium",
+    "severityHigh": "High",
+    "severityCritical": "Critical",
+    "stakeholders": "Stakeholders",
+    "stakeholdersPlaceholder": "Comma-separated addresses",
+    "stakeholdersCount": "Stakeholders: {count}",
+    "broadcasting": "Broadcasting…",
+    "initiateBroadcast": "Initiate Recall Broadcast",
+    "broadcastStats": "Broadcast Statistics",
+    "totalBroadcasts": "Total Broadcasts",
+    "active": "Active",
+    "resolved": "Resolved",
+    "notifications": "Notifications",
+    "acknowledged": "Acknowledged",
+    "activeBroadcasts": "Active Broadcasts",
+    "noActiveBroadcasts": "No active broadcasts",
+    "delivered": "Delivered",
+    "yourNotifications": "Your Notifications",
+    "noNotifications": "No notifications",
+    "acknowledge": "Acknowledge"
+  },
+  "batchImport": {
+    "title": "Batch Import Products",
+    "instructions": "Upload a CSV with columns:",
+    "clickToSelect": "Click to select a CSV file",
+    "close": "Close",
+    "cancel": "Cancel",
+    "importing": "Importing…",
+    "importButton": "{count, plural, =0 {Import Products} one {Import # Product} other {Import # Products}}"
+  },
+  "certifications": {
+    "noCertifications": "No certifications registered for this product.",
+    "downloadBadge": "Download certification badge",
+    "badge": "Badge",
+    "revoked": "Revoked"
   }
 }
