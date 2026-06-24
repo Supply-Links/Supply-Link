@@ -1,15 +1,15 @@
 import { createHmac } from 'crypto';
 import type { Webhook, WebhookPayload, WebhookDeliveryAttempt } from './types';
 import { recordDeliveryAttempt, updateWebhookDelivery } from './storage';
-
-// Maximum number of retry attempts
-const MAX_RETRY_ATTEMPTS = 5;
-
-// Initial backoff in milliseconds (1 second)
-const INITIAL_BACKOFF_MS = 1000;
-
-// Maximum backoff in milliseconds (1 hour)
-const MAX_BACKOFF_MS = 3600000;
+import {
+  WEBHOOK_MAX_RETRY_ATTEMPTS,
+  WEBHOOK_INITIAL_BACKOFF_MS,
+  WEBHOOK_MAX_BACKOFF_MS,
+  WEBHOOK_REQUEST_TIMEOUT_MS,
+  WEBHOOK_MAX_PAYLOAD_SIZE,
+  WEBHOOK_RETRYABLE_STATUS_CODES,
+  WEBHOOK_BACKOFF_JITTER,
+} from './config';
 
 /**
  * Generate HMAC-SHA256 signature for webhook payload
@@ -49,15 +49,13 @@ function compareStrings(a: string, b: string): boolean {
  * Calculate exponential backoff with jitter
  * Allows custom max retries through the retryPolicy parameter
  */
-export function calculateBackoffDelay(attemptNumber: number, maxRetries?: number): number {
-  const configuredMaxRetries = maxRetries ?? MAX_RETRY_ATTEMPTS;
+export function calculateBackoffDelay(attemptNumber: number, _maxRetries?: number): number {
+  // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then cap at max
+  const exponentialDelay = WEBHOOK_INITIAL_BACKOFF_MS * Math.pow(2, attemptNumber - 1);
+  const cappedDelay = Math.min(exponentialDelay, WEBHOOK_MAX_BACKOFF_MS);
 
-  // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then cap at 1 hour
-  const exponentialDelay = INITIAL_BACKOFF_MS * Math.pow(2, attemptNumber - 1);
-  const cappedDelay = Math.min(exponentialDelay, MAX_BACKOFF_MS);
-
-  // Add random jitter (±10%)
-  const jitter = cappedDelay * 0.1 * (Math.random() - 0.5);
+  // Add random jitter (±WEBHOOK_BACKOFF_JITTER)
+  const jitter = cappedDelay * WEBHOOK_BACKOFF_JITTER * (Math.random() - 0.5);
   return Math.round(cappedDelay + jitter);
 }
 
@@ -79,6 +77,17 @@ export async function sendWebhook(
   subscriptionId?: string,
   maxRetries?: number,
 ): Promise<DeliveryResult> {
+  const effectiveMaxRetries = maxRetries ?? WEBHOOK_MAX_RETRY_ATTEMPTS;
+
+  // Guard: reject oversized payloads before sending
+  const payloadString = JSON.stringify(payload);
+  if (payloadString.length > WEBHOOK_MAX_PAYLOAD_SIZE) {
+    return {
+      success: false,
+      errorMessage: `Payload size ${payloadString.length} bytes exceeds limit of ${WEBHOOK_MAX_PAYLOAD_SIZE} bytes`,
+    };
+  }
+
   try {
     const signature = generateWebhookSignature(payload, webhook.secret);
 
@@ -90,31 +99,27 @@ export async function sendWebhook(
         'X-Webhook-Timestamp': String(payload.timestamp),
         'X-Webhook-ID': payload.id,
       },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      body: payloadString,
+      signal: AbortSignal.timeout(WEBHOOK_REQUEST_TIMEOUT_MS),
     });
 
     const success = response.ok;
-    let nextRetryIn: number | undefined;
+    // Only schedule a retry for retryable status codes (e.g. 429, 5xx)
+    const isRetryable = WEBHOOK_RETRYABLE_STATUS_CODES.includes(response.status);
+    const shouldRetry = !success && isRetryable && attemptNumber < effectiveMaxRetries;
+    const nextRetryIn = shouldRetry ? calculateBackoffDelay(attemptNumber, maxRetries) : undefined;
 
-    // Record the delivery attempt
-    const configuredMaxRetries = maxRetries ?? MAX_RETRY_ATTEMPTS;
     const deliveryAttempt: WebhookDeliveryAttempt = {
       webhookId: webhook.id,
       subscriptionId,
       payloadId: payload.id,
-      status: success ? 'success' : 'failed',
+      status: success ? 'success' : shouldRetry ? 'pending' : 'failed',
       statusCode: response.status,
       attemptNumber,
+      nextRetryAt: nextRetryIn !== undefined ? Date.now() + nextRetryIn : undefined,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-
-    if (!success && attemptNumber < (maxRetries ?? MAX_RETRY_ATTEMPTS)) {
-      nextRetryIn = calculateBackoffDelay(attemptNumber, maxRetries);
-      deliveryAttempt.status = 'pending';
-      deliveryAttempt.nextRetryAt = Date.now() + nextRetryIn;
-    }
 
     await recordDeliveryAttempt(deliveryAttempt);
     await updateWebhookDelivery(webhook.id, response.status, success);
@@ -128,40 +133,29 @@ export async function sendWebhook(
       success: false,
       statusCode: response.status,
       errorMessage: errorText || `HTTP ${response.status}`,
-      nextRetryIn: attemptNumber < (maxRetries ?? MAX_RETRY_ATTEMPTS) ? nextRetryIn : undefined,
+      nextRetryIn,
     };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    const configuredMaxRetries = maxRetries ?? MAX_RETRY_ATTEMPTS;
+    const shouldRetry = attemptNumber < effectiveMaxRetries;
+    const nextRetryIn = shouldRetry ? calculateBackoffDelay(attemptNumber, maxRetries) : undefined;
 
-    // Record failed attempt
     const deliveryAttempt: WebhookDeliveryAttempt = {
       webhookId: webhook.id,
       subscriptionId,
       payloadId: payload.id,
-      status: attemptNumber < configuredMaxRetries ? 'pending' : 'failed',
+      status: shouldRetry ? 'pending' : 'failed',
       errorMessage,
       attemptNumber,
+      nextRetryAt: nextRetryIn !== undefined ? Date.now() + nextRetryIn : undefined,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
 
-    if (attemptNumber < configuredMaxRetries) {
-      const nextRetryIn = calculateBackoffDelay(attemptNumber, maxRetries);
-      deliveryAttempt.nextRetryAt = Date.now() + nextRetryIn;
-    }
-
     await recordDeliveryAttempt(deliveryAttempt);
     await updateWebhookDelivery(webhook.id, 0, false);
 
-    return {
-      success: false,
-      errorMessage,
-      nextRetryIn:
-        attemptNumber < configuredMaxRetries
-          ? calculateBackoffDelay(attemptNumber, maxRetries)
-          : undefined,
-    };
+    return { success: false, errorMessage, nextRetryIn };
   }
 }
 
@@ -196,9 +190,5 @@ export async function broadcastWebhook(
   const successful = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
 
-  return {
-    successful,
-    failed,
-    details: results,
-  };
+  return { successful, failed, details: results };
 }

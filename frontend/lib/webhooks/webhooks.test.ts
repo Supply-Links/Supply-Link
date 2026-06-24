@@ -5,45 +5,45 @@
  * Run with: npm test -- lib/webhooks/
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createHmac } from "crypto";
-import type { TrackingEvent, Webhook } from "@/lib/types";
-import type { WebhookPayload } from "@/lib/webhooks/types";
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createHmac } from 'crypto';
+import type { TrackingEvent, Webhook } from '@/lib/types';
+import type { WebhookPayload } from '@/lib/webhooks/types';
 import {
   generateWebhookSignature,
   verifyWebhookSignature,
   calculateBackoffDelay,
   sendWebhook,
   broadcastWebhook,
-} from "@/lib/webhooks/delivery";
-import { createWebhookPayload, notifyWebhooksOfEvent } from "@/lib/webhooks/processor";
+} from '@/lib/webhooks/delivery';
+import { createWebhookPayload, notifyWebhooksOfEvent } from '@/lib/webhooks/processor';
 import {
   createWebhook,
   getWebhookById,
   updateWebhook,
   deleteWebhook,
   getActiveWebhooks,
-} from "@/lib/webhooks/storage";
+} from '@/lib/webhooks/storage';
 
-describe("Webhook Delivery", () => {
-  describe("Signature Generation and Verification", () => {
-    it("should generate consistent HMAC-SHA256 signatures", () => {
+describe('Webhook Delivery', () => {
+  describe('Signature Generation and Verification', () => {
+    it('should generate consistent HMAC-SHA256 signatures', () => {
       const payload: WebhookPayload = {
         event: {
-          type: "TRACKING_EVENT_CREATED",
+          type: 'TRACKING_EVENT_CREATED',
           data: {
-            productId: "test-product",
-            location: "Test Location",
-            actor: "Test Actor",
+            productId: 'test-product',
+            location: 'Test Location',
+            actor: 'Test Actor',
             timestamp: 1234567890,
-            eventType: "HARVEST",
+            eventType: 'HARVEST',
             metadata: '{"test": true}',
           },
         },
         timestamp: 1234567890000,
-        id: "test-id",
+        id: 'test-id',
       };
-      const secret = "test-secret";
+      const secret = 'test-secret';
 
       const signature1 = generateWebhookSignature(payload, secret);
       const signature2 = generateWebhookSignature(payload, secret);
@@ -52,23 +52,23 @@ describe("Webhook Delivery", () => {
       expect(signature1).toMatch(/^[a-f0-9]{64}$/); // 64-character hex string
     });
 
-    it("should verify valid signatures", () => {
+    it('should verify valid signatures', () => {
       const payload: WebhookPayload = {
         event: {
-          type: "TRACKING_EVENT_CREATED",
+          type: 'TRACKING_EVENT_CREATED',
           data: {
-            productId: "test-product",
-            location: "Test Location",
-            actor: "Test Actor",
+            productId: 'test-product',
+            location: 'Test Location',
+            actor: 'Test Actor',
             timestamp: 1234567890,
-            eventType: "HARVEST",
-            metadata: "{}",
+            eventType: 'HARVEST',
+            metadata: '{}',
           },
         },
         timestamp: Date.now(),
-        id: "test-id",
+        id: 'test-id',
       };
-      const secret = "test-secret";
+      const secret = 'test-secret';
 
       const signature = generateWebhookSignature(payload, secret);
       const isValid = verifyWebhookSignature(payload, signature, secret);
@@ -76,24 +76,24 @@ describe("Webhook Delivery", () => {
       expect(isValid).toBe(true);
     });
 
-    it("should reject invalid signatures", () => {
+    it('should reject invalid signatures', () => {
       const payload: WebhookPayload = {
         event: {
-          type: "TRACKING_EVENT_CREATED",
+          type: 'TRACKING_EVENT_CREATED',
           data: {
-            productId: "test-product",
-            location: "Test Location",
-            actor: "Test Actor",
+            productId: 'test-product',
+            location: 'Test Location',
+            actor: 'Test Actor',
             timestamp: 1234567890,
-            eventType: "HARVEST",
-            metadata: "{}",
+            eventType: 'HARVEST',
+            metadata: '{}',
           },
         },
         timestamp: Date.now(),
-        id: "test-id",
+        id: 'test-id',
       };
-      const secret = "test-secret";
-      const wrongSecret = "wrong-secret";
+      const secret = 'test-secret';
+      const wrongSecret = 'wrong-secret';
 
       const signature = generateWebhookSignature(payload, secret);
       const isValid = verifyWebhookSignature(payload, signature, wrongSecret);
@@ -101,23 +101,23 @@ describe("Webhook Delivery", () => {
       expect(isValid).toBe(false);
     });
 
-    it("should detect tampering with payload", () => {
+    it('should detect tampering with payload', () => {
       const payload: WebhookPayload = {
         event: {
-          type: "TRACKING_EVENT_CREATED",
+          type: 'TRACKING_EVENT_CREATED',
           data: {
-            productId: "test-product",
-            location: "Test Location",
-            actor: "Test Actor",
+            productId: 'test-product',
+            location: 'Test Location',
+            actor: 'Test Actor',
             timestamp: 1234567890,
-            eventType: "HARVEST",
-            metadata: "{}",
+            eventType: 'HARVEST',
+            metadata: '{}',
           },
         },
         timestamp: Date.now(),
-        id: "test-id",
+        id: 'test-id',
       };
-      const secret = "test-secret";
+      const secret = 'test-secret';
 
       const signature = generateWebhookSignature(payload, secret);
 
@@ -128,7 +128,7 @@ describe("Webhook Delivery", () => {
           ...payload.event,
           data: {
             ...payload.event.data,
-            location: "Different Location",
+            location: 'Different Location',
           },
         },
       };
@@ -138,8 +138,8 @@ describe("Webhook Delivery", () => {
     });
   });
 
-  describe("Exponential Backoff", () => {
-    it("should calculate correct backoff delays", () => {
+  describe('Exponential Backoff', () => {
+    it('should calculate correct backoff delays', () => {
       // First attempt: immediate (no delay recorded)
       // Subsequent attempts should follow exponential backoff
       const delay1 = calculateBackoffDelay(1);
@@ -155,14 +155,14 @@ describe("Webhook Delivery", () => {
       expect(delay5).toBeGreaterThan(delay4);
     });
 
-    it("should cap backoff at maximum value", () => {
+    it('should cap backoff at maximum value', () => {
       const maxBackoff = 3600000; // 1 hour
       const delay = calculateBackoffDelay(100); // Very high attempt number
 
       expect(delay).toBeLessThanOrEqual(maxBackoff * 1.1); // Allow for jitter
     });
 
-    it("should include jitter in backoff delays", () => {
+    it('should include jitter in backoff delays', () => {
       // Run multiple times to see variation
       const delays: number[] = [];
       for (let i = 0; i < 10; i++) {
@@ -175,45 +175,50 @@ describe("Webhook Delivery", () => {
     });
   });
 
-  describe("Webhook Storage", () => {
-    beforeEach(async () => {
-      // Clean up before each test
-      const webhooks = await getWebhookById("test-id");
-      if (webhooks) {
-        await deleteWebhook("test-id");
+  describe('Webhook Storage', () => {
+    const createdIds: string[] = [];
+
+    beforeEach(() => {
+      createdIds.length = 0;
+    });
+
+    afterEach(async () => {
+      for (const id of createdIds) {
+        await deleteWebhook(id).catch(() => {});
       }
     });
 
-    it("should create a webhook", async () => {
-      const webhook = await createWebhook(
-        "https://example.com/webhook",
-        "test-secret"
-      );
+    it('should create a webhook', async () => {
+      const webhook = await createWebhook('https://example.com/webhook', 'test-secret');
+      createdIds.push(webhook.id);
 
       expect(webhook).toBeDefined();
-      expect(webhook.url).toBe("https://example.com/webhook");
-      expect(webhook.secret).toBe("test-secret");
+      expect(webhook.url).toBe('https://example.com/webhook');
+      expect(webhook.secret).toBe('test-secret');
       expect(webhook.active).toBe(true);
       expect(webhook.createdAt).toBeGreaterThan(0);
     });
 
-    it("should generate a secret if not provided", async () => {
-      const webhook = await createWebhook("https://example.com/webhook");
+    it('should generate a secret if not provided', async () => {
+      const webhook = await createWebhook('https://example.com/webhook');
+      createdIds.push(webhook.id);
 
       expect(webhook.secret).toBeDefined();
       expect(webhook.secret.length).toBeGreaterThan(0);
-      expect(webhook.secret).not.toBe(""); // Should be generated
+      expect(webhook.secret).not.toBe(''); // Should be generated
     });
 
-    it("should retrieve a webhook by ID", async () => {
-      const created = await createWebhook("https://example.com/webhook");
+    it('should retrieve a webhook by ID', async () => {
+      const created = await createWebhook('https://example.com/webhook');
+      createdIds.push(created.id);
       const retrieved = await getWebhookById(created.id);
 
       expect(retrieved).toEqual(created);
     });
 
-    it("should update a webhook", async () => {
-      const created = await createWebhook("https://example.com/webhook");
+    it('should update a webhook', async () => {
+      const created = await createWebhook('https://example.com/webhook');
+      createdIds.push(created.id);
       const updated = await updateWebhook(created.id, { active: false });
 
       expect(updated).toBeDefined();
@@ -221,8 +226,9 @@ describe("Webhook Delivery", () => {
       expect(updated?.updatedAt).toBeGreaterThan(created.updatedAt);
     });
 
-    it("should delete a webhook", async () => {
-      const created = await createWebhook("https://example.com/webhook");
+    it('should delete a webhook', async () => {
+      const created = await createWebhook('https://example.com/webhook');
+      // no push — we're deleting it in the test itself
       const deleted = await deleteWebhook(created.id);
 
       expect(deleted).toBe(true);
@@ -230,38 +236,41 @@ describe("Webhook Delivery", () => {
       expect(retrieved).toBeNull();
     });
 
-    it("should return only active webhooks", async () => {
-      await createWebhook("https://example.com/webhook1");
-      const created2 = await createWebhook("https://example.com/webhook2");
+    it('should return only active webhooks', async () => {
+      const created1 = await createWebhook('https://example.com/webhook1');
+      const created2 = await createWebhook('https://example.com/webhook2');
+      createdIds.push(created1.id, created2.id);
 
       await updateWebhook(created2.id, { active: false });
 
       const active = await getActiveWebhooks();
-      expect(active.length).toBe(1);
-      expect(active[0].active).toBe(true);
+      // created1 should be in the active list; created2 should not
+      expect(active.some((w) => w.id === created1.id)).toBe(true);
+      expect(active.some((w) => w.id === created2.id)).toBe(false);
+      expect(active.every((w) => w.active)).toBe(true);
     });
   });
 
-  describe("Webhook Event Processor", () => {
-    it("should create a valid webhook payload from a tracking event", () => {
+  describe('Webhook Event Processor', () => {
+    it('should create a valid webhook payload from a tracking event', () => {
       const event: TrackingEvent = {
-        productId: "prod-123",
-        location: "Warehouse",
-        actor: "user-456",
+        productId: 'prod-123',
+        location: 'Warehouse',
+        actor: 'user-456',
         timestamp: 1234567890,
-        eventType: "HARVEST",
+        eventType: 'HARVEST',
         metadata: '{"quantity": 100}',
       };
 
       const payload = createWebhookPayload(event);
 
-      expect(payload.event.type).toBe("TRACKING_EVENT_CREATED");
+      expect(payload.event.type).toBe('TRACKING_EVENT_CREATED');
       expect(payload.event.data).toEqual({
-        productId: "prod-123",
-        location: "Warehouse",
-        actor: "user-456",
+        productId: 'prod-123',
+        location: 'Warehouse',
+        actor: 'user-456',
         timestamp: 1234567890,
-        eventType: "HARVEST",
+        eventType: 'HARVEST',
         metadata: '{"quantity": 100}',
       });
       expect(payload.timestamp).toBeGreaterThan(0);
@@ -269,76 +278,76 @@ describe("Webhook Delivery", () => {
     });
   });
 
-  describe("Event Notification Flow", () => {
-    it("should handle successful webhook delivery", async () => {
+  describe('Event Notification Flow', () => {
+    it('should handle successful webhook delivery', async () => {
       // This test would require mocking fetch
       // Implementation would depend on your test setup
-      vi.mock("node-fetch");
+      vi.mock('node-fetch');
     });
 
-    it("should handle failed webhook delivery with retry", async () => {
+    it('should handle failed webhook delivery with retry', async () => {
       // This test would require mocking fetch
       // Implementation would depend on your test setup
     });
   });
 });
 
-describe("Webhook API Endpoints", () => {
-  it("should have POST /api/v1/webhooks endpoint", () => {
+describe('Webhook API Endpoints', () => {
+  it('should have POST /api/v1/webhooks endpoint', () => {
     // These tests would require mocking the Next.js request/response
     // and testing the actual route handlers
   });
 
-  it("should have GET /api/v1/webhooks endpoint", () => {
+  it('should have GET /api/v1/webhooks endpoint', () => {
     // These tests would require mocking the Next.js request/response
   });
 
-  it("should have DELETE /api/v1/webhooks/[id] endpoint", () => {
+  it('should have DELETE /api/v1/webhooks/[id] endpoint', () => {
     // These tests would require mocking the Next.js request/response
   });
 });
 
-describe("Webhook Security", () => {
-  it("should use timing-safe string comparison for signatures", () => {
+describe('Webhook Security', () => {
+  it('should use timing-safe string comparison for signatures', () => {
     // Verify that signature comparison is timing-safe
     // to prevent timing attacks
     const payload: WebhookPayload = {
       event: {
-        type: "TRACKING_EVENT_CREATED",
+        type: 'TRACKING_EVENT_CREATED',
         data: {
-          productId: "test",
-          location: "test",
-          actor: "test",
+          productId: 'test',
+          location: 'test',
+          actor: 'test',
           timestamp: Date.now(),
-          eventType: "HARVEST",
-          metadata: "{}",
+          eventType: 'HARVEST',
+          metadata: '{}',
         },
       },
       timestamp: Date.now(),
-      id: "test",
+      id: 'test',
     };
-    const secret = "secret";
+    const secret = 'secret';
 
     const validSignature = generateWebhookSignature(payload, secret);
-    const invalidSignature = "a".repeat(64);
+    const invalidSignature = 'a'.repeat(64);
 
     // Both should complete in similar time (no timing attack)
     expect(verifyWebhookSignature(payload, validSignature, secret)).toBe(true);
     expect(verifyWebhookSignature(payload, invalidSignature, secret)).toBe(false);
   });
 
-  it("should require HTTPS URLs in production", () => {
+  it('should require HTTPS URLs in production', () => {
     // URL validation should reject non-HTTPS URLs in production
     // Allow http://localhost for development/testing
   });
 
-  it("should not expose secrets in API responses", () => {
+  it('should not expose secrets in API responses', () => {
     // Verify that GET endpoints don't return the webhook secret
   });
 });
 
-describe("Integration Tests", () => {
-  it("should complete full webhook lifecycle", async () => {
+describe('Integration Tests', () => {
+  it('should complete full webhook lifecycle', async () => {
     // 1. Create webhook
     // 2. Create tracking event
     // 3. Trigger webhook delivery
@@ -346,15 +355,15 @@ describe("Integration Tests", () => {
     // 5. Delete webhook
   });
 
-  it("should handle concurrent webhook deliveries", async () => {
+  it('should handle concurrent webhook deliveries', async () => {
     // Verify system can handle multiple webhooks being sent simultaneously
   });
 
-  it("should recover from transient failures", async () => {
+  it('should recover from transient failures', async () => {
     // Webhook fails on first attempt, succeeds on retry
   });
 
-  it("should deactivate chronically failing webhooks", async () => {
+  it('should deactivate chronically failing webhooks', async () => {
     // After N failures, webhook should be automatically deactivated
   });
 });
