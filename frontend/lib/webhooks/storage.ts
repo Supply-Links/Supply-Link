@@ -43,8 +43,22 @@ export async function getWebhookById(id: string): Promise<Webhook | null> {
 
 /**
  * Create a new webhook registration
+ * @throws {Error} if the URL is not a valid HTTPS URL (HTTP allowed only for localhost)
  */
 export async function createWebhook(url: string, providedSecret?: string): Promise<Webhook> {
+  // Validate URL: must be HTTPS (or HTTP for localhost in development)
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid webhook URL: ${url}`);
+  }
+  const isLocalhost =
+    parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1';
+  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && isLocalhost)) {
+    throw new Error(`Webhook URL must use HTTPS (got ${parsed.protocol}//)`);
+  }
+
   await ensureDir();
   const id = randomBytes(16).toString('hex');
   const secret = providedSecret || randomBytes(32).toString('hex');
@@ -142,6 +156,50 @@ export async function recordDeliveryAttempt(attempt: WebhookDeliveryAttempt): Pr
 
   attempts.push(attempt);
   await fs.writeFile(DELIVERY_ATTEMPTS_FILE, JSON.stringify(attempts, null, 2));
+}
+
+/**
+ * Get pending delivery attempts that are due for retry
+ */
+export async function getPendingDeliveryAttempts(
+  now: number = Date.now(),
+): Promise<WebhookDeliveryAttempt[]> {
+  await ensureDir();
+  try {
+    const data = await fs.readFile(DELIVERY_ATTEMPTS_FILE, 'utf-8');
+    const attempts = JSON.parse(data) as WebhookDeliveryAttempt[];
+    return attempts.filter(
+      (a) => a.status === 'pending' && a.nextRetryAt !== undefined && a.nextRetryAt <= now,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Update a delivery attempt's status in storage
+ */
+export async function updateDeliveryAttempt(
+  payloadId: string,
+  webhookId: string,
+  attemptNumber: number,
+  updates: Partial<WebhookDeliveryAttempt>,
+): Promise<void> {
+  await ensureDir();
+  try {
+    const data = await fs.readFile(DELIVERY_ATTEMPTS_FILE, 'utf-8');
+    const attempts = JSON.parse(data) as WebhookDeliveryAttempt[];
+    const index = attempts.findIndex(
+      (a) =>
+        a.payloadId === payloadId && a.webhookId === webhookId && a.attemptNumber === attemptNumber,
+    );
+    if (index !== -1) {
+      attempts[index] = { ...attempts[index], ...updates, updatedAt: Date.now() };
+      await fs.writeFile(DELIVERY_ATTEMPTS_FILE, JSON.stringify(attempts, null, 2));
+    }
+  } catch {
+    // Ignore if file doesn't exist
+  }
 }
 
 /**
