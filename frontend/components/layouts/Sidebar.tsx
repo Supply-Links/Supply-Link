@@ -32,6 +32,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 ? "bg-[var(--primary)] text-[var(--primary-fg)] font-medium"
                 : "text-[var(--muted)] hover:bg-[var(--muted-bg)] hover:text-[var(--foreground)]"
             }`}
+            data-testid={`sidebar-link-${label.toLowerCase()}`}
           >
             <Icon size={16} />
             {label}

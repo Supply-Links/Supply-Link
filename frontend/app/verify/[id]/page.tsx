@@ -1,4 +1,7 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useState, useEffect } from "react";
+import { use } from "react";
 import { getProductById, getEventsByProductId } from "@/lib/mock/products";
 import { CONTRACT_ID } from "@/lib/stellar/client";
 import { EventTimeline } from "@/components/products/EventTimeline";
@@ -6,44 +9,27 @@ import ProductQRCode from "@/components/products/ProductQRCode";
 import { ScanQRButton } from "@/components/tracking/ScanQRButton";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const product = getProductById(params.id);
-  if (!product) {
-    return { title: "Product Not Found — Supply-Link" };
-  }
-  return {
-    title: `${product.name} — Supply-Link Verification`,
-    description: `Verify the authenticity and journey of ${product.name} from ${product.origin}. Powered by Stellar & Soroban.`,
-    openGraph: {
-      title: `${product.name} — Verified on Stellar`,
-      description: `Origin: ${product.origin} · Owner: ${product.owner.slice(0, 8)}... · Tracked on-chain via Supply-Link.`,
-      type: "website",
-      siteName: "Supply-Link",
-    },
-    twitter: {
-      card: "summary",
-      title: `${product.name} — Verified on Stellar`,
-      description: `Scan to verify the full journey of ${product.name} from ${product.origin}.`,
-    },
-  };
-}
+export default function VerifyPage({ params }: Props) {
+  const { id } = use(params);
+  const [product, setProduct] = useState<any>(null);
+  const [events, setEvents] = useState<any[]>([]);
 
-export default async function VerifyPage({ params }: Props) {
-  const product = getProductById(params.id);
-  const events = getEventsByProductId(params.id);
+  useEffect(() => {
+    setProduct(getProductById(id));
+    setEvents(getEventsByProductId(id));
+  }, [id]);
 
-  // 404-style fallback for unknown product IDs
   if (!product) {
     return (
-      <main className="p-8 max-w-lg mx-auto text-center">
+      <main className="p-8 max-w-lg mx-auto text-center" data-testid="verify-page">
         <div className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-10 mt-16">
           <p className="text-4xl mb-4">🔍</p>
           <h1 className="text-xl font-semibold text-[var(--foreground)] mb-2">Product Not Found</h1>
           <p className="text-sm text-[var(--muted)]">
-            No product with ID <span className="font-mono">{params.id}</span> exists on this network.
+            No product with ID <span className="font-mono">{id}</span> exists on this network.
           </p>
           <p className="text-xs text-[var(--muted)] mt-2">
             The QR code may be invalid or the product may have been removed.
@@ -60,12 +46,12 @@ export default async function VerifyPage({ params }: Props) {
   const registeredAt = new Date(product.timestamp).toLocaleString();
 
   return (
-    <main className="p-6 max-w-2xl mx-auto">
+    <main className="p-6 max-w-2xl mx-auto" data-testid="verify-page">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-[var(--foreground)]">{product.name}</h1>
+            <h1 className="text-2xl font-bold text-[var(--foreground)]" data-testid="verify-product-name">{product.name}</h1>
             <span
               className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                 product.active
@@ -100,7 +86,7 @@ export default async function VerifyPage({ params }: Props) {
       </a>
 
       {/* Event Timeline */}
-      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6">
+      <section className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6" data-testid="verify-events">
         <h2 className="text-base font-semibold text-[var(--foreground)] mb-5">Product Journey</h2>
         <EventTimeline events={events} />
       </section>

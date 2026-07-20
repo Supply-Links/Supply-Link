@@ -5,6 +5,9 @@ import {
 } from "@stellar/freighter-api";
 
 export async function getWalletAddress(): Promise<string | null> {
+  if (typeof window !== "undefined" && (window as any).__MOCK_WALLET__) {
+    return (window as any).__MOCK_WALLET__;
+  }
   const connected = await isConnected();
   if (!connected) return null;
   return getPublicKey();
