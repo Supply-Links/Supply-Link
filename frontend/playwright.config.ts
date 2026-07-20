@@ -19,7 +19,7 @@ export default defineConfig({
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
   webServer: {
-    command: "npm run dev",
+    command: "NEXT_PUBLIC_MOCK_MODE=1 npm run dev",
     url: "http://localhost:3000",
     timeout: 120000,
     reuseExistingServer: !process.env.CI,

@@ -21,10 +21,10 @@ export default function HomePage() {
       </p>
       <WalletConnect />
       <nav className="mt-8 flex gap-4">
-        <Link href="/products" className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]" data-testid="landing-nav-products">
+        <Link href="/en/products" className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]" data-testid="landing-nav-products">
           View Products
         </Link>
-        <Link href="/tracking" className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]" data-testid="landing-nav-tracking">
+        <Link href="/en/tracking" className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]" data-testid="landing-nav-tracking">
           Tracking
         </Link>
       </nav>

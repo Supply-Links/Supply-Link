@@ -7,9 +7,10 @@ import { QRScanner } from "./QRScanner";
 interface ScanQRButtonProps {
   variant?: "primary" | "outline";
   label?: string;
+  "data-testid"?: string;
 }
 
-export function ScanQRButton({ variant = "primary", label = "Scan QR" }: ScanQRButtonProps) {
+export function ScanQRButton({ variant = "primary", label = "Scan QR", "data-testid": testId }: ScanQRButtonProps) {
   const [open, setOpen] = useState(false);
 
   const styles =
@@ -22,6 +23,7 @@ export function ScanQRButton({ variant = "primary", label = "Scan QR" }: ScanQRB
       <button
         onClick={() => setOpen(true)}
         className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-opacity ${styles}`}
+        data-testid={testId}
       >
         <QrCode size={16} />
         {label}

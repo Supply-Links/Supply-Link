@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { use } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getProductById } from "@/lib/mock/products";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import ProductActions from "@/components/products/ProductActions";
@@ -15,6 +16,8 @@ interface Props {
 export default function ProductDetailPage({ params }: Props) {
   const { id } = use(params);
   const [product, setProduct] = useState<any>(null);
+  const pathname = usePathname();
+  const locale = pathname?.split("/")[1] ?? "en";
 
   useEffect(() => {
     setProduct(getProductById(id));
@@ -28,7 +31,7 @@ export default function ProductDetailPage({ params }: Props) {
         <p className="text-sm text-[var(--muted)]">
           No product with ID <span className="font-mono">{id}</span> exists.
         </p>
-        <Link href="/products" className="text-sm text-[var(--primary)] hover:underline mt-4 inline-block">
+        <Link href={`/${locale}/products`} className="text-sm text-[var(--primary)] hover:underline mt-4 inline-block">
           ← Back to Products
         </Link>
       </main>
@@ -39,7 +42,7 @@ export default function ProductDetailPage({ params }: Props) {
 
   return (
     <main className="p-8 max-w-3xl mx-auto" data-testid="product-detail">
-      <Link href="/products" className="text-sm text-[var(--muted)] hover:underline mb-6 inline-block">
+      <Link href={`/${locale}/products`} className="text-sm text-[var(--muted)] hover:underline mb-6 inline-block">
         ← Back to Products
       </Link>
 

@@ -15,7 +15,7 @@ npx playwright install chromium firefox webkit
 npm run test:e2e
 ```
 
-This runs the full-journey spec across Chromium, Firefox, and WebKit using Playwright's built-in webServer. The dev server starts automatically in mock mode (the app uses mock data by default), so no external chain or wallet is required.
+This runs the full-journey spec across Chromium, Firefox, and WebKit using Playwright's built-in webServer. The dev server starts automatically in mock mode via the Playwright webServer configuration, so no external chain or wallet is required.
 
 ## Wallet mock strategy
 

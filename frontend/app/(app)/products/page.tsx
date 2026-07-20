@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import ProductQRCode from "@/components/products/ProductQRCode";
 import { MOCK_PRODUCTS, addProduct } from "@/lib/mock/products";
 import { RegisterProductForm } from "@/components/products/RegisterProductForm";
@@ -9,6 +10,8 @@ import type { Product } from "@/lib/types";
 
 export default function ProductsPage() {
   const [, setTick] = useState(0);
+  const pathname = usePathname();
+  const locale = pathname?.split("/")[1] ?? "en";
 
   const refresh = useCallback(() => {
     setTick((t) => t + 1);
@@ -25,7 +28,7 @@ export default function ProductsPage() {
         {MOCK_PRODUCTS.map((product) => (
           <Link
             key={product.id}
-            href={`/products/${product.id}`}
+            href={`/${locale}/products/${product.id}`}
             className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl p-6 flex flex-col gap-4 shadow-sm hover:shadow-md transition-shadow"
             data-testid="product-card"
           >

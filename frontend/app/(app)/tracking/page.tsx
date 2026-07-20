@@ -3,6 +3,7 @@
 import { useState, useEffect, type ChangeEvent } from "react";
 import { Plus, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { MOCK_PRODUCTS, getEventsByProductId, addEvent } from "@/lib/mock/products";
 import type { TrackingEvent } from "@/lib/types";
 import { EventTimeline } from "@/components/tracking/EventTimeline";
@@ -12,6 +13,8 @@ import { AddEventModal } from "@/components/tracking/AddEventModal";
 export default function TrackingPage() {
   const [selectedId, setSelectedId] = useState(MOCK_PRODUCTS[0]?.id ?? "");
   const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const pathname = usePathname();
+  const locale = pathname?.split("/")[1] ?? "en";
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
@@ -75,7 +78,7 @@ export default function TrackingPage() {
             {selectedProduct.active ? "Active" : "Inactive"}
           </span>
           <Link
-            href={`/verify/${selectedId}`}
+            href={`/${locale}/verify/${selectedId}`}
             className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
             data-testid="tracking-verify-link"
           >

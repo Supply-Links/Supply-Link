@@ -1,5 +1,7 @@
 import type { Product, TrackingEvent } from "@/lib/types";
 
+export const MOCK_STORAGE_KEY = "supply-link-mock-data";
+
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: "prod-001",
@@ -74,20 +76,55 @@ const INITIAL_EVENTS: TrackingEvent[] = [
   },
 ];
 
-export let MOCK_PRODUCTS: Product[] = [...INITIAL_PRODUCTS];
-export let MOCK_EVENTS: TrackingEvent[] = [...INITIAL_EVENTS];
+function readPersistedState(): { products: Product[]; events: TrackingEvent[] } | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(MOCK_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { products?: Product[]; events?: TrackingEvent[] };
+    if (Array.isArray(parsed.products) && Array.isArray(parsed.events)) {
+      return { products: parsed.products, events: parsed.events };
+    }
+  } catch {
+    // Ignore invalid persisted data and fall back to defaults.
+  }
+
+  return null;
+}
+
+function persistState() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      MOCK_STORAGE_KEY,
+      JSON.stringify({ products: MOCK_PRODUCTS, events: MOCK_EVENTS })
+    );
+  } catch {
+    // Ignore storage errors in non-browser contexts.
+  }
+}
+
+const persistedState = readPersistedState();
+
+export let MOCK_PRODUCTS: Product[] = persistedState?.products ?? [...INITIAL_PRODUCTS];
+export let MOCK_EVENTS: TrackingEvent[] = persistedState?.events ?? [...INITIAL_EVENTS];
 
 export function resetMockData() {
   MOCK_PRODUCTS = [...INITIAL_PRODUCTS];
   MOCK_EVENTS = [...INITIAL_EVENTS];
+  persistState();
 }
 
 export function addProduct(product: Product) {
-  MOCK_PRODUCTS.push(product);
+  MOCK_PRODUCTS = [...MOCK_PRODUCTS, product];
+  persistState();
 }
 
 export function addEvent(event: TrackingEvent) {
-  MOCK_EVENTS.push(event);
+  MOCK_EVENTS = [...MOCK_EVENTS, event];
+  persistState();
 }
 
 export function getProductById(id: string): Product | undefined {
