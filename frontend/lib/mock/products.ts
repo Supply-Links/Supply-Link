@@ -2,6 +2,31 @@ import type { Product, TrackingEvent } from "@/lib/types";
 
 export const MOCK_STORAGE_KEY = "supply-link-mock-data";
 
+type MockState = {
+  products: Product[];
+  events: TrackingEvent[];
+};
+
+const GLOBAL_MOCK_STATE_KEY = "__SUPPLY_LINK_MOCK_STATE__";
+
+function getMockState(): MockState {
+  if (typeof globalThis === "undefined") {
+    return { products: [], events: [] };
+  }
+
+  const globalScope = globalThis as typeof globalThis & {
+    [GLOBAL_MOCK_STATE_KEY]?: MockState;
+  };
+
+  if (!globalScope[GLOBAL_MOCK_STATE_KEY]) {
+    globalScope[GLOBAL_MOCK_STATE_KEY] = { products: [], events: [] };
+  }
+
+  return globalScope[GLOBAL_MOCK_STATE_KEY]!;
+}
+
+const MOCK_STATE = getMockState();
+
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: "prod-001",
@@ -76,21 +101,35 @@ const INITIAL_EVENTS: TrackingEvent[] = [
   },
 ];
 
-function readPersistedState(): { products: Product[]; events: TrackingEvent[] } | null {
-  if (typeof window === "undefined") return null;
+function loadPersistedState() {
+  if (typeof window === "undefined") return false;
 
   try {
     const raw = window.localStorage.getItem(MOCK_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { products?: Product[]; events?: TrackingEvent[] };
-    if (Array.isArray(parsed.products) && Array.isArray(parsed.events)) {
-      return { products: parsed.products, events: parsed.events };
+    if (raw) {
+      const parsed = JSON.parse(raw) as { products?: Product[]; events?: TrackingEvent[] };
+      if (Array.isArray(parsed.products) && Array.isArray(parsed.events)) {
+        MOCK_STATE.products = parsed.products;
+        MOCK_STATE.events = parsed.events;
+        return true;
+      }
     }
   } catch {
     // Ignore invalid persisted data and fall back to defaults.
   }
 
-  return null;
+  return false;
+}
+
+function initMockState() {
+  if (MOCK_STATE.products.length > 0 || MOCK_STATE.events.length > 0) {
+    return;
+  }
+
+  if (!loadPersistedState()) {
+    MOCK_STATE.products = [...INITIAL_PRODUCTS];
+    MOCK_STATE.events = [...INITIAL_EVENTS];
+  }
 }
 
 function persistState() {
@@ -99,38 +138,55 @@ function persistState() {
   try {
     window.localStorage.setItem(
       MOCK_STORAGE_KEY,
-      JSON.stringify({ products: MOCK_PRODUCTS, events: MOCK_EVENTS })
+      JSON.stringify({ products: MOCK_STATE.products, events: MOCK_STATE.events })
     );
   } catch {
     // Ignore storage errors in non-browser contexts.
   }
 }
 
-const persistedState = readPersistedState();
+initMockState();
 
-export let MOCK_PRODUCTS: Product[] = persistedState?.products ?? [...INITIAL_PRODUCTS];
-export let MOCK_EVENTS: TrackingEvent[] = persistedState?.events ?? [...INITIAL_EVENTS];
+export function getMockProducts(): Product[] {
+  if (typeof window !== "undefined") {
+    loadPersistedState();
+  } else {
+    initMockState();
+  }
+  return MOCK_STATE.products;
+}
+
+export function getMockEvents(): TrackingEvent[] {
+  if (typeof window !== "undefined") {
+    loadPersistedState();
+  } else {
+    initMockState();
+  }
+  return MOCK_STATE.events;
+}
 
 export function resetMockData() {
-  MOCK_PRODUCTS = [...INITIAL_PRODUCTS];
-  MOCK_EVENTS = [...INITIAL_EVENTS];
+  MOCK_STATE.products = [...INITIAL_PRODUCTS];
+  MOCK_STATE.events = [...INITIAL_EVENTS];
   persistState();
 }
 
 export function addProduct(product: Product) {
-  MOCK_PRODUCTS = [...MOCK_PRODUCTS, product];
+  MOCK_STATE.products = [...MOCK_STATE.products, product];
   persistState();
 }
 
 export function addEvent(event: TrackingEvent) {
-  MOCK_EVENTS = [...MOCK_EVENTS, event];
+  MOCK_STATE.events = [...MOCK_STATE.events, event];
   persistState();
 }
 
 export function getProductById(id: string): Product | undefined {
-  return MOCK_PRODUCTS.find((p) => p.id === id);
+  getMockProducts();
+  return MOCK_STATE.products.find((p) => p.id === id);
 }
 
 export function getEventsByProductId(id: string): TrackingEvent[] {
-  return MOCK_EVENTS.filter((e) => e.productId === id);
+  getMockEvents();
+  return MOCK_STATE.events.filter((e) => e.productId === id);
 }

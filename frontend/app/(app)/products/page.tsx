@@ -4,8 +4,8 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ProductQRCode from "@/components/products/ProductQRCode";
-import { MOCK_PRODUCTS, addProduct } from "@/lib/mock/products";
 import { RegisterProductForm } from "@/components/products/RegisterProductForm";
+import { getMockProducts } from "@/lib/mock/products";
 import type { Product } from "@/lib/types";
 
 export default function ProductsPage() {
@@ -25,7 +25,7 @@ export default function ProductsPage() {
         <RegisterProductForm onSuccess={refresh} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="product-list">
-        {MOCK_PRODUCTS.map((product) => (
+        {getMockProducts().map((product) => (
           <Link
             key={product.id}
             href={`/${locale}/products/${product.id}`}

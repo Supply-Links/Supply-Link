@@ -14,14 +14,14 @@
 ```
 Error: expect(locator).toHaveCount(expected) failed
 
-Locator:  getByTestId('tracking-product-select').locator('option').filter({ hasText: 'E2E Product 1784559249228' })
+Locator:  getByTestId('tracking-product-select').locator('option').filter({ hasText: 'E2E Product 1784560000313' })
 Expected: 1
 Received: 0
 Timeout:  5000ms
 
 Call log:
   - Expect "toHaveCount" with timeout 5000ms
-  - waiting for getByTestId('tracking-product-select').locator('option').filter({ hasText: 'E2E Product 1784559249228' })
+  - waiting for getByTestId('tracking-product-select').locator('option').filter({ hasText: 'E2E Product 1784560000313' })
     14 × locator resolved to 0 elements
        - unexpected value "0"
 
