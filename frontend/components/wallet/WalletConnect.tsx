@@ -20,7 +20,7 @@ export function WalletConnect() {
 
   if (walletAddress) {
     return (
-      <span className="text-sm font-mono text-green-600">
+      <span className="text-sm font-mono text-green-600" data-testid="wallet-status">
         {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
       </span>
     );
@@ -31,6 +31,7 @@ export function WalletConnect() {
       onClick={connect}
       disabled={loading}
       className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
+      data-testid="wallet-connect-button"
     >
       {loading ? "Connecting…" : "Connect Freighter"}
     </button>

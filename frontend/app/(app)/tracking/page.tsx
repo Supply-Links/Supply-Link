@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, type ChangeEvent } from "react";
-import { Plus } from "lucide-react";
-import { MOCK_PRODUCTS, getEventsByProductId } from "@/lib/mock/products";
+import { Plus, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { MOCK_PRODUCTS, getEventsByProductId, addEvent } from "@/lib/mock/products";
 import type { TrackingEvent } from "@/lib/types";
 import { EventTimeline } from "@/components/tracking/EventTimeline";
 import { EventTimelineSkeleton } from "@/components/tracking/EventTimelineSkeleton";
@@ -17,7 +18,6 @@ export default function TrackingPage() {
   useEffect(() => {
     if (!selectedId) return;
     setLoading(true);
-    // Simulate async fetch — replace with real contract call
     const timer = setTimeout(() => {
       setEvents(getEventsByProductId(selectedId));
       setLoading(false);
@@ -27,18 +27,20 @@ export default function TrackingPage() {
 
   function handleAddEvent(event: TrackingEvent) {
     setEvents((prev: TrackingEvent[]) => [...prev, event]);
+    addEvent(event);
   }
 
   const selectedProduct = MOCK_PRODUCTS.find((p) => p.id === selectedId);
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto" data-testid="tracking-page">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Tracking</h1>
         <button
           onClick={() => setShowModal(true)}
           disabled={!selectedId}
           className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 disabled:opacity-40 transition-opacity"
+          data-testid="add-event-button"
         >
           <Plus size={15} />
           Add Event
@@ -46,12 +48,13 @@ export default function TrackingPage() {
       </div>
 
       {/* Product selector */}
-      <div className="mb-6">
+      <div className="mb-6" data-testid="product-selector">
         <label className="text-xs text-[var(--muted)] mb-1.5 block">Select Product</label>
         <select
           value={selectedId}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedId(e.target.value)}
           className="w-full border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+          data-testid="tracking-product-select"
         >
           {MOCK_PRODUCTS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -63,7 +66,7 @@ export default function TrackingPage() {
 
       {/* Product summary */}
       {selectedProduct && (
-        <div className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl px-4 py-3 mb-6 flex items-center justify-between">
+        <div className="border border-[var(--card-border)] bg-[var(--card)] rounded-xl px-4 py-3 mb-6 flex items-center justify-between" data-testid="product-summary">
           <div>
             <p className="text-sm font-medium text-[var(--foreground)]">{selectedProduct.name}</p>
             <p className="text-xs text-[var(--muted)]">Origin: {selectedProduct.origin}</p>
@@ -71,6 +74,14 @@ export default function TrackingPage() {
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${selectedProduct.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
             {selectedProduct.active ? "Active" : "Inactive"}
           </span>
+          <Link
+            href={`/verify/${selectedId}`}
+            className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+            data-testid="tracking-verify-link"
+          >
+            <ExternalLink size={12} />
+            Verify
+          </Link>
         </div>
       )}
 

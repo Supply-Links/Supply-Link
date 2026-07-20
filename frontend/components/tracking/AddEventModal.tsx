@@ -40,7 +40,7 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
       <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-xl p-6 w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold text-[var(--foreground)]">Add Tracking Event</h2>
-          <button onClick={onClose} aria-label="Close" className="p-1 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)]">
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)]" data-testid="event-cancel">
             <X size={16} />
           </button>
         </div>
@@ -52,6 +52,7 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
               value={eventType}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => setEventType(e.target.value as EventType)}
               className="w-full border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              data-testid="event-type-select"
             >
               {EVENT_TYPES.map((t) => (
                 <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>
@@ -68,6 +69,7 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
               onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
               placeholder="e.g. Port of Rotterdam"
               className="w-full border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              data-testid="event-location-input"
             />
           </div>
 
@@ -79,6 +81,7 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
               placeholder='{"key": "value"}'
               rows={3}
               className="w-full border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              data-testid="event-metadata-input"
             />
             {metaError && <p className="text-xs text-red-500 mt-1">{metaError}</p>}
           </div>
@@ -87,7 +90,7 @@ export function AddEventModal({ productId, onClose, onAdd }: AddEventModalProps)
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border border-[var(--card-border)] hover:bg-[var(--muted-bg)] text-[var(--foreground)]">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90">
+            <button type="submit" className="px-4 py-2 text-sm rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90" data-testid="event-submit">
               Add Event
             </button>
           </div>

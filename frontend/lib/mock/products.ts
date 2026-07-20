@@ -1,6 +1,6 @@
 import type { Product, TrackingEvent } from "@/lib/types";
 
-export const MOCK_PRODUCTS: Product[] = [
+const INITIAL_PRODUCTS: Product[] = [
   {
     id: "prod-001",
     name: "Organic Coffee Beans",
@@ -31,7 +31,7 @@ export const MOCK_PRODUCTS: Product[] = [
   },
 ];
 
-export const MOCK_EVENTS: TrackingEvent[] = [
+const INITIAL_EVENTS: TrackingEvent[] = [
   {
     productId: "prod-001",
     eventType: "HARVEST",
@@ -73,6 +73,22 @@ export const MOCK_EVENTS: TrackingEvent[] = [
     metadata: JSON.stringify({ variety: "Forastero" }),
   },
 ];
+
+export let MOCK_PRODUCTS: Product[] = [...INITIAL_PRODUCTS];
+export let MOCK_EVENTS: TrackingEvent[] = [...INITIAL_EVENTS];
+
+export function resetMockData() {
+  MOCK_PRODUCTS = [...INITIAL_PRODUCTS];
+  MOCK_EVENTS = [...INITIAL_EVENTS];
+}
+
+export function addProduct(product: Product) {
+  MOCK_PRODUCTS.push(product);
+}
+
+export function addEvent(event: TrackingEvent) {
+  MOCK_EVENTS.push(event);
+}
 
 export function getProductById(id: string): Product | undefined {
   return MOCK_PRODUCTS.find((p) => p.id === id);

@@ -67,9 +67,9 @@ export function EventTimeline({ events }: EventTimelineProps) {
   }
 
   return (
-    <ol className="relative border-l border-[var(--card-border)] ml-3 space-y-6">
+    <ol className="relative border-l border-[var(--card-border)] ml-3 space-y-6" data-testid="event-timeline">
       {events.map((event, i) => (
-        <li key={i} className="ml-6">
+        <li key={i} className="ml-6" data-testid="event-item">
           <span
             className={`absolute -left-2 mt-1.5 h-4 w-4 rounded-full border-2 border-[var(--background)] ${EVENT_DOT[event.eventType]}`}
           />
