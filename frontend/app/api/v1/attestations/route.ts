@@ -2,8 +2,9 @@
  * POST /api/v1/attestations  — Add an attestation to a product
  * GET  /api/v1/attestations  — List attestations (by productId or issuerAddress)
  *
- * Authentication: auditor tier or higher (x-api-key)
- * Rate limiting: default preset
+ * Authentication: public (GET), auditor tier or higher (POST)
+ * Rate limiting: publicRead (GET), default (POST)
+ * Idempotency: POST requests via Idempotency-Key header
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -82,14 +83,54 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? await listAttestationsForProduct(query.productId)
     : await listAttestationsByIssuer(query.issuerAddress!);
 
-  const response = withCors(
-    request,
-    withCorrelationId(
-      request,
-      NextResponse.json({ attestations, total: attestations.length }, { status: 200 }),
-    ),
-  );
+// ── Handlers ──────────────────────────────────────────────────────────────────
 
-  recordRequest('GET /api/v1/attestations', response.status, Date.now() - start);
-  return response;
-}
+// GET is public — no auth required
+const { GET } = defineRoute(
+  {
+    auth: 'public',
+    rateLimit: RATE_LIMIT_PRESETS.publicRead,
+    query: querySchema,
+  },
+  {
+    GET: async (ctx) => {
+      const { productId, issuerAddress } = ctx.query as {
+        productId?: string;
+        issuerAddress?: string;
+      };
+
+      if (!productId && !issuerAddress) {
+        return apiError(
+          ctx.req,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'Provide either productId or issuerAddress query parameter',
+        );
+      }
+
+      const attestations = productId
+        ? await listAttestationsForProduct(productId)
+        : await listAttestationsByIssuer(issuerAddress!);
+
+      return NextResponse.json({ attestations, total: attestations.length }, { status: 200 });
+    },
+  },
+);
+
+// POST requires auditor auth + idempotency
+const { POST, OPTIONS } = defineRoute(
+  {
+    auth: 'auditor',
+    rateLimit: RATE_LIMIT_PRESETS.default,
+    idempotent: true,
+    body: addAttestationSchema,
+  },
+  {
+    POST: async (ctx) => {
+      const record = await addAttestation(ctx.body);
+      return NextResponse.json(record, { status: 201 });
+    },
+  },
+);
+
+export { GET, POST, OPTIONS };

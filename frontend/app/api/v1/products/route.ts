@@ -1,9 +1,9 @@
 /**
- * GET /api/v1/products     – list all products (paginated)
- * POST /api/v1/products    – register a new product
+ * GET  /api/v1/products     – list all products (paginated)
+ * POST /api/v1/products     – register a new product
  *
- * Authentication: x-api-key (partner or internal)
- * Rate limiting: partner tier
+ * Authentication: partner tier (registry-based API key)
+ * Rate limiting: default preset
  * Idempotency: POST requests via Idempotency-Key header
  */
 

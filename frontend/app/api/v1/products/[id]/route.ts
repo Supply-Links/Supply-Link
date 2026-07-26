@@ -1,8 +1,8 @@
 /**
  * GET /api/v1/products/[id] – get product details with ownership history
  *
- * Authentication: x-api-key (partner or internal)
- * Rate limiting: partner tier
+ * Authentication: public (no auth required)
+ * Rate limiting: publicRead preset
  */
 
 import { NextRequest, NextResponse } from 'next/server';
