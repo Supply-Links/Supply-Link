@@ -43,7 +43,7 @@ export async function registerProductAlias(
   canonicalId: string,
   alias: string,
   creator: string,
-): Promise<any> {
+): Promise<boolean> {
   try {
     const result = await client.register_product_alias({
       canonical_id: canonicalId,

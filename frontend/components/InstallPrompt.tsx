@@ -1,37 +1,42 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { X, Download } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useEffect, useState } from 'react';
+import { X, Download } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
-  readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
 export function InstallPrompt() {
-  const t = useTranslations("installPrompt");
+  const t = useTranslations('installPrompt');
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     // Don't show if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) return;
-    if (sessionStorage.getItem("pwa-prompt-dismissed")) return;
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (sessionStorage.getItem('pwa-prompt-dismissed')) return;
 
-    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream);
+    // `MSStream` is a legacy, non-standard property some browsers use to
+    // distinguish iOS Safari from Chrome-for-iOS (which also matches the UA regex).
+    setIsIOS(
+      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+        !(window as Window & { MSStream?: unknown }).MSStream,
+    );
 
     const handler = (e: Event) => {
       e.preventDefault();
       setPrompt(e as BeforeInstallPromptEvent);
     };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   function dismiss() {
-    sessionStorage.setItem("pwa-prompt-dismissed", "1");
+    sessionStorage.setItem('pwa-prompt-dismissed', '1');
     setDismissed(true);
   }
 
@@ -39,7 +44,7 @@ export function InstallPrompt() {
     if (!prompt) return;
     await prompt.prompt();
     const { outcome } = await prompt.userChoice;
-    if (outcome === "accepted") setPrompt(null);
+    if (outcome === 'accepted') setPrompt(null);
     dismiss();
   }
 
@@ -54,24 +59,24 @@ export function InstallPrompt() {
     >
       <Download size={20} className="mt-0.5 shrink-0 text-[var(--primary)]" />
       <div className="flex-1 text-sm">
-        <p className="font-medium text-[var(--foreground)]">{t("title")}</p>
+        <p className="font-medium text-[var(--foreground)]">{t('title')}</p>
         {isIOS && !prompt ? (
-          <p className="text-xs text-[var(--muted)] mt-0.5">{t("iosInstructions")}</p>
+          <p className="text-xs text-[var(--muted)] mt-0.5">{t('iosInstructions')}</p>
         ) : (
-          <p className="text-xs text-[var(--muted)] mt-0.5">{t("description")}</p>
+          <p className="text-xs text-[var(--muted)] mt-0.5">{t('description')}</p>
         )}
         {prompt && (
           <button
             onClick={install}
             className="mt-2 px-3 py-1 text-xs rounded-md bg-[var(--primary)] text-[var(--primary-fg)] hover:opacity-90 transition-opacity"
           >
-            {t("install")}
+            {t('install')}
           </button>
         )}
       </div>
       <button
         onClick={dismiss}
-        aria-label={t("dismiss")}
+        aria-label={t('dismiss')}
         className="shrink-0 p-1 rounded hover:bg-[var(--muted-bg)] text-[var(--muted)] transition-colors"
       >
         <X size={16} />

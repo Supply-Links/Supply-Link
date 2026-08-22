@@ -9,6 +9,10 @@ import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 import { handleValidationError, parseJsonBody } from '@/lib/api/validation';
 import { z } from 'zod';
 
+type FeeBumpResultBody =
+  | { error: ErrorCode; message: string }
+  | { feeBumpTx: string; cost: string; message: string };
+
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
@@ -21,7 +25,7 @@ async function handler(request: NextRequest) {
     const respond = (body: unknown, init?: ResponseInit) =>
       withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 
-    let resultBody: any;
+    let resultBody: FeeBumpResultBody | undefined;
     let resultStatus: number = 200;
 
     try {
@@ -89,8 +93,18 @@ async function handler(request: NextRequest) {
 
     if (resultStatus === 200) {
       return respond(resultBody);
-    } else {
+    } else if (resultBody && 'error' in resultBody) {
       return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
+    } else {
+      return withCors(
+        req,
+        apiError(
+          req,
+          resultStatus,
+          ErrorCode.INTERNAL_ERROR,
+          'Failed to create fee-bump transaction',
+        ),
+      );
     }
   });
 }
