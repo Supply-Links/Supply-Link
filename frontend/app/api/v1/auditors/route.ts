@@ -14,6 +14,7 @@ import { authenticateApiRequest } from '@/lib/api/auth';
 import { recordRequest } from '@/lib/api/metrics';
 import { auditorCreateBodySchema, auditorListQuerySchema } from '@/lib/api/schemas';
 import { handleValidationError, parseJsonBody, parseQuery } from '@/lib/api/validation';
+import { getAuditorRepository } from '@/lib/data';
 import { MOCK_AUDITORS } from '@/lib/mock/auditors';
 import type { Auditor, PaginatedResponse } from '@/lib/types';
 

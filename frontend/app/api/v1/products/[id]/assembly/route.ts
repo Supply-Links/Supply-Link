@@ -24,7 +24,7 @@ export function OPTIONS(request: NextRequest) {
 }
 
 async function getAssembly(req: NextRequest, productId: string): Promise<NextResponse> {
-  const product = getProductById(productId);
+  const product = await getProductRepository().getById(productId);
   if (!product) {
     return apiError(req, 404, ErrorCode.VALIDATION_ERROR, `Product not found: ${productId}`);
   }
@@ -64,7 +64,7 @@ async function registerAssembly(
 
   // Validate all component products exist
   for (const cid of body.componentIds) {
-    if (!getProductById(cid)) {
+    if (!(await getProductRepository().getById(cid))) {
       return apiError(req, 400, ErrorCode.VALIDATION_ERROR, `Component product not found: ${cid}`);
     }
   }
@@ -77,7 +77,7 @@ async function registerAssembly(
     description: body.description,
   };
 
-  await productRepository.setAssembly(productId, assembly);
+  await getProductRepository().setAssembly(productId, assembly);
 
   return withCors(req, withCorrelationId(req, NextResponse.json({ assembly }, { status: 201 })));
 }

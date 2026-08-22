@@ -63,7 +63,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = parseJsonBody(request, await request.text(), productCompareBodySchema);
     const productIds = body.productIds;
-    const products = productIds.map((id) => getProductById(id)).filter((p) => p !== undefined);
+    const productRepository = getProductRepository();
+    const fetchedProducts = await Promise.all(
+      productIds.map((id) => productRepository.getById(id)),
+    );
+    const products = fetchedProducts.filter((p): p is Product => p !== null);
 
     if (products.length < 2) {
       return apiError(
@@ -74,7 +78,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const result = compareProducts(products, MOCK_EVENTS);
+    const allEvents = await getEventRepository().listAll();
+    const result = compareProducts(products, allEvents);
     const response = {
       products: result.products,
       networkTrustSignals: {
