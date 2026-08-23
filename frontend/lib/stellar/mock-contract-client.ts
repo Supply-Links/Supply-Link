@@ -13,6 +13,7 @@ import type {
 import { MOCK_EVENTS, MOCK_PRODUCTS } from '@/lib/mock/products';
 import type { ContractClient } from './contract-client.interface';
 import { normalizeProduct, normalizeTrackingEvent } from './schema';
+import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
 
 export function applyFilter(events: TrackingEvent[], filter?: EventFilter): TrackingEvent[] {
   if (!filter) return events;
@@ -39,6 +40,7 @@ export class MockContractClient implements ContractClient {
   private assemblies: Map<string, ProductAssembly> = new Map();
   private warranties: Map<string, WarrantyInfo> = new Map();
   private claims: Map<string, WarrantyClaim[]> = new Map();
+  private compliancePolicies: Map<string, CompliancePolicy> = new Map();
 
   constructor() {
     // Seed initial mock data
@@ -154,6 +156,51 @@ export class MockContractClient implements ContractClient {
     return `mock_tx_remove_actor_${productId}_${Date.now()}`;
   }
 
+  async rotateOwnerKey(
+    productId: string,
+    oldOwner: string,
+    newOwner: string,
+    _callerAddress: string,
+  ): Promise<string> {
+    const product = this.products.get(productId);
+    if (product && product.owner === oldOwner) {
+      product.owner = newOwner;
+      this.products.set(productId, product);
+    }
+    return `mock_tx_rotate_owner_${productId}_${Date.now()}`;
+  }
+
+  async rotateAuthorizedActorKey(
+    productId: string,
+    oldActor: string,
+    newActor: string,
+    _callerAddress: string,
+  ): Promise<string> {
+    const product = this.products.get(productId);
+    if (product && product.authorizedActors.includes(oldActor)) {
+      product.authorizedActors = product.authorizedActors.map((a) =>
+        a === oldActor ? newActor : a,
+      );
+      this.products.set(productId, product);
+    }
+    return `mock_tx_rotate_actor_${productId}_${Date.now()}`;
+  }
+
+  // ── Compliance Policy ─────────────────────────────────────────────────────
+
+  async setCompliancePolicy(
+    productId: string,
+    rules: ComplianceRule[],
+    _callerAddress: string,
+  ): Promise<string> {
+    this.compliancePolicies.set(productId, { productId, rules });
+    return `mock_tx_compliance_${productId}_${Date.now()}`;
+  }
+
+  async getCompliancePolicy(productId: string): Promise<CompliancePolicy | null> {
+    return this.compliancePolicies.get(productId) ?? null;
+  }
+
   // ── Event Operations & Provenance ─────────────────────────────────────────
 
   async addTrackingEvent(
@@ -176,6 +223,30 @@ export class MockContractClient implements ContractClient {
     list.push(event);
     this.events.set(productId, list);
     return `mock_tx_event_${productId}_${Date.now()}`;
+  }
+
+  async addPrivateTrackingEvent(
+    productId: string,
+    location: string,
+    eventType: string,
+    metadataCommitment: string,
+    callerAddress: string,
+  ): Promise<string> {
+    const event: TrackingEvent = {
+      productId,
+      location,
+      actor: callerAddress,
+      timestamp: Date.now(),
+      eventType: eventType as TrackingEvent['eventType'],
+      metadata: '',
+      metadataCommitment,
+      privateMetadata: true,
+      schemaVersion: 1,
+    };
+    const list = this.events.get(productId) || [];
+    list.push(event);
+    this.events.set(productId, list);
+    return `mock_tx_private_event_${productId}_${Date.now()}`;
   }
 
   async getTrackingEvents(productId: string, _callerAddress?: string): Promise<TrackingEvent[]> {

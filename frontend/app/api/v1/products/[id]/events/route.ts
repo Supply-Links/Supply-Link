@@ -118,8 +118,7 @@ async function addEvent(
       seq: acceptedSeq,
     };
 
-    // TODO: Persist to database instead of mock
-    MOCK_EVENTS.push(newEvent);
+    await getEventRepository().append(newEvent);
 
     // Enqueue async validation job (#475)
     const stableId = newEvent.stableId ?? `${productId}-${acceptedSeq}-${newEvent.timestamp}`;
@@ -144,7 +143,7 @@ async function addEventsBatch(
     const payload = parseJsonBody(req, rawBody, trackingEventBatchBodySchema);
 
     const results: Array<Record<string, unknown>> = [];
-    const product = getProductById(productId);
+    const product = await getProductRepository().getById(productId);
     if (!product) {
       return apiError(req, 404, ErrorCode.VALIDATION_ERROR, `Product not found: ${productId}`);
     }
@@ -174,7 +173,6 @@ async function addEventsBatch(
         continue;
       }
 
-      // Create and persist (mock)
       const newEvent: TrackingEvent = {
         productId,
         eventType: item.eventType,
@@ -183,7 +181,7 @@ async function addEventsBatch(
         timestamp: Date.now(),
         metadata,
       };
-      MOCK_EVENTS.push(newEvent);
+      await getEventRepository().append(newEvent);
 
       resEntry.success = true;
       resEntry.event = newEvent;

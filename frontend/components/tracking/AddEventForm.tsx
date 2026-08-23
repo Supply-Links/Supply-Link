@@ -12,6 +12,9 @@ import { EventType } from '@/lib/types';
 import { EVENT_TYPE_CONFIG } from '@/lib/eventTypeConfig';
 import { productIdSchema, metadataSchema } from '@/lib/validators';
 import { sealSensitiveMetadata, type SealedMetadata } from '@/lib/crypto/metadata';
+import { contractClient } from '@/lib/stellar/contract';
+import { useStore } from '@/lib/state/store';
+import { offlineQueue } from '@/lib/offlineQueue';
 
 const schema = z.object({
   productId: productIdSchema,
@@ -30,6 +33,7 @@ interface AddEventFormProps {
 export function AddEventForm({ productId: initialProductId, onSuccess }: AddEventFormProps) {
   const toast = useToast();
   const tp = useTranslations('privateMetadata');
+  const walletAddress = useStore((state) => state.walletAddress);
   const [pending, setPending] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -38,12 +42,6 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
-  // Offline queue stub — replace with a real offline queue implementation
-  const offlineQueue = {
-    enqueue: (_item: unknown) => {
-      console.warn('Offline queue not implemented. Item dropped:', _item);
-    },
-  };
   const clearDraft = () => {};
 
   const {
@@ -68,6 +66,11 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
   async function onSubmit(values: FormValues) {
     setComplianceError(null);
 
+    if (!walletAddress) {
+      toast.error('Wallet not connected', 'Connect your wallet to submit a tracking event.');
+      return;
+    }
+
     let finalMetadata = values.metadata;
     if (attachmentUrl) {
       const parsed = JSON.parse(values.metadata || '{}');
@@ -76,7 +79,10 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
     }
 
     if (!isOnline) {
-      offlineQueue.enqueue({ type: 'add_event', payload: { ...values, metadata: finalMetadata } });
+      offlineQueue.enqueue({
+        type: 'add_event',
+        payload: { ...values, metadata: finalMetadata, actor: walletAddress },
+      });
       toast.success('Saved offline', 'Event queued and will sync when connectivity returns.');
       clearDraft();
       reset();
@@ -90,21 +96,16 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
     const toastId = toast.loading('Adding tracking event…');
 
     try {
-      // Merge attachmentUrl into metadata if present
-      let finalMetadata = values.metadata;
-      if (attachmentUrl) {
-        const parsed = JSON.parse(values.metadata || '{}');
-        parsed.attachmentUrl = attachmentUrl;
-        finalMetadata = JSON.stringify(parsed);
-      }
-
       if (isPrivate) {
         // Encrypt off-chain; only the commitment goes on-chain.
         const sealedResult = await sealSensitiveMetadata(finalMetadata);
-        // TODO: call add_private_tracking_event via Soroban client with
-        // sealedResult.commitment, and persist sealedResult.envelope off-chain.
-        await new Promise((r) => setTimeout(r, 1200));
-        const txHash = `mock_tx_${Date.now()}`;
+        const txHash = await contractClient.addPrivateTrackingEvent(
+          values.productId,
+          values.location,
+          values.eventType,
+          sealedResult.commitment,
+          walletAddress,
+        );
 
         toast.dismiss(toastId);
         toast.success(tp('submitSuccess'), txHash);
@@ -116,9 +117,13 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
         return;
       }
 
-      // TODO: call add_tracking_event via Soroban client with finalMetadata
-      await new Promise((r) => setTimeout(r, 1200));
-      const txHash = `mock_tx_${Date.now()}`;
+      const txHash = await contractClient.addTrackingEvent(
+        values.productId,
+        values.location,
+        values.eventType,
+        finalMetadata,
+        walletAddress,
+      );
 
       toast.dismiss(toastId);
       toast.success('Event added successfully', txHash);
@@ -134,16 +139,26 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" data-testid="add-event-form">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-col gap-4"
+      data-testid="add-event-form"
+    >
       {!isOnline && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs" data-testid="add-event-offline-notice">
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs"
+          data-testid="add-event-offline-notice"
+        >
           <WifiOff size={13} />
           You are offline. The event will be queued and submitted when connectivity returns.
         </div>
       )}
 
       {complianceError && (
-        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs" data-testid="add-event-compliance-error">
+        <div
+          className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs"
+          data-testid="add-event-compliance-error"
+        >
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>{complianceError}</span>
         </div>
@@ -164,8 +179,8 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
       {/* Location */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium">Location</label>
-        <Input 
-          {...register('location')} 
+        <Input
+          {...register('location')}
           placeholder="e.g. Warehouse A, Port of Shanghai"
           data-testid="add-event-location-input"
         />
@@ -236,7 +251,10 @@ export function AddEventForm({ productId: initialProductId, onSuccess }: AddEven
 
       {/* Post-submit: surface the decryption key + commitment for the user to save */}
       {sealed && (
-        <div className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-col gap-2" data-testid="add-event-sealed-metadata">
+        <div
+          className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-col gap-2"
+          data-testid="add-event-sealed-metadata"
+        >
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
             {tp('saveKeyTitle')}
           </p>

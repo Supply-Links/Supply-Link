@@ -14,7 +14,7 @@ import { authenticateApiRequest } from '@/lib/api/auth';
 import { recordRequest } from '@/lib/api/metrics';
 import { auditorCreateBodySchema, auditorListQuerySchema } from '@/lib/api/schemas';
 import { handleValidationError, parseJsonBody, parseQuery } from '@/lib/api/validation';
-import { MOCK_AUDITORS } from '@/lib/mock/auditors';
+import { getAuditorRepository, RepositoryUnsupportedError } from '@/lib/data';
 import type { Auditor, PaginatedResponse } from '@/lib/types';
 
 export function OPTIONS(request: NextRequest) {
@@ -41,8 +41,9 @@ async function registerAuditor(req: NextRequest, rawBody: string): Promise<NextR
   try {
     const body = parseJsonBody(req, rawBody, auditorCreateBodySchema);
 
-    // Check for duplicate
-    const existing = MOCK_AUDITORS.find((a) => a.address === body.address);
+    const repo = getAuditorRepository();
+
+    const existing = await repo.getByAddress(body.address);
     if (existing) {
       return apiError(req, 409, ErrorCode.VALIDATION_ERROR, 'Auditor already registered');
     }
@@ -54,11 +55,13 @@ async function registerAuditor(req: NextRequest, rawBody: string): Promise<NextR
       registeredAt: Math.floor(Date.now() / 1000),
     };
 
-    // TODO: Persist via Soroban contract call: register_auditor(address, name)
-    MOCK_AUDITORS.push(newAuditor);
+    await repo.create(newAuditor);
 
     return withCors(req, withCorrelationId(req, NextResponse.json(newAuditor, { status: 201 })));
   } catch (error) {
+    if (error instanceof RepositoryUnsupportedError) {
+      return apiError(req, 503, ErrorCode.DEPENDENCY_UNAVAILABLE, error.message);
+    }
     return (
       handleValidationError(req, error) ??
       apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to register auditor')
@@ -85,9 +88,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     response = await listAuditors(request);
   } catch (error) {
-    response =
-      handleValidationError(request, error) ??
-      apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to list auditors');
+    if (error instanceof RepositoryUnsupportedError) {
+      response = apiError(request, 503, ErrorCode.DEPENDENCY_UNAVAILABLE, error.message);
+    } else {
+      response =
+        handleValidationError(request, error) ??
+        apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to list auditors');
+    }
   }
   recordRequest('GET /api/v1/auditors', response.status, Date.now() - start);
   return response;

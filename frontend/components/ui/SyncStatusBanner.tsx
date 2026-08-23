@@ -3,10 +3,41 @@
 import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { offlineQueue, type OfflineOperation } from '@/lib/offlineQueue';
+import { contractClient } from '@/lib/stellar/contract';
+import { useStore } from '@/lib/state/store';
 
 type SyncState = 'idle' | 'syncing' | 'success' | 'error';
 
+async function dispatchOperation(op: OfflineOperation, fallbackActor: string): Promise<void> {
+  if (op.type === 'add_event') {
+    const { productId, location, eventType, metadata, actor } = op.payload as {
+      productId: string;
+      location: string;
+      eventType: string;
+      metadata: string;
+      actor?: string;
+    };
+    await contractClient.addTrackingEvent(
+      productId,
+      location,
+      eventType,
+      metadata,
+      actor || fallbackActor,
+    );
+    return;
+  }
+
+  const { productId, name, origin, owner } = op.payload as {
+    productId: string;
+    name: string;
+    origin: string;
+    owner: string;
+  };
+  await contractClient.registerProduct(productId, name, origin, owner, owner || fallbackActor);
+}
+
 export function SyncStatusBanner() {
+  const walletAddress = useStore((state) => state.walletAddress);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
@@ -55,8 +86,7 @@ export function SyncStatusBanner() {
     let conflicts = 0;
     for (const op of queue) {
       try {
-        // TODO: dispatch real Soroban calls per op.type
-        await new Promise((r) => setTimeout(r, 600));
+        await dispatchOperation(op, walletAddress ?? '');
         offlineQueue.dequeue(op.id);
       } catch {
         conflicts++;

@@ -25,6 +25,7 @@ import { withContractRetry, withContractWriteRetry } from '@/lib/resilience';
 import { recordDependency, recordOperation } from '@/lib/api/metrics';
 import { normalizeProduct, normalizeTrackingEvent } from './schema';
 import { applyFilter } from './mock-contract-client';
+import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
 
 interface ContractInvocationParams {
   method: string;
@@ -217,6 +218,62 @@ export class LiveContractClient implements ContractClient {
     return this.executeWrite('remove_authorized_actor', [productId, actor], callerAddress);
   }
 
+  async rotateOwnerKey(
+    productId: string,
+    oldOwner: string,
+    newOwner: string,
+    callerAddress: string,
+  ): Promise<string> {
+    return this.executeWrite(
+      'rotate_owner_key',
+      [productId, oldOwner, newOwner],
+      callerAddress,
+      'product.rotateOwnerKey',
+    );
+  }
+
+  async rotateAuthorizedActorKey(
+    productId: string,
+    oldActor: string,
+    newActor: string,
+    callerAddress: string,
+  ): Promise<string> {
+    return this.executeWrite(
+      'rotate_authorized_actor_key',
+      [productId, oldActor, newActor],
+      callerAddress,
+      'product.rotateActorKey',
+    );
+  }
+
+  // ── Compliance Policy ─────────────────────────────────────────────────────
+
+  async setCompliancePolicy(
+    productId: string,
+    rules: ComplianceRule[],
+    callerAddress: string,
+  ): Promise<string> {
+    return this.executeWrite(
+      'set_compliance_policy',
+      [productId, rules],
+      callerAddress,
+      'product.setCompliancePolicy',
+    );
+  }
+
+  async getCompliancePolicy(
+    productId: string,
+    callerAddress: string = '',
+  ): Promise<CompliancePolicy | null> {
+    return this.executeRead(
+      'get_compliance_policy',
+      [productId],
+      callerAddress,
+      undefined,
+      (raw) => (raw ? (raw as CompliancePolicy) : null),
+    );
+  }
+
   // ── Event Operations & Provenance ─────────────────────────────────────────
 
   async addTrackingEvent(
@@ -231,6 +288,21 @@ export class LiveContractClient implements ContractClient {
       [productId, location, eventType, metadata],
       callerAddress,
       'event.create',
+    );
+  }
+
+  async addPrivateTrackingEvent(
+    productId: string,
+    location: string,
+    eventType: string,
+    metadataCommitment: string,
+    callerAddress: string,
+  ): Promise<string> {
+    return this.executeWrite(
+      'add_private_tracking_event',
+      [productId, callerAddress, location, eventType, metadataCommitment],
+      callerAddress,
+      'event.createPrivate',
     );
   }
 

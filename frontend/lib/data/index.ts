@@ -15,6 +15,7 @@ import { ContractProductRepository } from './contract/product-repository';
 import { MockAuditorRepository } from './mock/auditor-repository';
 import { MockEventRepository } from './mock/event-repository';
 import { MockProductRepository } from './mock/product-repository';
+import { RepositoryUnsupportedError } from './errors';
 import type { AuditorRepository, DataSource, EventRepository, ProductRepository } from './types';
 
 export * from './types';
@@ -57,7 +58,20 @@ export function getEventRepository(): EventRepository {
   return eventRepository;
 }
 
+/**
+ * Auditors, attestations and batches have no on-chain registry wired up yet
+ * (see issue #613 / the original TODOs at `app/api/v1/auditors/route.ts` and
+ * `app/api/v1/batches/[id]/recall/route.ts`). Rather than silently falling
+ * back to the mock store when the deployment is configured for `contract`,
+ * fail loudly so the gap can't masquerade as real persistence in production.
+ */
 export function getAuditorRepository(): AuditorRepository {
+  if (getDataSource() === 'contract') {
+    throw new RepositoryUnsupportedError(
+      'AuditorRepository',
+      'contract-backed auditors/attestations/batches (tracked in #613)',
+    );
+  }
   auditorRepository ??= new MockAuditorRepository();
   return auditorRepository;
 }

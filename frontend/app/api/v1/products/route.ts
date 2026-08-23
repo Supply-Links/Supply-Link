@@ -65,8 +65,7 @@ async function registerProduct(
       ],
     };
 
-    // TODO: Persist to database instead of mock
-    MOCK_PRODUCTS.push(newProduct);
+    await getProductRepository().create(newProduct);
 
     // Notify webhooks of the new product registration
     try {

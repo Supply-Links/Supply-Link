@@ -10,6 +10,7 @@ import type {
   WarrantyClaim,
   ClaimStatus,
 } from '@/lib/types';
+import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
 
 export interface ContractClientConfig {
   /** Mode switch: if true, uses MockContractClient; if false, uses LiveContractClient */
@@ -51,12 +52,43 @@ export interface ContractClient {
 
   removeAuthorizedActor(productId: string, actor: string, callerAddress: string): Promise<string>;
 
+  rotateOwnerKey(
+    productId: string,
+    oldOwner: string,
+    newOwner: string,
+    callerAddress: string,
+  ): Promise<string>;
+
+  rotateAuthorizedActorKey(
+    productId: string,
+    oldActor: string,
+    newActor: string,
+    callerAddress: string,
+  ): Promise<string>;
+
+  // ── Compliance Policy ──────────────────────────────────────────────────────
+  setCompliancePolicy(
+    productId: string,
+    rules: ComplianceRule[],
+    callerAddress: string,
+  ): Promise<string>;
+
+  getCompliancePolicy(productId: string, callerAddress?: string): Promise<CompliancePolicy | null>;
+
   // ── Event Operations & Provenance ─────────────────────────────────────────
   addTrackingEvent(
     productId: string,
     location: string,
     eventType: string,
     metadata: string,
+    callerAddress: string,
+  ): Promise<string>;
+
+  addPrivateTrackingEvent(
+    productId: string,
+    location: string,
+    eventType: string,
+    metadataCommitment: string,
     callerAddress: string,
   ): Promise<string>;
 
