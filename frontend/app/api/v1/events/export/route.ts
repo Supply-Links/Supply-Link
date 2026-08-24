@@ -16,20 +16,65 @@
  */
 
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
 import { apiError, ErrorCode } from '@/lib/api/errors';
 import { getEventRepository, getProductRepository } from '@/lib/data';
 import { buildInterchangePayload } from '@/lib/interchange/eventExporter';
 
-export const runtime = 'nodejs';
+const VALID_FORMATS = ['json', 'jsonld'] as const;
+type ExportFormat = (typeof VALID_FORMATS)[number];
 
-export function OPTIONS(request: NextRequest) {
-  return handleOptions(request);
-}
+export const { GET, OPTIONS } = defineRoute(
+  {
+    auth: 'partner',
+    rateLimit: RATE_LIMIT_PRESETS.publicRead,
+  },
+  {
+    GET: async (ctx) => {
+      const { searchParams } = ctx.req.nextUrl;
+      const productId = searchParams.get('productId');
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const start = Date.now();
+      if (!productId) {
+        return apiError(
+          ctx.req,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'productId query parameter is required',
+        );
+      }
+
+      const rawFormat = (searchParams.get('format') ?? 'json').toLowerCase();
+      if (!VALID_FORMATS.includes(rawFormat as ExportFormat)) {
+        return apiError(
+          ctx.req,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          `format must be one of: ${VALID_FORMATS.join(', ')}`,
+        );
+      }
+      const format = rawFormat as ExportFormat;
+
+      const offsetParam = searchParams.get('offset');
+      const limitParam = searchParams.get('limit');
+      const offset = offsetParam !== null ? Number(offsetParam) : 0;
+      const limit = limitParam !== null ? Number(limitParam) : 100;
+
+      if (!Number.isInteger(offset) || offset < 0) {
+        return apiError(
+          ctx.req,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'offset must be a non-negative integer',
+        );
+      }
+      if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+        return apiError(
+          ctx.req,
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'limit must be an integer between 1 and 500',
+        );
+      }
 
       const product = await getProductRepository().getById(productId);
       if (!product) {
@@ -41,17 +86,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         (a, b) => a.timestamp - b.timestamp,
       );
 
-  const { searchParams } = request.nextUrl;
-  const productId = searchParams.get('productId');
-
-  if (!productId) {
-    const res = withCors(
-      request,
-      apiError(request, 400, ErrorCode.VALIDATION_ERROR, 'productId query parameter is required'),
-    );
-    recordRequest('GET /api/v1/events/export', 400, Date.now() - start);
-    return res;
-  }
+      const payload = buildInterchangePayload(product, allEvents, { offset, limit });
+      const contentType = format === 'jsonld' ? 'application/ld+json' : 'application/json';
 
       return NextResponse.json(payload, {
         status: 200,
