@@ -1,84 +1,96 @@
 /**
  * GET    /api/v1/attestations/[attestationId]          — Get attestation details
  * DELETE /api/v1/attestations/[attestationId]          — Revoke an attestation
- *
- * Authentication: public (GET), auditor tier (DELETE)
- * Rate limiting: publicRead (GET), default (DELETE)
+ * GET    /api/v1/attestations/[attestationId]/validate — Validate an attestation
  */
 
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
-import { apiError, ErrorCode } from '@/lib/api/errors';
+import { NextRequest, NextResponse } from 'next/server';
+import { withCors, handleOptions } from '@/lib/api/cors';
+import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
+import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
+import { authenticateRegistryKey } from '@/lib/api/apiKeyAuth';
+import { recordRequest } from '@/lib/api/metrics';
 import { getAttestation, revokeAttestation } from '@/lib/attestations';
 
 export const runtime = 'nodejs';
 
-// ── Schemas ───────────────────────────────────────────────────────────────────
+export function OPTIONS(request: NextRequest) {
+  return handleOptions(request);
+}
 
-const paramsSchema = z.object({
-  attestationId: z.string().min(1),
-});
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ attestationId: string }> },
+): Promise<NextResponse> {
+  const start = Date.now();
+  const { attestationId } = await params;
 
-// ── Handlers ──────────────────────────────────────────────────────────────────
+  const limited = applyRateLimit(
+    request,
+    'GET /api/v1/attestations/[id]',
+    RATE_LIMIT_PRESETS.publicRead,
+  );
+  if (limited) {
+    recordRequest('GET /api/v1/attestations/[id]', 429, Date.now() - start);
+    return limited;
+  }
 
-// GET is public — no auth required
-const { GET } = defineRoute(
-  {
-    auth: 'public',
-    rateLimit: RATE_LIMIT_PRESETS.publicRead,
-    params: paramsSchema,
-  },
-  {
-    GET: async (ctx) => {
-      const record = await getAttestation(ctx.params.attestationId);
-      if (!record) {
-        return apiError(ctx.req, 404, ErrorCode.NOT_FOUND, 'Attestation not found');
-      }
-      return NextResponse.json(record, { status: 200 });
-    },
-  },
-);
+  const record = await getAttestation(attestationId);
+  if (!record) {
+    const res = withCors(
+      request,
+      apiError(request, 404, ErrorCode.VALIDATION_ERROR, 'Attestation not found'),
+    );
+    recordRequest('GET /api/v1/attestations/[id]', 404, Date.now() - start);
+    return res;
+  }
 
-// DELETE requires auditor auth — body is optional
-const { DELETE, OPTIONS } = defineRoute(
-  {
-    auth: 'auditor',
-    rateLimit: RATE_LIMIT_PRESETS.default,
-    params: paramsSchema,
-  },
-  {
-    DELETE: async (ctx) => {
-      const { attestationId } = ctx.params;
+  const response = withCors(
+    request,
+    withCorrelationId(request, NextResponse.json(record, { status: 200 })),
+  );
+  recordRequest('GET /api/v1/attestations/[id]', response.status, Date.now() - start);
+  return response;
+}
 
-      // Caller must identify themselves via x-issuer-address header
-      const callerAddress = ctx.req.headers.get('x-issuer-address');
-      if (!callerAddress) {
-        return apiError(ctx.req, 400, ErrorCode.MISSING_FIELDS, 'Missing x-issuer-address header');
-      }
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ attestationId: string }> },
+): Promise<NextResponse> {
+  const start = Date.now();
+  const { attestationId } = await params;
 
-      // Parse body optionally — reason is not required
-      let reason: string | undefined;
-      try {
-        if (ctx.rawBody) {
-          const parsed = JSON.parse(ctx.rawBody);
-          reason = typeof parsed?.reason === 'string' ? parsed.reason : undefined;
-        }
-      } catch {
-        // body is optional
-      }
+  const limited = applyRateLimit(
+    request,
+    'DELETE /api/v1/attestations/[id]',
+    RATE_LIMIT_PRESETS.default,
+  );
+  if (limited) {
+    recordRequest('DELETE /api/v1/attestations/[id]', 429, Date.now() - start);
+    return limited;
+  }
 
-      const result = await revokeAttestation(attestationId, callerAddress, reason);
+  // Auditor tier or higher required to revoke
+  const auth = await authenticateRegistryKey(
+    request,
+    'auditor',
+    'DELETE /api/v1/attestations/[id]',
+  );
+  if (auth.error) {
+    recordRequest('DELETE /api/v1/attestations/[id]', 401, Date.now() - start);
+    return auth.error;
+  }
 
-      if (!result.success) {
-        const status = result.error === 'Attestation not found' ? 404 : 403;
-        return apiError(
-          ctx.req,
-          status,
-          ErrorCode.UNAUTHORIZED,
-          result.error ?? 'Revocation failed',
-        );
-      }
+  // Caller must identify themselves via x-issuer-address header
+  const callerAddress = request.headers.get('x-issuer-address');
+  if (!callerAddress) {
+    const res = withCors(
+      request,
+      apiError(request, 400, ErrorCode.MISSING_FIELDS, 'Missing x-issuer-address header'),
+    );
+    recordRequest('DELETE /api/v1/attestations/[id]', 400, Date.now() - start);
+    return res;
+  }
 
       return NextResponse.json(
         { attestationId, revoked: true, revokedAt: Date.now() },

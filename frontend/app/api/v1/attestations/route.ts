@@ -57,4 +57,6 @@ const { POST, OPTIONS } = defineRoute(
   },
 );
 
-export { GET, POST, OPTIONS };
+  recordRequest('GET /api/v1/attestations', response.status, Date.now() - start);
+  return response;
+}
