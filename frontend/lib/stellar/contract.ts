@@ -9,7 +9,8 @@
 import type { TrackingEvent, EventType, EventFilter, EventPage, AuthPolicy } from '@/lib/types';
 import type { ContractClient, ContractClientConfig } from './contract-client.interface';
 import { LiveContractClient } from './live-contract-client';
-import { MockContractClient, applyFilter } from './mock-contract-client';
+import { MockContractClient } from './mock-contract-client';
+import { applyFilter } from './contract-client-shared';
 
 export type { ContractClient, ContractClientConfig };
 export { LiveContractClient, MockContractClient };
