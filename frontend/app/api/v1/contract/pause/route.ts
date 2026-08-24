@@ -3,10 +3,9 @@
  * POST /api/v1/contract/pause  — set pause state (guardian only)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { apiError, ErrorCode } from '@/lib/api/errors';
+import { NextResponse } from 'next/server';
+import { defineRoute } from '@/lib/api/handler';
 import { contractPauseBodySchema } from '@/lib/api/schemas';
-import { handleValidationError, parseJsonBody } from '@/lib/api/validation';
 
 // In production this would read from / write to the Soroban contract via RPC.
 // For now we use a module-level variable as a lightweight stand-in that
@@ -19,27 +18,25 @@ let pauseState = {
   reason: undefined as string | undefined,
 };
 
-export async function GET() {
-  return NextResponse.json(pauseState);
-}
+export const { GET, POST, OPTIONS } = defineRoute(
+  {
+    auth: 'public',
+    body: contractPauseBodySchema,
+  },
+  {
+    GET: async () => {
+      return NextResponse.json(pauseState);
+    },
+    POST: async (ctx) => {
+      // TODO: verify caller is an authorized guardian via Soroban auth check.
+      pauseState = {
+        paused: ctx.body.paused,
+        pausedBy: 'guardian', // replace with verified caller address
+        pausedAt: ctx.body.paused ? Math.floor(Date.now() / 1000) : undefined,
+        reason: ctx.body.reason,
+      };
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = parseJsonBody(request, await request.text(), contractPauseBodySchema);
-
-    // TODO: verify caller is an authorized guardian via Soroban auth check.
-    pauseState = {
-      paused: body.paused,
-      pausedBy: 'guardian', // replace with verified caller address
-      pausedAt: body.paused ? Math.floor(Date.now() / 1000) : undefined,
-      reason: body.reason,
-    };
-
-    return NextResponse.json(pauseState);
-  } catch (error) {
-    return (
-      handleValidationError(request, error) ??
-      apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to update pause state')
-    );
-  }
-}
+      return NextResponse.json(pauseState);
+    },
+  },
+);

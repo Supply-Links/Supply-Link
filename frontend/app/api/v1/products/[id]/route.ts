@@ -5,53 +5,32 @@
  * Rate limiting: publicRead preset
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withCors, handleOptions } from '@/lib/api/cors';
-import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
+import { apiError, ErrorCode } from '@/lib/api/errors';
 import { getProductRepository } from '@/lib/data';
-import { recordRequest } from '@/lib/api/metrics';
-import type { Product } from '@/lib/types';
 
-export function OPTIONS(request: NextRequest) {
-  return handleOptions(request);
-}
+export const { GET, OPTIONS } = defineRoute(
+  {
+    auth: 'public',
+    rateLimit: RATE_LIMIT_PRESETS.publicRead,
+    params: z.object({ id: z.string() }),
+  },
+  {
+    GET: async (ctx) => {
+      const { id } = ctx.params;
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-): Promise<NextResponse> {
-  const start = Date.now();
+      if (!id || typeof id !== 'string') {
+        return apiError(ctx.req, 400, ErrorCode.VALIDATION_ERROR, 'Invalid product ID');
+      }
 
-  // Public read endpoint — no authentication required.
-  // Apply IP-based rate limiting only.
-  const limited = applyRateLimit(
-    request,
-    'GET /api/v1/products/[id]',
-    RATE_LIMIT_PRESETS.publicRead,
-    RATE_LIMIT_PRESETS.publicRead,
-  );
-  if (limited) {
-    recordRequest('GET /api/v1/products/[id]', 429, Date.now() - start);
-    return limited;
-  }
+      const product = await getProductRepository().getById(id);
+      if (!product) {
+        return apiError(ctx.req, 404, ErrorCode.VALIDATION_ERROR, `Product not found: ${id}`);
+      }
 
-  const { id } = await params;
-
-  if (!id || typeof id !== 'string') {
-    recordRequest('GET /api/v1/products/[id]', 400, Date.now() - start);
-    return apiError(request, 400, ErrorCode.VALIDATION_ERROR, 'Invalid product ID');
-  }
-
-  const product = await getProductRepository().getById(id);
-  if (!product) {
-    recordRequest('GET /api/v1/products/[id]', 404, Date.now() - start);
-    return withCors(
-      request,
-      apiError(request, 404, ErrorCode.VALIDATION_ERROR, `Product not found: ${id}`),
-    );
-  }
-
-  recordRequest('GET /api/v1/products/[id]', 200, Date.now() - start);
-  return withCors(request, withCorrelationId(request, NextResponse.json(product, { status: 200 })));
-}
+      return NextResponse.json(product, { status: 200 });
+    },
+  },
+);

@@ -5,13 +5,9 @@
  * closes #482
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withCors, handleOptions } from '@/lib/api/cors';
-import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
-import { recordRequest } from '@/lib/api/metrics';
+import { NextResponse } from 'next/server';
+import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
 import { regulatorCertificationBodySchema } from '@/lib/api/schemas';
-import { handleValidationError, parseJsonBody } from '@/lib/api/validation';
 import {
   issueCertification,
   listCertifications,
@@ -19,84 +15,56 @@ import {
   effectiveStatus,
 } from '@/lib/regulator/certifications';
 
-export function OPTIONS(request: NextRequest) {
-  return handleOptions(request);
-}
+const { GET } = defineRoute(
+  {
+    auth: 'public',
+    rateLimit: RATE_LIMIT_PRESETS.publicRead,
+  },
+  {
+    GET: async (ctx) => {
+      const { searchParams } = ctx.req.nextUrl;
+      const productId = searchParams.get('productId') ?? undefined;
+      const issuer = searchParams.get('issuer') ?? undefined;
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  const start = Date.now();
+      const certs = issuer ? listByIssuer(issuer) : listCertifications(productId);
 
-  const limited = applyRateLimit(
-    request,
-    'POST /api/v1/regulator/certifications',
-    RATE_LIMIT_PRESETS.default,
-  );
-  if (limited) {
-    recordRequest('POST /api/v1/regulator/certifications', 429, Date.now() - start);
-    return limited;
-  }
+      // Resolve effective status for each cert
+      const enriched = certs.map((c) => ({ ...c, effectiveStatus: effectiveStatus(c) }));
 
-  try {
-    const {
-      productId,
-      productName,
-      issuerAddress,
-      issuerAuthority,
-      certType,
-      scope,
-      validityDays,
-    } = parseJsonBody(request, await request.text(), regulatorCertificationBodySchema);
+      return NextResponse.json(
+        { certifications: enriched, total: enriched.length },
+        { status: 200 },
+      );
+    },
+  },
+);
 
-    const cert = issueCertification({
-      productId,
-      productName,
-      issuerAddress,
-      issuerAuthority,
-      certType,
-      scope,
-      validityDays,
-    });
+const { POST, OPTIONS } = defineRoute(
+  {
+    auth: 'public',
+    rateLimit: RATE_LIMIT_PRESETS.default,
+    body: regulatorCertificationBodySchema,
+  },
+  {
+    POST: async (ctx) => {
+      const { productId, productName, issuerAddress, issuerAuthority, certType, scope, validityDays } =
+        ctx.body;
 
-    console.log('[regulator cert] issued', { id: cert.id, productId, issuerAuthority });
+      const cert = issueCertification({
+        productId,
+        productName,
+        issuerAddress,
+        issuerAuthority,
+        certType,
+        scope,
+        validityDays,
+      });
 
-    const res = NextResponse.json({ certification: cert }, { status: 201 });
-    recordRequest('POST /api/v1/regulator/certifications', 201, Date.now() - start);
-    return withCors(request, withCorrelationId(request, res));
-  } catch (error) {
-    return withCors(
-      request,
-      handleValidationError(request, error) ??
-        apiError(request, 400, ErrorCode.INVALID_JSON, 'Invalid request'),
-    );
-  }
-}
+      console.log('[regulator cert] issued', { id: cert.id, productId, issuerAuthority });
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const start = Date.now();
+      return NextResponse.json({ certification: cert }, { status: 201 });
+    },
+  },
+);
 
-  const limited = applyRateLimit(
-    request,
-    'GET /api/v1/regulator/certifications',
-    RATE_LIMIT_PRESETS.publicRead,
-  );
-  if (limited) {
-    recordRequest('GET /api/v1/regulator/certifications', 429, Date.now() - start);
-    return limited;
-  }
-
-  const { searchParams } = request.nextUrl;
-  const productId = searchParams.get('productId') ?? undefined;
-  const issuer = searchParams.get('issuer') ?? undefined;
-
-  const certs = issuer ? listByIssuer(issuer) : listCertifications(productId);
-
-  // Resolve effective status for each cert
-  const enriched = certs.map((c) => ({ ...c, effectiveStatus: effectiveStatus(c) }));
-
-  const res = NextResponse.json(
-    { certifications: enriched, total: enriched.length },
-    { status: 200 },
-  );
-  recordRequest('GET /api/v1/regulator/certifications', 200, Date.now() - start);
-  return withCors(request, withCorrelationId(request, res));
-}
+export { GET, POST, OPTIONS };

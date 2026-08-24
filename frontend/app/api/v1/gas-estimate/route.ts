@@ -16,14 +16,10 @@
  * All CPU figures are Soroban CPU instruction counts from profiling.rs.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withCors, handleOptions } from '@/lib/api/cors';
-import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
-import { recordRequest } from '@/lib/api/metrics';
+import { NextResponse } from 'next/server';
+import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
 import { fetchBaseFee, stroopsToXlm } from '@/lib/stellar/fees';
 import { gasEstimateQuerySchema } from '@/lib/api/schemas';
-import { handleValidationError, parseJsonBody, parseQuery } from '@/lib/api/validation';
 
 export const runtime = 'nodejs';
 
@@ -115,73 +111,25 @@ function buildEstimate(operation: Operation, batchSize: number, inclusionFee: nu
   };
 }
 
-export function OPTIONS(request: NextRequest) {
-  return handleOptions(request);
-}
-
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const start = Date.now();
-
-  const limited = applyRateLimit(request, 'GET /api/v1/gas-estimate', RATE_LIMIT_PRESETS.default);
-  if (limited) {
-    recordRequest('GET /api/v1/gas-estimate', 429, Date.now() - start);
-    return limited;
-  }
-
-  let operation: Operation;
-  let batchSize: number;
-  try {
-    ({ operation, batchSize } = parseQuery(request, gasEstimateQuerySchema));
-  } catch (error) {
-    const res = withCors(
-      request,
-      handleValidationError(request, error) ??
-        apiError(request, 400, ErrorCode.VALIDATION_ERROR, 'Request validation failed'),
-    );
-    recordRequest('GET /api/v1/gas-estimate', 400, Date.now() - start);
-    return res;
-  }
-  const inclusionFee = await fetchBaseFee();
-  const estimate = buildEstimate(operation as Operation, batchSize, inclusionFee);
-
-  const response = withCors(
-    request,
-    withCorrelationId(request, NextResponse.json(estimate, { status: 200 })),
-  );
-  recordRequest('GET /api/v1/gas-estimate', 200, Date.now() - start);
-  return response;
-}
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  const start = Date.now();
-
-  const limited = applyRateLimit(request, 'POST /api/v1/gas-estimate', RATE_LIMIT_PRESETS.default);
-  if (limited) {
-    recordRequest('POST /api/v1/gas-estimate', 429, Date.now() - start);
-    return limited;
-  }
-
-  let body: { operation: Operation; batchSize: number };
-  try {
-    body = parseJsonBody(request, await request.text(), gasEstimateQuerySchema);
-  } catch (error) {
-    const res = withCors(
-      request,
-      handleValidationError(request, error) ??
-        apiError(request, 400, ErrorCode.VALIDATION_ERROR, 'Request validation failed'),
-    );
-    recordRequest('POST /api/v1/gas-estimate', 400, Date.now() - start);
-    return res;
-  }
-
-  const { operation, batchSize } = body;
-  const inclusionFee = await fetchBaseFee();
-  const estimate = buildEstimate(operation as Operation, batchSize, inclusionFee);
-
-  const response = withCors(
-    request,
-    withCorrelationId(request, NextResponse.json(estimate, { status: 200 })),
-  );
-  recordRequest('POST /api/v1/gas-estimate', 200, Date.now() - start);
-  return response;
-}
+export const { GET, POST, OPTIONS } = defineRoute(
+  {
+    auth: 'public',
+    rateLimit: RATE_LIMIT_PRESETS.default,
+    body: gasEstimateQuerySchema,
+    query: gasEstimateQuerySchema,
+  },
+  {
+    GET: async (ctx) => {
+      const { operation, batchSize } = ctx.query;
+      const inclusionFee = await fetchBaseFee();
+      const estimate = buildEstimate(operation as Operation, batchSize, inclusionFee);
+      return NextResponse.json(estimate, { status: 200 });
+    },
+    POST: async (ctx) => {
+      const { operation, batchSize } = ctx.body;
+      const inclusionFee = await fetchBaseFee();
+      const estimate = buildEstimate(operation as Operation, batchSize, inclusionFee);
+      return NextResponse.json(estimate, { status: 200 });
+    },
+  },
+);
