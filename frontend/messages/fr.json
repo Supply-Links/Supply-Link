@@ -147,6 +147,8 @@
     "NO_PENDING_EVENTS": "Il n'y a aucun événement en attente dans la file d'approbation pour ce produit.",
     "PENDING_EVENT_EXPIRED": "Cet événement en attente a expiré et ne peut plus être approuvé.",
     "INVALID_NONCE": "Le nonce fourni ne correspond pas à la valeur attendue. Actualisez et réessayez.",
+    "COMPLIANCE_VIOLATION": "Cet événement enfreint la politique de conformité configurée pour ce produit.",
+    "CONTRACT_PAUSED": "Le contrat est actuellement en pause ; les opérations d'écriture sont temporairement désactivées.",
     "UNKNOWN": "Une erreur inattendue du contrat s'est produite. Veuillez réessayer."
   },
   "privateMetadata": {

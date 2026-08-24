@@ -147,6 +147,8 @@
     "NO_PENDING_EVENTS": "Es gibt keine ausstehenden Ereignisse in der Genehmigungswarteschlange für dieses Produkt.",
     "PENDING_EVENT_EXPIRED": "Dieses ausstehende Ereignis ist abgelaufen und kann nicht mehr genehmigt werden.",
     "INVALID_NONCE": "Der angegebene Nonce stimmt nicht mit dem erwarteten Wert überein. Seite neu laden und erneut versuchen.",
+    "COMPLIANCE_VIOLATION": "Dieses Ereignis verstößt gegen die für dieses Produkt konfigurierte Compliance-Richtlinie.",
+    "CONTRACT_PAUSED": "Der Vertrag ist derzeit pausiert; Schreibvorgänge sind vorübergehend deaktiviert.",
     "UNKNOWN": "Ein unerwarteter Vertragsfehler ist aufgetreten. Bitte erneut versuchen."
   },
   "privateMetadata": {

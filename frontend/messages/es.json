@@ -147,6 +147,8 @@
     "NO_PENDING_EVENTS": "No hay eventos pendientes en la cola de aprobación para este producto.",
     "PENDING_EVENT_EXPIRED": "Este evento pendiente ha caducado y ya no se puede aprobar.",
     "INVALID_NONCE": "El nonce proporcionado no coincide con el valor esperado. Actualiza e inténtalo de nuevo.",
+    "COMPLIANCE_VIOLATION": "Este evento infringe la política de cumplimiento configurada para este producto.",
+    "CONTRACT_PAUSED": "El contrato está actualmente pausado; las operaciones de escritura están deshabilitadas temporalmente.",
     "UNKNOWN": "Se produjo un error inesperado del contrato. Inténtalo de nuevo."
   },
   "privateMetadata": {

@@ -147,6 +147,8 @@
     "NO_PENDING_EVENTS": "此产品的审批队列中没有待处理事件。",
     "PENDING_EVENT_EXPIRED": "此待处理事件已过期，无法再批准。",
     "INVALID_NONCE": "提供的 nonce 与预期值不匹配。请刷新后重试。",
+    "COMPLIANCE_VIOLATION": "此事件违反了为该产品配置的合规策略。",
+    "CONTRACT_PAUSED": "合约当前已暂停；写操作已被临时禁用。",
     "UNKNOWN": "发生了意外的合约错误。请重试。"
   },
   "privateMetadata": {
