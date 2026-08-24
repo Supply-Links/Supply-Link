@@ -7,7 +7,7 @@
  *   queue:dlq          → List of job IDs that exhausted retries
  */
 
-export type JobStatus = "pending" | "running" | "completed" | "failed" | "dead";
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'dead';
 
 export interface Job<P = unknown> {
   id: string;
@@ -24,10 +24,10 @@ export interface Job<P = unknown> {
 export type JobHandler<P = unknown> = (job: Job<P>) => Promise<void>;
 
 // Registry of handlers keyed by job type
-const handlers = new Map<string, JobHandler<any>>();
+const handlers = new Map<string, JobHandler<unknown>>();
 
 export function registerHandler<P>(type: string, handler: JobHandler<P>) {
-  handlers.set(type, handler as JobHandler<any>);
+  handlers.set(type, handler as JobHandler<unknown>);
 }
 
 export function getHandler(type: string): JobHandler | undefined {

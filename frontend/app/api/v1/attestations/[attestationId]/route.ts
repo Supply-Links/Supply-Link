@@ -92,33 +92,12 @@ export async function DELETE(
     return res;
   }
 
-  let reason: string | undefined;
-  try {
-    const body = await request.json().catch(() => ({}));
-    reason = typeof body?.reason === 'string' ? body.reason : undefined;
-  } catch {
-    // body is optional
-  }
+      return NextResponse.json(
+        { attestationId, revoked: true, revokedAt: Date.now() },
+        { status: 200 },
+      );
+    },
+  },
+);
 
-  const result = await revokeAttestation(attestationId, callerAddress, reason);
-
-  if (!result.success) {
-    const status = result.error === 'Attestation not found' ? 404 : 403;
-    const res = withCors(
-      request,
-      apiError(request, status, ErrorCode.UNAUTHORIZED, result.error ?? 'Revocation failed'),
-    );
-    recordRequest('DELETE /api/v1/attestations/[id]', status, Date.now() - start);
-    return res;
-  }
-
-  const response = withCors(
-    request,
-    withCorrelationId(
-      request,
-      NextResponse.json({ attestationId, revoked: true, revokedAt: Date.now() }, { status: 200 }),
-    ),
-  );
-  recordRequest('DELETE /api/v1/attestations/[id]', response.status, Date.now() - start);
-  return response;
-}
+export { GET, DELETE, OPTIONS };

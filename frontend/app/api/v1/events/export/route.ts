@@ -15,12 +15,10 @@
  * Rate limiting: publicRead preset
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withCors, handleOptions } from '@/lib/api/cors';
-import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
-import { authenticateRegistryKey } from '@/lib/api/apiKeyAuth';
-import { recordRequest } from '@/lib/api/metrics';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
+import { apiError, ErrorCode } from '@/lib/api/errors';
 import { getEventRepository, getProductRepository } from '@/lib/data';
 import { buildInterchangePayload } from '@/lib/interchange/eventExporter';
 
@@ -33,22 +31,15 @@ export function OPTIONS(request: NextRequest) {
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const start = Date.now();
 
-  const limited = applyRateLimit(
-    request,
-    'GET /api/v1/events/export',
-    RATE_LIMIT_PRESETS.publicRead,
-  );
-  if (limited) {
-    recordRequest('GET /api/v1/events/export', 429, Date.now() - start);
-    return limited;
-  }
+      const product = await getProductRepository().getById(productId);
+      if (!product) {
+        return apiError(ctx.req, 404, ErrorCode.NOT_FOUND, `Product '${productId}' not found`);
+      }
 
-  // Partner tier or higher required
-  const auth = await authenticateRegistryKey(request, 'partner', 'GET /api/v1/events/export');
-  if (auth.error) {
-    recordRequest('GET /api/v1/events/export', 401, Date.now() - start);
-    return auth.error;
-  }
+      // Fetch events sorted oldest-first (canonical provenance order)
+      const allEvents = (await getEventRepository().listByProduct(productId)).sort(
+        (a, b) => a.timestamp - b.timestamp,
+      );
 
   const { searchParams } = request.nextUrl;
   const productId = searchParams.get('productId');
@@ -62,35 +53,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return res;
   }
 
-  const offset = Math.max(0, parseInt(searchParams.get('offset') ?? '0', 10) || 0);
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') ?? '100', 10) || 100));
-  const format = searchParams.get('format') ?? 'json';
-
-  const product = await getProductRepository().getById(productId);
-  if (!product) {
-    const res = withCors(
-      request,
-      apiError(request, 404, ErrorCode.VALIDATION_ERROR, `Product '${productId}' not found`),
-    );
-    recordRequest('GET /api/v1/events/export', 404, Date.now() - start);
-    return res;
-  }
-
-  // Fetch events sorted oldest-first (canonical provenance order)
-  const allEvents = (await getEventRepository().listByProduct(productId)).sort(
-    (a, b) => a.timestamp - b.timestamp,
-  );
-
-  const payload = buildInterchangePayload(product, allEvents, { offset, limit });
-
-  const contentType = format === 'jsonld' ? 'application/ld+json' : 'application/json';
-
-  const inner = NextResponse.json(payload, {
-    status: 200,
-    headers: { 'Content-Type': contentType },
-  });
-
-  const response = withCors(request, withCorrelationId(request, inner));
-  recordRequest('GET /api/v1/events/export', response.status, Date.now() - start);
-  return response;
-}
+      return NextResponse.json(payload, {
+        status: 200,
+        headers: { 'Content-Type': contentType },
+      });
+    },
+  },
+);

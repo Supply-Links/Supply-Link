@@ -49,7 +49,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const query = parseJsonBody(request, await request.text(), productSearchBodySchema);
-    const result = searchProducts(getAllProducts(), query);
+    const allProducts = await getProductRepository().listAll();
+    const result = searchProducts(allProducts, query);
     recordRequest('POST /api/v1/products/search', 200, Date.now() - start);
     return withCors(
       request,

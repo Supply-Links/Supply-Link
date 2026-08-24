@@ -27,13 +27,21 @@ export interface CertificationChain {
   depth: number;
 }
 
+/** Raw certification record, keyed by cert_id in the lookup map passed to {@link buildCertificationChain}. */
+export interface CertificationRecord {
+  cert_type: string;
+  issuer: string;
+  issued_at: number;
+  revoked: boolean;
+}
+
 /**
  * Build a certification chain from links
  */
 export function buildCertificationChain(
   rootCertId: string,
   links: CertificationChainLink[],
-  certifications: Map<string, any>,
+  certifications: Map<string, CertificationRecord>,
 ): CertificationChain {
   const nodes = new Map<string, CertificationNode>();
   const visited = new Set<string>();

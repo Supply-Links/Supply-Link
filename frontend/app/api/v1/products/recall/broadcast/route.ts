@@ -51,7 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const body = parseJsonBody(request, await request.text(), recallBroadcastBodySchema);
-    const product = getProductById(body.productId);
+    const product = await getProductRepository().getById(body.productId);
     if (!product) return apiError(request, 404, ErrorCode.NOT_FOUND, 'Product not found');
     const initiatedBy = request.headers.get('x-user-id') || 'system';
     const broadcast = initiateBroadcast(

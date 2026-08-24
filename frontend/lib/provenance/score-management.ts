@@ -136,7 +136,7 @@ export async function getProvenanceScoreHistory(
       return [];
     }
 
-    return results.map((result: any) => ({
+    return results.map((result) => ({
       productId: result.product_id,
       score: result.score,
       lastCalculatedAt: result.last_calculated_at,

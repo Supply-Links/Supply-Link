@@ -16,6 +16,7 @@ import { authenticateApiRequest } from '@/lib/api/auth';
 import { recordRequest } from '@/lib/api/metrics';
 import { MOCK_BATCHES, getBatchById } from '@/lib/mock/auditors';
 import { MOCK_PRODUCTS } from '@/lib/mock/products';
+import { getAuditorRepository } from '@/lib/data';
 import { batchRecallBodySchema } from '@/lib/api/schemas';
 import { handleValidationError, parseJsonBody } from '@/lib/api/validation';
 

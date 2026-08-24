@@ -20,6 +20,7 @@ import { getEventRepository, getProductRepository } from '@/lib/data';
 import { recordRequest } from '@/lib/api/metrics';
 import { productExportBodySchema } from '@/lib/api/schemas';
 import { handleValidationError, parseJsonBody } from '@/lib/api/validation';
+import type { Product } from '@/lib/types';
 
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
@@ -47,20 +48,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = parseJsonBody(request, await request.text(), productExportBodySchema);
     const format = body.format;
-    const products = body.productIds.map((id) => getProductById(id)).filter((p) => p !== undefined);
+    const productRepository = getProductRepository();
+    const fetchedProducts = await Promise.all(
+      body.productIds.map((id) => productRepository.getById(id)),
+    );
+    const products = fetchedProducts.filter((p): p is Product => p !== null);
     if (products.length === 0)
       return apiError(request, 400, ErrorCode.VALIDATION_ERROR, 'No valid products found');
+    const allEvents = await getEventRepository().listAll();
     let content: string;
     let filename: string;
     if (products.length === 1) {
-      const exp = generateTimelineExport(products[0], MOCK_EVENTS, format);
+      const exp = generateTimelineExport(products[0], allEvents, format);
       content =
         format === 'json'
           ? JSON.stringify(exp, null, 2)
-          : generateBatchExport(products, MOCK_EVENTS, format);
+          : generateBatchExport(products, allEvents, format);
       filename = `timeline-${products[0].id}-${Date.now()}.${format}`;
     } else {
-      content = generateBatchExport(products, MOCK_EVENTS, format);
+      content = generateBatchExport(products, allEvents, format);
       filename = `timeline-batch-${Date.now()}.${format}`;
     }
     recordRequest('POST /api/v1/products/export', 200, Date.now() - start);
