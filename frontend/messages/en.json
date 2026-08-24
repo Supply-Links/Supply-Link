@@ -147,6 +147,8 @@
     "NO_PENDING_EVENTS": "There are no pending events in the approval queue for this product.",
     "PENDING_EVENT_EXPIRED": "This pending event has expired and can no longer be approved.",
     "INVALID_NONCE": "The supplied nonce does not match the expected value. Refresh and retry.",
+    "COMPLIANCE_VIOLATION": "This event violates the compliance policy configured for this product.",
+    "CONTRACT_PAUSED": "The contract is currently paused; write operations are temporarily disabled.",
     "UNKNOWN": "An unexpected contract error occurred. Please try again."
   },
   "privateMetadata": {

@@ -1,22 +1,17 @@
 use soroban_sdk::{contracterror, contracttype, Address, String, Vec};
 
-/// Typed contract errors for frontend mapping (#390).
-#[contracterror]
-#[derive(Clone, Copy, PartialEq, Debug)]
-#[repr(u32)]
-pub enum ContractError {
-    ProductNotFound        = 1,
-    ProductAlreadyExists   = 2,
-    UnauthorizedActor      = 3,
-    OwnershipMismatch      = 4,
-    InvalidEventPayload    = 5,
-    ProductRecalled        = 6,
-    SelfTransferNotAllowed = 7,
-}
 // ── Error types ──────────────────────────────────────────────────────────────
 
+/// Typed contract errors surfaced to callers as `ScError::Contract(u32)`.
+///
+/// The numeric discriminant of every variant is a stable, public API: deployed
+/// clients and indexers key off it directly. Adding a new variant is safe;
+/// **never renumber or reuse an existing discriminant**. See
+/// `docs/CONTRACT_ERRORS.md` for the full catalog and the frontend copy each
+/// code maps to.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
 pub enum Error {
     ProductNotFound = 1,
     NotAuthorized = 2,

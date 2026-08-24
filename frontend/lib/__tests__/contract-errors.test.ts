@@ -68,11 +68,25 @@ describe('mapContractError', () => {
     expect(mapped?.httpStatus).toBe(409);
   });
 
+  it('maps ComplianceViolation (8) correctly', () => {
+    const mapped = mapContractError({ code: 8 });
+    expect(mapped?.key).toBe('COMPLIANCE_VIOLATION');
+    expect(mapped?.httpStatus).toBe(422);
+  });
+
+  it('maps ContractPaused (9) correctly', () => {
+    const mapped = mapContractError({ code: 9 });
+    expect(mapped?.key).toBe('CONTRACT_PAUSED');
+    expect(mapped?.httpStatus).toBe(503);
+  });
+
   it('error codes match the Rust #[contracterror] enum ordering', () => {
     expect(ContractErrorCode.NoPendingEvents).toBe(4);
     expect(ContractErrorCode.OwnerOnly).toBe(5);
     expect(ContractErrorCode.PendingEventExpired).toBe(6);
     expect(ContractErrorCode.InvalidNonce).toBe(7);
+    expect(ContractErrorCode.ComplianceViolation).toBe(8);
+    expect(ContractErrorCode.ContractPaused).toBe(9);
   });
 
   it('returns null for unrecognised error', () => {
@@ -81,7 +95,7 @@ describe('mapContractError', () => {
   });
 
   it('every mapped error has a non-empty message', () => {
-    for (let code = 1; code <= 7; code++) {
+    for (let code = 1; code <= 9; code++) {
       const mapped = mapContractError({ code });
       expect(mapped?.message.length).toBeGreaterThan(0);
     }

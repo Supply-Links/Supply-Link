@@ -1,79 +1,17 @@
 /**
- * Contract error catalog for Supply-Link (#390).
+ * Contract error catalog for Supply-Link.
  *
- * Maps Soroban contract error codes to human-readable titles, messages,
- * and a `recoverable` flag that indicates whether the user can retry.
- *
- * Error codes mirror the `ContractError` enum in lib.rs.
+ * Maps Soroban contract error codes to structured, human-readable info.
+ * Error codes mirror the single `Error` enum in
+ * `smart-contract/contracts/src/types.rs` — see `docs/CONTRACT_ERRORS.md`
+ * for the full catalog. Codes are a stable, public API: never renumber or
+ * reuse an existing discriminant.
  */
-
-export interface ContractErrorInfo {
-  title: string;
-  message: string;
-  /** true = user can fix the input and retry; false = action is blocked */
-  recoverable: boolean;
-}
-
-export const CONTRACT_ERROR_CODES: Record<number, ContractErrorInfo> = {
-  1: {
-    title: 'Product not found',
-    message: 'No product with this ID exists on-chain.',
-    recoverable: false,
-  },
-  2: {
-    title: 'Product already exists',
-    message: 'A product with this ID is already registered.',
-    recoverable: true,
-  },
-  3: {
-    title: 'Unauthorized',
-    message: 'Your wallet is not authorized to perform this action.',
-    recoverable: false,
-  },
-  4: {
-    title: 'Ownership mismatch',
-    message: 'The provided owner address does not match the current owner.',
-    recoverable: false,
-  },
-  5: {
-    title: 'Invalid event payload',
-    message: 'The event data is malformed or missing required fields.',
-    recoverable: true,
-  },
-  6: {
-    title: 'Product recalled',
-    message: 'This product has been recalled and cannot receive new events.',
-    recoverable: false,
-  },
-  7: {
-    title: 'Self-transfer not allowed',
-    message: 'The new owner must be a different address from the current owner.',
-    recoverable: true,
-  },
-};
-
-/**
- * Parse a Soroban contract error from an unknown thrown value.
- *
- * Soroban surfaces contract errors as strings like `"Error(Contract, #1)"`.
- * Returns `null` when the error is not a recognised contract error.
- */
-export function parseContractError(error: unknown): (ContractErrorInfo & { code: number }) | null {
-  if (typeof error !== 'string' && !(error instanceof Error)) return null;
-
-  const msg = error instanceof Error ? error.message : error;
-  const match = msg.match(/Error\(Contract,\s*#(\d+)\)/);
-  if (!match) return null;
-
-  const code = parseInt(match[1], 10);
-  const info = CONTRACT_ERROR_CODES[code];
-  return info ? { code, ...info } : null;
-}
 
 /**
  * Stable error codes emitted by the Supply-Link Soroban contract.
  *
- * These map 1-to-1 to the `#[contracterror]` enum in the Rust contract.
+ * These map 1-to-1 to the `Error` enum in the Rust contract.
  * Use these constants for deterministic error handling instead of string matching.
  */
 export const ContractErrorCode = {
@@ -84,8 +22,8 @@ export const ContractErrorCode = {
   OwnerOnly: 5,
   PendingEventExpired: 6,
   InvalidNonce: 7,
-  /** #401: Duplicate event hash detected — replay attempt rejected. */
-  DuplicateEvent: 8,
+  ComplianceViolation: 8,
+  ContractPaused: 9,
 } as const;
 
 export type ContractErrorCode = (typeof ContractErrorCode)[keyof typeof ContractErrorCode];
@@ -143,11 +81,17 @@ const ERROR_MAP: Record<ContractErrorCode, MappedContractError> = {
     message: 'The supplied nonce does not match the expected sequential value. Refresh and retry.',
     httpStatus: 409,
   },
-  [ContractErrorCode.DuplicateEvent]: {
-    code: ContractErrorCode.DuplicateEvent,
-    key: 'DUPLICATE_EVENT',
-    message: 'This event has already been recorded on-chain. Replay attempt rejected.',
-    httpStatus: 409,
+  [ContractErrorCode.ComplianceViolation]: {
+    code: ContractErrorCode.ComplianceViolation,
+    key: 'COMPLIANCE_VIOLATION',
+    message: 'This event violates the compliance policy configured for this product.',
+    httpStatus: 422,
+  },
+  [ContractErrorCode.ContractPaused]: {
+    code: ContractErrorCode.ContractPaused,
+    key: 'CONTRACT_PAUSED',
+    message: 'The contract is currently paused; write operations are temporarily disabled.',
+    httpStatus: 503,
   },
 };
 
