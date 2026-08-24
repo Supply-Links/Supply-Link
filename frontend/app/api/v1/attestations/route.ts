@@ -83,54 +83,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? await listAttestationsForProduct(query.productId)
     : await listAttestationsByIssuer(query.issuerAddress!);
 
-// ── Handlers ──────────────────────────────────────────────────────────────────
+  const response = withCors(
+    request,
+    withCorrelationId(
+      request,
+      NextResponse.json({ attestations, total: attestations.length }, { status: 200 }),
+    ),
+  );
 
-// GET is public — no auth required
-const { GET } = defineRoute(
-  {
-    auth: 'public',
-    rateLimit: RATE_LIMIT_PRESETS.publicRead,
-    query: querySchema,
-  },
-  {
-    GET: async (ctx) => {
-      const { productId, issuerAddress } = ctx.query as {
-        productId?: string;
-        issuerAddress?: string;
-      };
-
-      if (!productId && !issuerAddress) {
-        return apiError(
-          ctx.req,
-          400,
-          ErrorCode.VALIDATION_ERROR,
-          'Provide either productId or issuerAddress query parameter',
-        );
-      }
-
-      const attestations = productId
-        ? await listAttestationsForProduct(productId)
-        : await listAttestationsByIssuer(issuerAddress!);
-
-      return NextResponse.json({ attestations, total: attestations.length }, { status: 200 });
-    },
-  },
-);
-
-// POST requires auditor auth + idempotency
-const { POST, OPTIONS } = defineRoute(
-  {
-    auth: 'auditor',
-    rateLimit: RATE_LIMIT_PRESETS.default,
-    idempotent: true,
-    body: addAttestationSchema,
-  },
-  {
-    POST: async (ctx) => {
-      const record = await addAttestation(ctx.body);
-      return NextResponse.json(record, { status: 201 });
-    },
-  },
-);
-
-export { GET, POST, OPTIONS };
+  recordRequest('GET /api/v1/attestations', response.status, Date.now() - start);
+  return response;
+}
