@@ -11,6 +11,8 @@ import {
   COMPLIANCE_RULE_DESCRIPTIONS,
 } from '@/lib/compliance';
 import { useToast } from '@/lib/hooks/useToast';
+import { contractClient } from '@/lib/stellar/contract';
+import { useStore } from '@/lib/state/store';
 
 const STAGE_OPTIONS = ['HARVEST', 'PROCESSING', 'SHIPPING', 'RETAIL'];
 
@@ -37,6 +39,7 @@ interface Props {
 
 export function CompliancePolicyEditor({ productId, initialRules = [], onSave }: Props) {
   const toast = useToast();
+  const walletAddress = useStore((state) => state.walletAddress);
   const [rules, setRules] = useState<ComplianceRule[]>(initialRules);
   const [saving, setSaving] = useState(false);
 
@@ -53,11 +56,15 @@ export function CompliancePolicyEditor({ productId, initialRules = [], onSave }:
   }
 
   async function handleSave() {
+    if (!walletAddress) {
+      toast.error('Wallet not connected', 'Connect your wallet to save the compliance policy.');
+      return;
+    }
+
     setSaving(true);
     const toastId = toast.loading('Saving compliance policy…');
     try {
-      // TODO: call set_compliance_policy via Soroban client
-      await new Promise((r) => setTimeout(r, 800));
+      await contractClient.setCompliancePolicy(productId, rules, walletAddress);
       toast.dismiss(toastId);
       toast.success('Compliance policy saved');
       onSave?.(rules);

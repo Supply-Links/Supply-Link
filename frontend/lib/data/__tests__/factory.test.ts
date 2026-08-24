@@ -7,11 +7,14 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
   ContractEventRepository,
   ContractProductRepository,
+  getAuditorRepository,
   getDataSource,
   getEventRepository,
   getProductRepository,
+  MockAuditorRepository,
   MockEventRepository,
   MockProductRepository,
+  RepositoryUnsupportedError,
 } from '..';
 
 const originalDataSource = process.env.DATA_SOURCE;
@@ -59,5 +62,18 @@ describe('repository factory', () => {
   it('returns a stable instance while the flag is unchanged', () => {
     process.env.DATA_SOURCE = 'mock';
     expect(getProductRepository()).toBe(getProductRepository());
+  });
+
+  // Auditors, attestations and batches have no contract-backed repository yet
+  // (#613). Rather than silently serving mock data when a deployment is
+  // configured for `contract`, the factory must fail loudly.
+  it('resolves auditors to the mock repository by default', () => {
+    delete process.env.DATA_SOURCE;
+    expect(getAuditorRepository()).toBeInstanceOf(MockAuditorRepository);
+  });
+
+  it('throws RepositoryUnsupportedError for auditors when the flag is set to contract', () => {
+    process.env.DATA_SOURCE = 'contract';
+    expect(() => getAuditorRepository()).toThrow(RepositoryUnsupportedError);
   });
 });

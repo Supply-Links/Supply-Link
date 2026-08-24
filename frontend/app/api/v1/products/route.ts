@@ -12,65 +12,126 @@ import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
 import { getProductRepository } from '@/lib/data';
 import { productCreateBodySchema, productListQuerySchema } from '@/lib/api/schemas';
 import type { Product, PaginatedResponse } from '@/lib/types';
-import { MOCK_PRODUCTS } from '@/lib/mock/products';
 
-export const { GET, POST, OPTIONS } = defineRoute(
-  {
-    auth: 'partner',
-    rateLimit: RATE_LIMIT_PRESETS.default,
-    idempotent: true,
-    body: productCreateBodySchema,
-    query: productListQuerySchema,
-  },
-  {
-    GET: async (ctx) => {
-      const { offset, limit } = ctx.query;
-      const page = await getProductRepository().list({ offset, limit });
+export function OPTIONS(request: NextRequest) {
+  return handleOptions(request);
+}
 
-      const response: PaginatedResponse<Product> = {
-        items: page.items,
-        total: page.total,
-        offset,
-        limit,
-      };
+async function listProducts(req: NextRequest, apiKey: string): Promise<NextResponse> {
+  const { offset, limit } = parseQuery(req, productListQuerySchema);
 
-      return NextResponse.json(response, { status: 200 });
-    },
-    POST: async (ctx) => {
-      // Create new product
-      const newProduct: Product = {
-        id: `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: ctx.body.name,
-        origin: ctx.body.origin,
-        owner: ctx.body.owner,
-        timestamp: Date.now(),
-        active: true,
-        authorizedActors: ctx.body.authorizedActors,
-        requiredSignatures: ctx.body.requiredSignatures,
-        imageUrl: ctx.body.imageUrl,
-        ownershipHistory: [
-          {
-            owner: ctx.body.owner,
-            transferredAt: Date.now(),
-          },
-        ],
-      };
+  const page = await getProductRepository().list({ offset, limit });
 
-      // TODO: Persist to database instead of mock
-      MOCK_PRODUCTS.push(newProduct);
+  const response: PaginatedResponse<Product> = {
+    items: page.items,
+    total: page.total,
+    offset,
+    limit,
+  };
 
-      // Notify webhooks of the new product registration
-      try {
-        const { notifyWebhooksOfProductEvent } = await import('@/lib/webhooks/processor');
-        await notifyWebhooksOfProductEvent('product_registered', newProduct.id, {
-          product: newProduct,
-        });
-      } catch (err) {
-        console.error('Failed to notify webhooks of product registration:', err);
-        // Don't fail the request if webhook notification fails
-      }
+  return withCors(req, withCorrelationId(req, NextResponse.json(response, { status: 200 })));
+}
 
-      return NextResponse.json(newProduct, { status: 201 });
-    },
-  },
-);
+async function registerProduct(
+  req: NextRequest,
+  apiKey: string,
+  rawBody: string,
+): Promise<NextResponse> {
+  try {
+    const body = parseJsonBody(req, rawBody, productCreateBodySchema);
+
+    // Create new product
+    const newProduct: Product = {
+      id: `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: body.name,
+      origin: body.origin,
+      owner: body.owner,
+      timestamp: Date.now(),
+      active: true,
+      authorizedActors: body.authorizedActors,
+      requiredSignatures: body.requiredSignatures,
+      imageUrl: body.imageUrl,
+      ownershipHistory: [
+        {
+          owner: body.owner,
+          transferredAt: Date.now(),
+        },
+      ],
+    };
+
+    await getProductRepository().create(newProduct);
+
+    // Notify webhooks of the new product registration
+    try {
+      const { notifyWebhooksOfProductEvent } = await import('@/lib/webhooks/processor');
+      await notifyWebhooksOfProductEvent('product_registered', newProduct.id, {
+        product: newProduct,
+      });
+    } catch (err) {
+      console.error('Failed to notify webhooks of product registration:', err);
+      // Don't fail the request if webhook notification fails
+    }
+
+    return withCors(req, withCorrelationId(req, NextResponse.json(newProduct, { status: 201 })));
+  } catch (error) {
+    return (
+      handleValidationError(req, error) ??
+      apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to register product')
+    );
+  }
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const start = Date.now();
+
+  // Apply IP-based rate limiting (public endpoint behavior)
+  const limited = applyRateLimit(request, 'GET /api/v1/products', RATE_LIMIT_PRESETS.default);
+  if (limited) {
+    recordRequest('GET /api/v1/products', 429, Date.now() - start);
+    return limited;
+  }
+
+  // Authenticate API key
+  const auth = await authenticateApiRequest(request, 'partner');
+  if (auth.error) {
+    recordRequest('GET /api/v1/products', 401, Date.now() - start);
+    return auth.error;
+  }
+
+  let response: NextResponse;
+  try {
+    response = await listProducts(request, auth.apiKey!);
+  } catch (error) {
+    response =
+      handleValidationError(request, error) ??
+      apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to list products');
+  }
+  recordRequest('GET /api/v1/products', response.status, Date.now() - start);
+  return response;
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const start = Date.now();
+
+  // Apply IP-based rate limiting
+  const limited = applyRateLimit(request, 'POST /api/v1/products', RATE_LIMIT_PRESETS.default);
+  if (limited) {
+    recordRequest('POST /api/v1/products', 429, Date.now() - start);
+    return limited;
+  }
+
+  // Authenticate API key
+  const auth = await authenticateApiRequest(request, 'partner');
+  if (auth.error) {
+    recordRequest('POST /api/v1/products', 401, Date.now() - start);
+    return auth.error;
+  }
+
+  // Handle with idempotency
+  const response = await withIdempotency(request, (req, rawBody) =>
+    registerProduct(req, auth.apiKey!, rawBody),
+  );
+
+  recordRequest('POST /api/v1/products', response.status, Date.now() - start);
+  return response;
+}

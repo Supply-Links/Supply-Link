@@ -173,7 +173,6 @@ async function addEventsBatch(
         continue;
       }
 
-      // Create and persist (mock)
       const newEvent: TrackingEvent = {
         productId,
         eventType: item.eventType,

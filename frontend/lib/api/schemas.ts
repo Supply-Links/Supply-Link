@@ -131,6 +131,7 @@ export type TrackingEventCreateBody = z.infer<typeof trackingEventCreateBodySche
 
 export const contractPauseBodySchema = z.object({
   paused: z.boolean({ error: 'paused must be a boolean' }),
+  guardian: stellarAddressSchema,
   reason: z.string({ error: 'reason must be a string' }).trim().max(256).optional(),
 });
 

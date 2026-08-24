@@ -77,6 +77,54 @@ export default function ProductActions({
       return;
     }
 
+    if (action === 'event' || action === 'transfer' || action === 'actor') {
+      if (!walletAddress) {
+        toast.error('Wallet not connected');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let txHash: string;
+
+        if (action === 'transfer') {
+          const newOwner = input.trim();
+          if (!newOwner) throw new Error('New owner address is required');
+          txHash = await contractClient.transferOwnership(productId, newOwner, walletAddress);
+        } else if (action === 'actor') {
+          const actor = input.trim();
+          if (!actor) throw new Error('Actor address is required');
+          txHash = await contractClient.addAuthorizedActor(productId, actor, walletAddress);
+        } else {
+          const parsed = JSON.parse(input);
+          const { location, eventType, metadata } = parsed as {
+            location?: string;
+            eventType?: string;
+            metadata?: string;
+          };
+          if (!location || !eventType) {
+            throw new Error('Event details must include "location" and "eventType"');
+          }
+          txHash = await contractClient.addTrackingEvent(
+            productId,
+            location,
+            eventType,
+            metadata ?? '{}',
+            walletAddress,
+          );
+        }
+
+        toast.success(`${MODAL_CONFIG[action].title} succeeded. TX: ${txHash.slice(0, 8)}...`);
+        close();
+        onProductUpdated?.();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : `Failed to ${action}`);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (action === 'snapshot') {
       if (!walletAddress) {
         toast.error('Wallet not connected');
@@ -102,10 +150,6 @@ export default function ProductActions({
       }
       return;
     }
-
-    // TODO: implement other actions
-    console.log(`Action: ${action}, productId: ${productId}, input: ${input}`);
-    close();
   };
 
   const ACTIONS: { label: string; type: ModalType; variant: string }[] = [
