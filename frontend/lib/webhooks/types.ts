@@ -75,7 +75,7 @@ export interface ProductWebhookEvent {
     eventType: ProductEventType;
     productId: string;
     timestamp: number;
-    details: Record<string, any>; // Product or tracking event data
+    details: Record<string, unknown>; // Product or tracking event data
   };
 }
 

@@ -1,5 +1,5 @@
-import { NextRequest } from "next/server";
-import { getCorrelationId } from "./correlation";
+import { NextRequest } from 'next/server';
+import { getCorrelationId } from './correlation';
 
 /**
  * Audit event schema for privileged operations.
@@ -8,7 +8,7 @@ export interface AuditEvent {
   timestamp: string;
   correlationId: string;
   actor: {
-    type: "partner" | "internal" | "unknown";
+    type: 'partner' | 'internal' | 'unknown';
     ip: string;
     userAgent?: string;
   };
@@ -17,51 +17,51 @@ export interface AuditEvent {
     method: string;
     path: string;
     query?: Record<string, string>;
-    body?: any;
+    body?: unknown;
   };
   response: {
     status: number;
-    body?: any;
+    body?: unknown;
   };
-  result: "success" | "failure";
-  metadata?: Record<string, any>;
+  result: 'success' | 'failure';
+  metadata?: Record<string, unknown>;
 }
 
 /**
  * Fields that should always be redacted in audit logs.
  */
 const REDACTION_KEYS = [
-  "secret",
-  "key",
-  "password",
-  "token",
-  "auth",
-  "authorization",
-  "cookie",
-  "set-cookie",
-  "x-api-key",
-  "seed",
-  "mnemonic",
-  "private",
+  'secret',
+  'key',
+  'password',
+  'token',
+  'auth',
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'seed',
+  'mnemonic',
+  'private',
 ];
 
 /**
  * Redact sensitive fields from an object or array recursively.
  */
-export function redact(data: any): any {
+export function redact(data: unknown): unknown {
   if (data === null || data === undefined) return data;
 
   if (Array.isArray(data)) {
     return data.map(redact);
   }
 
-  if (typeof data === "object") {
-    const redacted: any = {};
+  if (typeof data === 'object') {
+    const redacted: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       const lowerKey = key.toLowerCase();
       if (REDACTION_KEYS.some((rk) => lowerKey.includes(rk))) {
-        redacted[key] = "[REDACTED]";
-      } else if (typeof value === "object") {
+        redacted[key] = '[REDACTED]';
+      } else if (typeof value === 'object') {
         redacted[key] = redact(value);
       } else {
         redacted[key] = value;
@@ -85,22 +85,22 @@ export class AuditEmitter {
     req: NextRequest,
     operation: string,
     responseStatus: number,
-    requestBody?: any,
-    responseBody?: any,
-    metadata?: Record<string, any>
+    requestBody?: unknown,
+    responseBody?: unknown,
+    metadata?: Record<string, unknown>,
   ): void {
     const correlationId = getCorrelationId(req);
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
-    const userAgent = req.headers.get("user-agent") || undefined;
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    const userAgent = req.headers.get('user-agent') || undefined;
 
     // Determine actor type based on x-api-key (simplified check)
     // In a real scenario, this would be tied more closely to the policy layer.
-    let actorType: AuditEvent["actor"]["type"] = "unknown";
-    const apiKey = req.headers.get("x-api-key");
+    let actorType: AuditEvent['actor']['type'] = 'unknown';
+    const apiKey = req.headers.get('x-api-key');
     if (apiKey === process.env.INTERNAL_API_KEY) {
-      actorType = "internal";
+      actorType = 'internal';
     } else if (apiKey === process.env.PARTNER_API_KEY) {
-      actorType = "partner";
+      actorType = 'partner';
     }
 
     const event: AuditEvent = {
@@ -122,7 +122,7 @@ export class AuditEmitter {
         status: responseStatus,
         body: responseBody ? redact(responseBody) : undefined,
       },
-      result: responseStatus >= 200 && responseStatus < 300 ? "success" : "failure",
+      result: responseStatus >= 200 && responseStatus < 300 ? 'success' : 'failure',
       metadata,
     };
 

@@ -34,8 +34,7 @@ const kvKeyHandover = (productId: string) => `guardian:handover:${productId}`;
 
 async function buildSignAndSubmit(
   method: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  args: any[],
+  args: unknown[],
   callerAddress: string,
 ): Promise<string> {
   const account = await server.getAccount(callerAddress);

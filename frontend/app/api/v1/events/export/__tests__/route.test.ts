@@ -7,9 +7,11 @@ import { NextRequest } from 'next/server';
 
 // ── Auth mock ─────────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/api/auth', () => ({
-  authenticateApiRequest: vi.fn(async (req: NextRequest) => {
-    if (req.headers.get('x-api-key') === 'valid-key') return { error: null, apiKey: 'valid-key' };
+vi.mock('@/lib/api/apiKeyAuth', () => ({
+  authenticateRegistryKey: vi.fn(async (req: NextRequest) => {
+    if (req.headers.get('x-api-key') === 'valid-key') {
+      return { error: null, keyId: 'kid_test', tier: 'partner' };
+    }
     const { NextResponse } = await import('next/server');
     return {
       error: NextResponse.json(

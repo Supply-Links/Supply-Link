@@ -41,7 +41,7 @@ export function createWebhookPayload(event: TrackingEvent): WebhookPayload {
 export function createProductEventPayload(
   eventType: ProductEventType,
   productId: string,
-  details: Record<string, any>,
+  details: Record<string, unknown>,
 ): WebhookPayload {
   const webhookEvent: WebhookEvent = {
     type: 'PRODUCT_EVENT_CHANGED',
@@ -122,7 +122,7 @@ export async function notifyWebhooksOfEvent(event: TrackingEvent): Promise<{
 export async function notifyWebhooksOfProductEvent(
   eventType: ProductEventType,
   productId: string,
-  details: Record<string, any>,
+  details: Record<string, unknown>,
 ): Promise<{
   delivered: boolean;
   successCount: number;
@@ -218,12 +218,24 @@ export async function retryFailedDeliveries(): Promise<void> {
 
     // Replay the exact original payload (persisted alongside the attempt) so
     // retries deliver identical content to the original send, not a stub.
+    // When no payload was persisted, fall back to an empty tracking-event
+    // stub rather than losing the retry entirely.
     const payload: WebhookPayload = attempt.payloadData
       ? (JSON.parse(attempt.payloadData) as WebhookPayload)
       : {
           id: attempt.payloadId,
           timestamp: Date.now(),
-          event: { type: 'TRACKING_EVENT_CREATED', data: {} as any },
+          event: {
+            type: 'TRACKING_EVENT_CREATED',
+            data: {
+              productId: '',
+              location: '',
+              actor: '',
+              timestamp: Date.now(),
+              eventType: 'HARVEST',
+              metadata: '',
+            },
+          },
         };
 
     await sendWebhook(webhook, payload, attempt.attemptNumber + 1, attempt.subscriptionId);

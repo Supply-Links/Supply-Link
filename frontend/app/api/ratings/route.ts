@@ -29,6 +29,15 @@ import {
   recordRating,
 } from '@/lib/api/ratingsProtocol';
 
+interface Rating {
+  id: string;
+  productId: string;
+  walletAddress: string;
+  stars: number;
+  comment: string | null;
+  timestamp: number;
+}
+
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
@@ -50,13 +59,21 @@ export async function POST(request: NextRequest) {
         if (!msgValidation.ok) {
           return withCors(
             req,
-            apiError(req, 400, ErrorCode.VALIDATION_ERROR, `Invalid message: ${msgValidation.reason}`),
+            apiError(
+              req,
+              400,
+              ErrorCode.VALIDATION_ERROR,
+              `Invalid message: ${msgValidation.reason}`,
+            ),
           );
         }
 
         const isValid = await verifySignature(walletAddress, message, signature);
         if (!isValid) {
-          return withCors(req, apiError(req, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'));
+          return withCors(
+            req,
+            apiError(req, 401, ErrorCode.INVALID_SIGNATURE, 'Invalid signature'),
+          );
         }
 
         const nonce = message.split(':')[4];
@@ -64,7 +81,12 @@ export async function POST(request: NextRequest) {
         if (!nonceConsumed) {
           return withCors(
             req,
-            apiError(req, 409, ErrorCode.IDEMPOTENCY_CONFLICT, 'Nonce already used — replay detected'),
+            apiError(
+              req,
+              409,
+              ErrorCode.IDEMPOTENCY_CONFLICT,
+              'Nonce already used — replay detected',
+            ),
           );
         }
 
@@ -72,7 +94,12 @@ export async function POST(request: NextRequest) {
         if (isDuplicate) {
           return withCors(
             req,
-            apiError(req, 409, ErrorCode.IDEMPOTENCY_CONFLICT, 'Wallet has already rated this product'),
+            apiError(
+              req,
+              409,
+              ErrorCode.IDEMPOTENCY_CONFLICT,
+              'Wallet has already rated this product',
+            ),
           );
         }
 
@@ -87,7 +114,7 @@ export async function POST(request: NextRequest) {
 
         const key = `ratings:${productId}`;
         try {
-          const existing = await kv.get<any[]>(key);
+          const existing = await kv.get<Rating[]>(key);
           const ratings = existing || [];
           ratings.push(rating);
           await kv.set(key, ratings);
@@ -103,7 +130,10 @@ export async function POST(request: NextRequest) {
         const validation = handleValidationError(req, error);
         if (validation) return withCors(req, validation);
         console.error('[ratings POST]', error);
-        return withCors(req, apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'));
+        return withCors(
+          req,
+          apiError(req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating'),
+        );
       }
     }),
   );
@@ -121,9 +151,9 @@ export async function GET(request: NextRequest) {
       const { productId } = parseQuery(request, ratingsQuerySchema);
 
       const key = `ratings:${productId}`;
-      let allRatings: any[] = [];
+      let allRatings: Rating[] = [];
       try {
-        allRatings = (await kv.get<any[]>(key)) ?? [];
+        allRatings = (await kv.get<Rating[]>(key)) ?? [];
         recordDependency('vercel-kv', true);
       } catch (kvErr) {
         recordDependency('vercel-kv', false);
@@ -146,7 +176,10 @@ export async function GET(request: NextRequest) {
       const validation = handleValidationError(request, error);
       if (validation) return withCors(request, validation);
       console.error('[ratings GET]', error);
-      return withCors(request, apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch ratings'));
+      return withCors(
+        request,
+        apiError(request, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch ratings'),
+      );
     }
   });
 }

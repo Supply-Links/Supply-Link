@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import {
   CertificationChainLink,
   CertificationChain,
+  CertificationRecord,
   buildCertificationChain,
   isValidCertificationChain,
   getDependentCertifications,
@@ -9,7 +10,11 @@ import {
 
 export function useCertificationChainExplorer() {
   const buildChain = useCallback(
-    (rootCertId: string, links: CertificationChainLink[], certifications: Map<string, any>) => {
+    (
+      rootCertId: string,
+      links: CertificationChainLink[],
+      certifications: Map<string, CertificationRecord>,
+    ) => {
       return buildCertificationChain(rootCertId, links, certifications);
     },
     [],
