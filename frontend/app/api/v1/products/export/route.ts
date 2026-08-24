@@ -14,8 +14,7 @@ import { NextResponse } from 'next/server';
 import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
 import { apiError, ErrorCode } from '@/lib/api/errors';
 import { generateTimelineExport, generateBatchExport } from '@/lib/services/exportService';
-import { getProductById } from '@/lib/mock/products';
-import { MOCK_EVENTS } from '@/lib/mock/events';
+import { getProductById, MOCK_EVENTS } from '@/lib/mock/products';
 import { productExportBodySchema } from '@/lib/api/schemas';
 
 export const { POST, OPTIONS } = defineRoute(

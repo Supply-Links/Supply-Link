@@ -11,6 +11,7 @@ import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
 import { authenticateRegistryKey } from '@/lib/api/apiKeyAuth';
 import { recordRequest } from '@/lib/api/metrics';
 import { getAttestation, revokeAttestation } from '@/lib/attestations';
+import { attestationRevokeBodySchema } from '@/lib/api/schemas';
 
 export const runtime = 'nodejs';
 
@@ -92,12 +93,44 @@ export async function DELETE(
     return res;
   }
 
-      return NextResponse.json(
-        { attestationId, revoked: true, revokedAt: Date.now() },
-        { status: 200 },
+  let reason: string | undefined;
+  const rawBody = await request.text();
+  if (rawBody.length > 0) {
+    try {
+      reason = attestationRevokeBodySchema.parse(JSON.parse(rawBody)).reason;
+    } catch {
+      const res = withCors(
+        request,
+        apiError(request, 400, ErrorCode.INVALID_JSON, 'Request body must be valid JSON'),
       );
-    },
-  },
-);
+      recordRequest('DELETE /api/v1/attestations/[id]', 400, Date.now() - start);
+      return res;
+    }
+  }
 
-export { GET, DELETE, OPTIONS };
+  const result = await revokeAttestation(attestationId, callerAddress, reason);
+  if (!result.success) {
+    const status = result.error === 'Attestation not found' ? 404 : 403;
+    const res = withCors(
+      request,
+      apiError(
+        request,
+        status,
+        status === 404 ? ErrorCode.NOT_FOUND : ErrorCode.FORBIDDEN,
+        result.error ?? 'Unable to revoke attestation',
+      ),
+    );
+    recordRequest('DELETE /api/v1/attestations/[id]', status, Date.now() - start);
+    return res;
+  }
+
+  const response = withCors(
+    request,
+    withCorrelationId(
+      request,
+      NextResponse.json({ attestationId, revoked: true, revokedAt: Date.now() }, { status: 200 }),
+    ),
+  );
+  recordRequest('DELETE /api/v1/attestations/[id]', response.status, Date.now() - start);
+  return response;
+}

@@ -21,12 +21,15 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// | 2       | Adds `metadata_commitment` and `private_metadata` fields for privacy-preserving (off-chain encrypted) metadata. |
 pub const EVENT_SCHEMA_VERSION: u32 = 2;
 
-mod tests;
 mod upgrade_tests;
 mod resilience_tests;
 mod compliance_tests;
 mod archival_tests;
 mod document_hash_tests;
+mod authorization_tests;
+mod products_tests;
+mod events_tests;
+mod event_audit_tests;
 
 // ── Payload size limits (issue #311) ─────────────────────────────────────────
 // All limits are in bytes (Soroban String::len() returns byte count).

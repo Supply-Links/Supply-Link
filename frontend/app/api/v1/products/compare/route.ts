@@ -30,8 +30,7 @@ import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
 import { apiError, ErrorCode } from '@/lib/api/errors';
 import { productCompareBodySchema } from '@/lib/api/schemas';
 import { compareProducts } from '@/lib/services/comparisonService';
-import { getProductById } from '@/lib/mock/products';
-import { MOCK_EVENTS } from '@/lib/mock/events';
+import { getProductById, MOCK_EVENTS } from '@/lib/mock/products';
 
 export const { POST, OPTIONS } = defineRoute(
   {
