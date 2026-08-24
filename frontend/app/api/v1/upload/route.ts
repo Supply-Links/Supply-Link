@@ -34,6 +34,10 @@ import { enqueue } from '@/lib/jobs/queue';
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+type UploadResultBody =
+  | { error: ErrorCode; message: string }
+  | { url: string; jobs: { scan: string; process: string } };
+
 export function OPTIONS(request: NextRequest) {
   return handleOptions(request);
 }
@@ -46,7 +50,7 @@ async function handler(req: NextRequest) {
     withCors(req, withCorrelationId(req, NextResponse.json(body, init)));
 
   let resultStatus = 200;
-  let resultBody: any;
+  let resultBody: UploadResultBody | undefined;
   const actorId = getClientIp(req);
 
   try {
@@ -180,7 +184,7 @@ async function handler(req: NextRequest) {
     return withCors(req, apiError(req, resultStatus, resultBody.error, resultBody.message));
   } finally {
     AuditEmitter.emit(req, 'file.upload', resultStatus, undefined, resultBody, {
-      filename: resultBody?.url ? resultBody.url.split('/').pop() : undefined,
+      filename: resultBody && 'url' in resultBody ? resultBody.url.split('/').pop() : undefined,
     });
   }
 }

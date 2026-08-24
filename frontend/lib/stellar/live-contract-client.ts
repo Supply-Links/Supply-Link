@@ -29,8 +29,8 @@ import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
 
 interface ContractInvocationParams {
   method: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  args: any[];
+  /** Positional contract call arguments, converted via {@link toAddressOrScVal}. */
+  args: unknown[];
   callerAddress: string;
 }
 
@@ -56,8 +56,9 @@ export class LiveContractClient implements ContractClient {
 
   // ── Internal Helpers ───────────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async buildAndSimulate(params: ContractInvocationParams): Promise<any> {
+  private async buildAndSimulate(
+    params: ContractInvocationParams,
+  ): Promise<rpc.Api.SimulateTransactionResponse> {
     const account = await this.server.getAccount(
       params.callerAddress || 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
     );
@@ -107,8 +108,7 @@ export class LiveContractClient implements ContractClient {
 
   private async executeRead<T>(
     method: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    args: any[],
+    args: unknown[],
     callerAddress: string = '',
     opName?: string,
     transform?: (val: unknown) => T,
@@ -131,8 +131,7 @@ export class LiveContractClient implements ContractClient {
 
   private async executeWrite(
     method: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    args: any[],
+    args: unknown[],
     callerAddress: string,
     opName?: string,
   ): Promise<string> {

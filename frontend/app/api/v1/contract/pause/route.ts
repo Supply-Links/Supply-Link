@@ -29,9 +29,23 @@ let pauseState = {
   reason: undefined as string | undefined,
 };
 
-export async function GET() {
-  return NextResponse.json(pauseState);
-}
+export const { GET, POST, OPTIONS } = defineRoute(
+  {
+    auth: 'public',
+    body: contractPauseBodySchema,
+  },
+  {
+    GET: async () => {
+      return NextResponse.json(pauseState);
+    },
+    POST: async (ctx) => {
+      // TODO: verify caller is an authorized guardian via Soroban auth check.
+      pauseState = {
+        paused: ctx.body.paused,
+        pausedBy: 'guardian', // replace with verified caller address
+        pausedAt: ctx.body.paused ? Math.floor(Date.now() / 1000) : undefined,
+        reason: ctx.body.reason,
+      };
 
 async function isAuthorizedGuardian(guardian: string): Promise<boolean> {
   const guardians = await createContractClient().getUpgradeGuardians();

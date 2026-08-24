@@ -6,12 +6,9 @@
  * Rate limiting: default tier
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withCors, handleOptions } from '@/lib/api/cors';
-import { apiError, withCorrelationId, ErrorCode } from '@/lib/api/errors';
-import { applyRateLimit, RATE_LIMIT_PRESETS } from '@/lib/api/rateLimit';
-import { authenticateApiRequest } from '@/lib/api/auth';
-import { recordRequest } from '@/lib/api/metrics';
+import { NextResponse } from 'next/server';
+import { defineRoute, RATE_LIMIT_PRESETS } from '@/lib/api/handler';
+import { apiError, ErrorCode } from '@/lib/api/errors';
 import { auditorCreateBodySchema, auditorListQuerySchema } from '@/lib/api/schemas';
 import { handleValidationError, parseJsonBody, parseQuery } from '@/lib/api/validation';
 import { getAuditorRepository, RepositoryUnsupportedError } from '@/lib/data';

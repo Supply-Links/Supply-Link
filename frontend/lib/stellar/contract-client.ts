@@ -28,8 +28,10 @@ export interface SupplyLinkContractClient {
 
   get_provenance_score_history(args: { product_id: string; limit?: number }): Promise<
     Array<{
+      product_id: string;
       score: number;
-      calculated_at: number;
+      last_calculated_at: number;
+      verified_event_count: number;
       schema_version: number;
     }>
   >;
