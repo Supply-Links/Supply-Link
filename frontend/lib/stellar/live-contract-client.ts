@@ -4,6 +4,7 @@ import {
   TransactionBuilder,
   BASE_FEE,
   Address,
+  StrKey,
   nativeToScVal,
   scValToNative,
 } from '@stellar/stellar-sdk';
@@ -13,6 +14,8 @@ import type {
   EventFilter,
   EventPage,
   AuthPolicy,
+  ActorRole,
+  ActorRoleAssignment,
   Delegation,
   ProductAssembly,
   WarrantyInfo,
@@ -22,7 +25,7 @@ import type {
 import type { ContractClient, ContractClientConfig } from './contract-client.interface';
 import { signTransaction, NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID } from './client';
 import { withContractRetry, withContractWriteRetry } from '@/lib/resilience';
-import { recordDependency, recordOperation } from '@/lib/api/metrics';
+import { recordDependency, recordOperation, type OperationName } from '@/lib/api/metrics';
 import { normalizeProduct, normalizeTrackingEvent } from './schema';
 import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
 import {
@@ -40,10 +43,14 @@ interface ContractInvocationParams {
   callerAddress: string;
 }
 
+function isAddressString(arg: string): boolean {
+  return StrKey.isValidEd25519PublicKey(arg) || StrKey.isValidContract(arg);
+}
+
 function toAddressOrScVal(arg: unknown) {
-  if (arg instanceof Address) return arg;
-  if (typeof arg === 'string' && Address.isValid(arg)) {
-    return new Address(arg);
+  if (arg instanceof Address) return arg.toScVal();
+  if (typeof arg === 'string' && isAddressString(arg)) {
+    return new Address(arg).toScVal();
   }
   return nativeToScVal(arg);
 }
@@ -116,7 +123,7 @@ export class LiveContractClient implements ContractClient {
     method: string,
     args: unknown[],
     callerAddress: string = '',
-    opName?: string,
+    opName?: OperationName,
     transform?: (val: unknown) => T,
   ): Promise<T> {
     return withContractRetry(async () => {
@@ -139,7 +146,7 @@ export class LiveContractClient implements ContractClient {
     method: string,
     args: unknown[],
     callerAddress: string,
-    opName?: string,
+    opName?: OperationName,
   ): Promise<string> {
     return withContractWriteRetry(() => this.buildSignAndSubmit({ method, args, callerAddress }))
       .then((hash) => {
@@ -380,7 +387,15 @@ export class LiveContractClient implements ContractClient {
         const r = raw as Record<string, unknown>;
         return {
           threshold: typeof r.threshold === 'number' ? r.threshold : 1,
-          roles: Array.isArray(r.roles) ? r.roles.map(String) : [],
+          roles: Array.isArray(r.roles)
+            ? r.roles.map((entry): ActorRoleAssignment => {
+                const e = entry as Record<string, unknown>;
+                return {
+                  actor: String(e?.actor ?? ''),
+                  role: (e?.role as ActorRole) ?? 'Any',
+                };
+              })
+            : [],
         };
       }
       return { threshold: 1, roles: [] };

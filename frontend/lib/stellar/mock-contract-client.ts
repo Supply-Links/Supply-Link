@@ -205,7 +205,7 @@ export class MockContractClient implements ContractClient {
   ): Promise<string> {
     requireNonEmptyId(productId, 'productId');
     requireNonEmptyId(callerAddress, 'callerAddress');
-    this.compliancePolicies.set(productId, { productId, rules });
+    this.compliancePolicies.set(productId, { product_id: productId, rules });
     return formatMockTxId('compliance', productId);
   }
 
@@ -537,11 +537,13 @@ export class MockContractClient implements ContractClient {
     requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.delegations.get(productId) || [];
     const newDelegation: Delegation = {
-      id: list.length + 1,
+      delegationId: list.length + 1,
+      productId,
       delegator: callerAddress,
       delegatee,
       expiresAt,
-      active: true,
+      revoked: false,
+      createdAt: Date.now(),
     };
     list.push(newDelegation);
     this.delegations.set(productId, list);
@@ -556,8 +558,8 @@ export class MockContractClient implements ContractClient {
     requireNonEmptyId(productId, 'productId');
     requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.delegations.get(productId) || [];
-    const item = list.find((d) => d.id === delegationId);
-    if (item) item.active = false;
+    const item = list.find((d) => d.delegationId === delegationId);
+    if (item) item.revoked = true;
     return formatMockTxId('revoke_delegate', productId);
   }
 
@@ -565,7 +567,7 @@ export class MockContractClient implements ContractClient {
     requireNonEmptyId(productId, 'productId');
     const list = this.delegations.get(productId) || [];
     const now = Date.now();
-    return list.filter((d) => d.active && d.expiresAt > now);
+    return list.filter((d) => !d.revoked && d.expiresAt > now);
   }
 
   // ── Assembly Operations ───────────────────────────────────────────────────
@@ -581,7 +583,8 @@ export class MockContractClient implements ContractClient {
     const assembly: ProductAssembly = {
       parentId,
       componentIds,
-      createdAt: Date.now(),
+      registeredBy: callerAddress,
+      registeredAt: Date.now(),
       description,
     };
     this.assemblies.set(parentId, assembly);
@@ -623,12 +626,12 @@ export class MockContractClient implements ContractClient {
     const warranty: WarrantyInfo = {
       productId,
       durationSeconds,
+      issuer: callerAddress,
+      issuedAt: now,
       terms,
       termsRef,
-      createdAt: now,
-      expiresAt: now + durationSeconds * 1000,
-      active: true,
       voided: false,
+      voidedAt: 0,
     };
     this.warranties.set(productId, warranty);
     return formatMockTxId('warranty', productId);
@@ -645,7 +648,7 @@ export class MockContractClient implements ContractClient {
     const warranty = this.warranties.get(productId);
     if (warranty) {
       warranty.voided = true;
-      warranty.active = false;
+      warranty.voidedAt = Date.now();
     }
     return formatMockTxId('void_warranty', productId);
   }
@@ -654,7 +657,9 @@ export class MockContractClient implements ContractClient {
     requireNonEmptyId(productId, 'productId');
     const warranty = this.warranties.get(productId);
     if (!warranty) return false;
-    return warranty.active && !warranty.voided && warranty.expiresAt > Date.now();
+    if (warranty.voided) return false;
+    if (warranty.durationSeconds === 0) return true;
+    return warranty.issuedAt + warranty.durationSeconds * 1000 > Date.now();
   }
 
   async fileWarrantyClaim(
@@ -668,14 +673,16 @@ export class MockContractClient implements ContractClient {
     requireNonEmptyId(claimId, 'claimId');
     requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.claims.get(productId) || [];
+    const now = Date.now();
     const claim: WarrantyClaim = {
       claimId,
       productId,
       claimant: callerAddress,
       description,
       proofRef,
-      createdAt: Date.now(),
-      status: 'PENDING',
+      filedAt: now,
+      status: 'Pending',
+      updatedAt: now,
     };
     list.push(claim);
     this.claims.set(productId, list);
@@ -700,6 +707,7 @@ export class MockContractClient implements ContractClient {
     const claim = list.find((c) => c.claimId === claimId);
     if (claim) {
       claim.status = newStatus;
+      claim.updatedAt = Date.now();
     }
     return formatMockTxId('claim_status', claimId);
   }

@@ -105,7 +105,7 @@ async function fetchProductFromContract(productId: string): Promise<Product | nu
     // Use a read-only system address; no wallet needed for view calls.
     const raw = await contractClient.getProduct(productId, '');
     if (!raw) return null;
-    return normalizeProduct(raw as Record<string, unknown>, productId);
+    return normalizeProduct(raw as unknown as Record<string, unknown>, productId);
   } catch {
     return null;
   }
@@ -116,7 +116,7 @@ async function fetchEventsFromContract(productId: string): Promise<TrackingEvent
     const { contractClient } = await import('@/lib/stellar/contract');
     const raw = await contractClient.getTrackingEvents(productId, '');
     if (!Array.isArray(raw)) return null;
-    return raw.map((e) => normalizeEvent(e as Record<string, unknown>));
+    return raw.map((e) => normalizeEvent(e as unknown as Record<string, unknown>));
   } catch {
     return null;
   }

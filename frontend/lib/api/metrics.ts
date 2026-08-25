@@ -145,7 +145,11 @@ export function getMetricsSnapshot(throttleCounts: Record<string, number>): Metr
 export type OperationName =
   | 'product.register'
   | 'product.verify'
+  | 'product.rotateOwnerKey'
+  | 'product.rotateActorKey'
+  | 'product.setCompliancePolicy'
   | 'event.create'
+  | 'event.createPrivate'
   | 'event.fetch'
   | 'wallet.connect'
   | 'wallet.connect_failed'
