@@ -1,6 +1,7 @@
 'use client';
 
 import { useStore } from '@/lib/state/store';
+import { useOnboardingSummary } from '@/lib/state/selectors/onboarding';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle2, Circle } from 'lucide-react';

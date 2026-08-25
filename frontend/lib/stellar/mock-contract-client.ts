@@ -14,18 +14,13 @@ import { MOCK_EVENTS, MOCK_PRODUCTS } from '@/lib/mock/products';
 import type { ContractClient } from './contract-client.interface';
 import { normalizeProduct, normalizeTrackingEvent } from './schema';
 import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
-
-export function applyFilter(events: TrackingEvent[], filter?: EventFilter): TrackingEvent[] {
-  if (!filter) return events;
-
-  return events.filter((e) => {
-    if (filter.eventType && e.eventType !== filter.eventType) return false;
-    if (filter.actor && e.actor.toLowerCase() !== filter.actor.toLowerCase()) return false;
-    if (filter.fromTimestamp && e.timestamp < filter.fromTimestamp) return false;
-    if (filter.toTimestamp && e.timestamp > filter.toTimestamp) return false;
-    return true;
-  });
-}
+import {
+  collectAllEventPages,
+  formatMockTxId,
+  paginateEvents,
+  requireNonEmptyId,
+  sortEventsByTimestamp,
+} from './contract-client-shared';
 
 export class MockContractClient implements ContractClient {
   private products: Map<string, Product> = new Map();
@@ -68,9 +63,11 @@ export class MockContractClient implements ContractClient {
     name: string,
     origin: string,
     owner: string,
-    _callerAddress: string,
+    callerAddress: string,
     _description?: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const newProduct: Product = {
       id: productId,
       name,
@@ -85,10 +82,11 @@ export class MockContractClient implements ContractClient {
       schemaVersion: 1,
     };
     this.products.set(productId, newProduct);
-    return `mock_tx_register_${productId}_${Date.now()}`;
+    return formatMockTxId('register', productId);
   }
 
   async getProduct(productId: string, _callerAddress?: string): Promise<Product | null> {
+    requireNonEmptyId(productId, 'productId');
     return this.products.get(productId) ?? null;
   }
 
@@ -108,74 +106,86 @@ export class MockContractClient implements ContractClient {
     return this.products.size;
   }
 
-  async deactivateProduct(productId: string, _callerAddress: string): Promise<string> {
+  async deactivateProduct(productId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const product = this.products.get(productId);
     if (product) {
       product.active = false;
       this.products.set(productId, product);
     }
-    return `mock_tx_deactivate_${productId}_${Date.now()}`;
+    return formatMockTxId('deactivate', productId);
   }
 
   async transferOwnership(
     productId: string,
     newOwner: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const product = this.products.get(productId);
     if (product) {
       product.owner = newOwner;
       this.products.set(productId, product);
     }
-    return `mock_tx_transfer_${productId}_${Date.now()}`;
+    return formatMockTxId('transfer', productId);
   }
 
   async addAuthorizedActor(
     productId: string,
     actor: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const product = this.products.get(productId);
     if (product) {
       if (!product.authorizedActors.includes(actor)) {
         product.authorizedActors.push(actor);
       }
     }
-    return `mock_tx_add_actor_${productId}_${Date.now()}`;
+    return formatMockTxId('add_actor', productId);
   }
 
   async removeAuthorizedActor(
     productId: string,
     actor: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const product = this.products.get(productId);
     if (product) {
       product.authorizedActors = product.authorizedActors.filter((a) => a !== actor);
     }
-    return `mock_tx_remove_actor_${productId}_${Date.now()}`;
+    return formatMockTxId('remove_actor', productId);
   }
 
   async rotateOwnerKey(
     productId: string,
     oldOwner: string,
     newOwner: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const product = this.products.get(productId);
     if (product && product.owner === oldOwner) {
       product.owner = newOwner;
       this.products.set(productId, product);
     }
-    return `mock_tx_rotate_owner_${productId}_${Date.now()}`;
+    return formatMockTxId('rotate_owner', productId);
   }
 
   async rotateAuthorizedActorKey(
     productId: string,
     oldActor: string,
     newActor: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const product = this.products.get(productId);
     if (product && product.authorizedActors.includes(oldActor)) {
       product.authorizedActors = product.authorizedActors.map((a) =>
@@ -183,7 +193,7 @@ export class MockContractClient implements ContractClient {
       );
       this.products.set(productId, product);
     }
-    return `mock_tx_rotate_actor_${productId}_${Date.now()}`;
+    return formatMockTxId('rotate_actor', productId);
   }
 
   // ── Compliance Policy ─────────────────────────────────────────────────────
@@ -191,13 +201,19 @@ export class MockContractClient implements ContractClient {
   async setCompliancePolicy(
     productId: string,
     rules: ComplianceRule[],
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
-    this.compliancePolicies.set(productId, { productId, rules });
-    return `mock_tx_compliance_${productId}_${Date.now()}`;
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
+    this.compliancePolicies.set(productId, { product_id: productId, rules });
+    return formatMockTxId('compliance', productId);
   }
 
-  async getCompliancePolicy(productId: string): Promise<CompliancePolicy | null> {
+  async getCompliancePolicy(
+    productId: string,
+    _callerAddress?: string,
+  ): Promise<CompliancePolicy | null> {
+    requireNonEmptyId(productId, 'productId');
     return this.compliancePolicies.get(productId) ?? null;
   }
 
@@ -210,6 +226,8 @@ export class MockContractClient implements ContractClient {
     metadata: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const event: TrackingEvent = {
       productId,
       location,
@@ -222,7 +240,7 @@ export class MockContractClient implements ContractClient {
     const list = this.events.get(productId) || [];
     list.push(event);
     this.events.set(productId, list);
-    return `mock_tx_event_${productId}_${Date.now()}`;
+    return formatMockTxId('event', productId);
   }
 
   async addPrivateTrackingEvent(
@@ -232,6 +250,8 @@ export class MockContractClient implements ContractClient {
     metadataCommitment: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const event: TrackingEvent = {
       productId,
       location,
@@ -246,10 +266,11 @@ export class MockContractClient implements ContractClient {
     const list = this.events.get(productId) || [];
     list.push(event);
     this.events.set(productId, list);
-    return `mock_tx_private_event_${productId}_${Date.now()}`;
+    return formatMockTxId('private_event', productId);
   }
 
   async getTrackingEvents(productId: string, _callerAddress?: string): Promise<TrackingEvent[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.events.get(productId) || [];
   }
 
@@ -259,12 +280,9 @@ export class MockContractClient implements ContractClient {
     limit: number = 20,
     filter?: EventFilter,
   ): Promise<EventPage> {
+    requireNonEmptyId(productId, 'productId');
     const allForProduct = this.events.get(productId) || [];
-    const total = allForProduct.length;
-    const rawPage = allForProduct.slice(offset, offset + limit);
-    const filtered = applyFilter(rawPage, filter);
-
-    return { events: filtered, total, offset, limit };
+    return paginateEvents(allForProduct, offset, limit, filter);
   }
 
   async fetchAllEvents(
@@ -272,28 +290,26 @@ export class MockContractClient implements ContractClient {
     filter?: EventFilter,
     pageSize: number = 20,
   ): Promise<TrackingEvent[]> {
-    const first = await this.fetchEventPage(productId, 0, pageSize, filter);
-    const total = first.total;
-    const results: TrackingEvent[] = [...first.events];
-
-    for (let offset = pageSize; offset < total; offset += pageSize) {
-      const page = await this.fetchEventPage(productId, offset, pageSize, filter);
-      results.push(...page.events);
-    }
-
-    return results;
+    requireNonEmptyId(productId, 'productId');
+    return collectAllEventPages(
+      (offset, limit) => this.fetchEventPage(productId, offset, limit, filter),
+      pageSize,
+    );
   }
 
   async fetchProvenancePath(productId: string): Promise<TrackingEvent[]> {
+    requireNonEmptyId(productId, 'productId');
     const events = await this.fetchAllEvents(productId);
-    return [...events].sort((a, b) => a.timestamp - b.timestamp);
+    return sortEventsByTimestamp(events);
   }
 
-  async fetchAuthPolicy(_productId: string): Promise<AuthPolicy> {
+  async fetchAuthPolicy(productId: string): Promise<AuthPolicy> {
+    requireNonEmptyId(productId, 'productId');
     return { threshold: 1, roles: [] };
   }
 
   async getNonce(actor: string, _callerAddress?: string): Promise<number> {
+    requireNonEmptyId(actor, 'actor');
     return this.nonces.get(actor) || 0;
   }
 
@@ -301,11 +317,13 @@ export class MockContractClient implements ContractClient {
     productId: string,
     _pendingEventId: number,
     approver: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const nonce = (this.nonces.get(approver) || 0) + 1;
     this.nonces.set(approver, nonce);
-    return `mock_tx_approve_${productId}_${Date.now()}`;
+    return formatMockTxId('approve', productId);
   }
 
   async rejectEvent(
@@ -313,18 +331,22 @@ export class MockContractClient implements ContractClient {
     _pendingEventId: number,
     rejector: string,
     _reason: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const nonce = (this.nonces.get(rejector) || 0) + 1;
     this.nonces.set(rejector, nonce);
-    return `mock_tx_reject_${productId}_${Date.now()}`;
+    return formatMockTxId('reject', productId);
   }
 
-  async getPendingEvents(_productId: string, _callerAddress?: string): Promise<unknown[]> {
+  async getPendingEvents(productId: string, _callerAddress?: string): Promise<unknown[]> {
+    requireNonEmptyId(productId, 'productId');
     return [];
   }
 
   async getProvenanceRoot(productId: string, _callerAddress?: string): Promise<Uint8Array> {
+    requireNonEmptyId(productId, 'productId');
     const root = new Uint8Array(32);
     for (let i = 0; i < 32; i++) root[i] = (productId.charCodeAt(i % productId.length) || 0) % 256;
     return root;
@@ -332,24 +354,32 @@ export class MockContractClient implements ContractClient {
 
   // ── Governance & Upgrades ─────────────────────────────────────────────────
 
-  async registerUpgradeGuardian(guardian: string, _callerAddress: string): Promise<string> {
+  async registerUpgradeGuardian(guardian: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(guardian, 'guardian');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     this.guardians.add(guardian);
-    return `mock_tx_register_guardian_${Date.now()}`;
+    return formatMockTxId('register_guardian');
   }
 
-  async revokeUpgradeGuardian(guardian: string, _callerAddress: string): Promise<string> {
+  async revokeUpgradeGuardian(guardian: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(guardian, 'guardian');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     this.guardians.delete(guardian);
-    return `mock_tx_revoke_guardian_${Date.now()}`;
+    return formatMockTxId('revoke_guardian');
   }
 
-  async authorizeContractUpgrade(contractId: string, _callerAddress: string): Promise<string> {
+  async authorizeContractUpgrade(contractId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(contractId, 'contractId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     this.authorizedUpgrades.add(contractId);
-    return `mock_tx_authorize_upgrade_${Date.now()}`;
+    return formatMockTxId('authorize_upgrade');
   }
 
-  async revokeContractUpgrade(contractId: string, _callerAddress: string): Promise<string> {
+  async revokeContractUpgrade(contractId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(contractId, 'contractId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     this.authorizedUpgrades.delete(contractId);
-    return `mock_tx_revoke_upgrade_${Date.now()}`;
+    return formatMockTxId('revoke_upgrade');
   }
 
   async getUpgradeGuardians(_callerAddress?: string): Promise<string[]> {
@@ -361,6 +391,7 @@ export class MockContractClient implements ContractClient {
   }
 
   async isContractUpgradeAuthorized(contractId: string, _callerAddress?: string): Promise<boolean> {
+    requireNonEmptyId(contractId, 'contractId');
     return this.authorizedUpgrades.has(contractId);
   }
 
@@ -368,6 +399,7 @@ export class MockContractClient implements ContractClient {
     contractId: string,
     callerAddress?: string,
   ): Promise<boolean> {
+    requireNonEmptyId(contractId, 'contractId');
     return this.isContractUpgradeAuthorized(contractId, callerAddress);
   }
 
@@ -377,12 +409,14 @@ export class MockContractClient implements ContractClient {
     productId: string,
     label: string,
     hash: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.documentAnchors.get(productId) || [];
     list.push({ label, hash, timestamp: Date.now() });
     this.documentAnchors.set(productId, list);
-    return `mock_tx_anchor_${productId}_${Date.now()}`;
+    return formatMockTxId('anchor', productId);
   }
 
   async verifyDocumentHash(
@@ -390,11 +424,13 @@ export class MockContractClient implements ContractClient {
     hash: string,
     _callerAddress?: string,
   ): Promise<boolean> {
+    requireNonEmptyId(productId, 'productId');
     const list = this.documentAnchors.get(productId) || [];
     return list.some((item) => item.hash === hash);
   }
 
   async getDocumentAnchors(productId: string, _callerAddress?: string): Promise<unknown[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.documentAnchors.get(productId) || [];
   }
 
@@ -406,6 +442,7 @@ export class MockContractClient implements ContractClient {
     limit: number,
     _callerAddress?: string,
   ): Promise<string[]> {
+    requireNonEmptyId(actor, 'actor');
     const matches: string[] = [];
     for (const list of this.events.values()) {
       for (const e of list) {
@@ -423,6 +460,7 @@ export class MockContractClient implements ContractClient {
     limit: number,
     _callerAddress?: string,
   ): Promise<string[]> {
+    requireNonEmptyId(location, 'location');
     const matches: string[] = [];
     for (const list of this.events.values()) {
       for (const e of list) {
@@ -440,6 +478,7 @@ export class MockContractClient implements ContractClient {
     limit: number,
     _callerAddress?: string,
   ): Promise<string[]> {
+    requireNonEmptyId(eventType, 'eventType');
     const matches: string[] = [];
     for (const list of this.events.values()) {
       for (const e of list) {
@@ -455,6 +494,7 @@ export class MockContractClient implements ContractClient {
     eventStableId: string,
     _callerAddress?: string,
   ): Promise<{ signer: string; payloadHash: string; timestamp: number } | null> {
+    requireNonEmptyId(eventStableId, 'eventStableId');
     return {
       signer: 'GAB...MOCK_SIGNER',
       payloadHash: `0x${eventStableId}`,
@@ -462,22 +502,26 @@ export class MockContractClient implements ContractClient {
     };
   }
 
-  async isEventReplayed(_stableId: string, _callerAddress?: string): Promise<boolean> {
+  async isEventReplayed(stableId: string, _callerAddress?: string): Promise<boolean> {
+    requireNonEmptyId(stableId, 'stableId');
     return false;
   }
 
   async snapshotProductState(
     productId: string,
     snapshotHash: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.snapshots.get(productId) || [];
     list.push({ snapshotHash, timestamp: Date.now() });
     this.snapshots.set(productId, list);
-    return `mock_tx_snapshot_${productId}_${Date.now()}`;
+    return formatMockTxId('snapshot', productId);
   }
 
   async getSnapshots(productId: string, _callerAddress?: string): Promise<unknown[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.snapshots.get(productId) || [];
   }
 
@@ -489,34 +533,41 @@ export class MockContractClient implements ContractClient {
     expiresAt: number,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.delegations.get(productId) || [];
     const newDelegation: Delegation = {
-      id: list.length + 1,
+      delegationId: list.length + 1,
+      productId,
       delegator: callerAddress,
       delegatee,
       expiresAt,
-      active: true,
+      revoked: false,
+      createdAt: Date.now(),
     };
     list.push(newDelegation);
     this.delegations.set(productId, list);
-    return `mock_tx_delegate_${productId}_${Date.now()}`;
+    return formatMockTxId('delegate', productId);
   }
 
   async revokeDelegate(
     productId: string,
     delegationId: number,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.delegations.get(productId) || [];
-    const item = list.find((d) => d.id === delegationId);
-    if (item) item.active = false;
-    return `mock_tx_revoke_delegate_${productId}_${Date.now()}`;
+    const item = list.find((d) => d.delegationId === delegationId);
+    if (item) item.revoked = true;
+    return formatMockTxId('revoke_delegate', productId);
   }
 
   async getActiveDelegations(productId: string): Promise<Delegation[]> {
+    requireNonEmptyId(productId, 'productId');
     const list = this.delegations.get(productId) || [];
     const now = Date.now();
-    return list.filter((d) => d.active && d.expiresAt > now);
+    return list.filter((d) => !d.revoked && d.expiresAt > now);
   }
 
   // ── Assembly Operations ───────────────────────────────────────────────────
@@ -525,19 +576,23 @@ export class MockContractClient implements ContractClient {
     parentId: string,
     componentIds: string[],
     description: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(parentId, 'parentId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const assembly: ProductAssembly = {
       parentId,
       componentIds,
-      createdAt: Date.now(),
+      registeredBy: callerAddress,
+      registeredAt: Date.now(),
       description,
     };
     this.assemblies.set(parentId, assembly);
-    return `mock_tx_assembly_${parentId}_${Date.now()}`;
+    return formatMockTxId('assembly', parentId);
   }
 
   async getAssembly(parentId: string): Promise<ProductAssembly | null> {
+    requireNonEmptyId(parentId, 'parentId');
     return this.assemblies.get(parentId) ?? null;
   }
 
@@ -545,6 +600,7 @@ export class MockContractClient implements ContractClient {
     componentId: string,
     candidateParentIds: string[],
   ): Promise<string[]> {
+    requireNonEmptyId(componentId, 'componentId');
     const parents: string[] = [];
     for (const pid of candidateParentIds) {
       const ass = this.assemblies.get(pid);
@@ -562,40 +618,48 @@ export class MockContractClient implements ContractClient {
     durationSeconds: number,
     terms: string,
     termsRef: string,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const now = Date.now();
     const warranty: WarrantyInfo = {
       productId,
       durationSeconds,
+      issuer: callerAddress,
+      issuedAt: now,
       terms,
       termsRef,
-      createdAt: now,
-      expiresAt: now + durationSeconds * 1000,
-      active: true,
       voided: false,
+      voidedAt: 0,
     };
     this.warranties.set(productId, warranty);
-    return `mock_tx_warranty_${productId}_${Date.now()}`;
+    return formatMockTxId('warranty', productId);
   }
 
   async getWarranty(productId: string): Promise<WarrantyInfo | null> {
+    requireNonEmptyId(productId, 'productId');
     return this.warranties.get(productId) ?? null;
   }
 
-  async voidWarranty(productId: string, _callerAddress: string): Promise<string> {
+  async voidWarranty(productId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const warranty = this.warranties.get(productId);
     if (warranty) {
       warranty.voided = true;
-      warranty.active = false;
+      warranty.voidedAt = Date.now();
     }
-    return `mock_tx_void_warranty_${productId}_${Date.now()}`;
+    return formatMockTxId('void_warranty', productId);
   }
 
   async isWarrantyActive(productId: string): Promise<boolean> {
+    requireNonEmptyId(productId, 'productId');
     const warranty = this.warranties.get(productId);
     if (!warranty) return false;
-    return warranty.active && !warranty.voided && warranty.expiresAt > Date.now();
+    if (warranty.voided) return false;
+    if (warranty.durationSeconds === 0) return true;
+    return warranty.issuedAt + warranty.durationSeconds * 1000 > Date.now();
   }
 
   async fileWarrantyClaim(
@@ -605,22 +669,28 @@ export class MockContractClient implements ContractClient {
     proofRef: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(claimId, 'claimId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.claims.get(productId) || [];
+    const now = Date.now();
     const claim: WarrantyClaim = {
       claimId,
       productId,
       claimant: callerAddress,
       description,
       proofRef,
-      createdAt: Date.now(),
-      status: 'PENDING',
+      filedAt: now,
+      status: 'Pending',
+      updatedAt: now,
     };
     list.push(claim);
     this.claims.set(productId, list);
-    return `mock_tx_claim_${claimId}_${Date.now()}`;
+    return formatMockTxId('claim', claimId);
   }
 
   async listWarrantyClaims(productId: string): Promise<WarrantyClaim[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.claims.get(productId) || [];
   }
 
@@ -628,13 +698,17 @@ export class MockContractClient implements ContractClient {
     productId: string,
     claimId: string,
     newStatus: ClaimStatus,
-    _callerAddress: string,
+    callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(claimId, 'claimId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const list = this.claims.get(productId) || [];
     const claim = list.find((c) => c.claimId === claimId);
     if (claim) {
       claim.status = newStatus;
+      claim.updatedAt = Date.now();
     }
-    return `mock_tx_claim_status_${claimId}_${Date.now()}`;
+    return formatMockTxId('claim_status', claimId);
   }
 }

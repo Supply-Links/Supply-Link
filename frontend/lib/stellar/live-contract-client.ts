@@ -4,6 +4,7 @@ import {
   TransactionBuilder,
   BASE_FEE,
   Address,
+  StrKey,
   nativeToScVal,
   scValToNative,
 } from '@stellar/stellar-sdk';
@@ -13,6 +14,8 @@ import type {
   EventFilter,
   EventPage,
   AuthPolicy,
+  ActorRole,
+  ActorRoleAssignment,
   Delegation,
   ProductAssembly,
   WarrantyInfo,
@@ -22,10 +25,16 @@ import type {
 import type { ContractClient, ContractClientConfig } from './contract-client.interface';
 import { signTransaction, NETWORK_PASSPHRASE, RPC_URL, CONTRACT_ID } from './client';
 import { withContractRetry, withContractWriteRetry } from '@/lib/resilience';
-import { recordDependency, recordOperation } from '@/lib/api/metrics';
+import { recordDependency, recordOperation, type OperationName } from '@/lib/api/metrics';
 import { normalizeProduct, normalizeTrackingEvent } from './schema';
-import { applyFilter } from './mock-contract-client';
 import type { ComplianceRule, CompliancePolicy } from '@/lib/compliance';
+import {
+  collectAllEventPages,
+  paginateEvents,
+  requireNonEmptyId,
+  sortEventsByTimestamp,
+  toContractError,
+} from './contract-client-shared';
 
 interface ContractInvocationParams {
   method: string;
@@ -34,10 +43,14 @@ interface ContractInvocationParams {
   callerAddress: string;
 }
 
+function isAddressString(arg: string): boolean {
+  return StrKey.isValidEd25519PublicKey(arg) || StrKey.isValidContract(arg);
+}
+
 function toAddressOrScVal(arg: unknown) {
-  if (arg instanceof Address) return arg;
-  if (typeof arg === 'string' && Address.isValid(arg)) {
-    return new Address(arg);
+  if (arg instanceof Address) return arg.toScVal();
+  if (typeof arg === 'string' && isAddressString(arg)) {
+    return new Address(arg).toScVal();
   }
   return nativeToScVal(arg);
 }
@@ -110,7 +123,7 @@ export class LiveContractClient implements ContractClient {
     method: string,
     args: unknown[],
     callerAddress: string = '',
-    opName?: string,
+    opName?: OperationName,
     transform?: (val: unknown) => T,
   ): Promise<T> {
     return withContractRetry(async () => {
@@ -125,7 +138,7 @@ export class LiveContractClient implements ContractClient {
     }).catch((err) => {
       recordDependency('soroban-rpc', false);
       if (opName) recordOperation(opName, 'failure');
-      throw err;
+      throw toContractError(err);
     });
   }
 
@@ -133,7 +146,7 @@ export class LiveContractClient implements ContractClient {
     method: string,
     args: unknown[],
     callerAddress: string,
-    opName?: string,
+    opName?: OperationName,
   ): Promise<string> {
     return withContractWriteRetry(() => this.buildSignAndSubmit({ method, args, callerAddress }))
       .then((hash) => {
@@ -144,7 +157,7 @@ export class LiveContractClient implements ContractClient {
       .catch((err) => {
         recordDependency('soroban-rpc', false);
         if (opName) recordOperation(opName, 'failure');
-        throw err;
+        throw toContractError(err);
       });
   }
 
@@ -158,6 +171,8 @@ export class LiveContractClient implements ContractClient {
     callerAddress: string,
     _description?: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'register_product',
       [productId, name, origin, owner],
@@ -166,7 +181,8 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async getProduct(productId: string, callerAddress: string = ''): Promise<Product | null> {
+  async getProduct(productId: string, callerAddress?: string): Promise<Product | null> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_product', [productId], callerAddress, 'product.verify', (raw) =>
       raw ? normalizeProduct(raw) : null,
     );
@@ -183,13 +199,15 @@ export class LiveContractClient implements ContractClient {
     });
   }
 
-  async getProductCount(callerAddress: string = ''): Promise<number> {
+  async getProductCount(callerAddress?: string): Promise<number> {
     return this.executeRead('get_product_count', [], callerAddress, undefined, (raw) =>
       Number(raw ?? 0),
     );
   }
 
   async deactivateProduct(productId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('deactivate_product', [productId], callerAddress);
   }
 
@@ -198,6 +216,8 @@ export class LiveContractClient implements ContractClient {
     newOwner: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('transfer_ownership', [productId, newOwner], callerAddress);
   }
 
@@ -206,6 +226,8 @@ export class LiveContractClient implements ContractClient {
     actor: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('add_authorized_actor', [productId, actor], callerAddress);
   }
 
@@ -214,6 +236,8 @@ export class LiveContractClient implements ContractClient {
     actor: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('remove_authorized_actor', [productId, actor], callerAddress);
   }
 
@@ -223,6 +247,8 @@ export class LiveContractClient implements ContractClient {
     newOwner: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'rotate_owner_key',
       [productId, oldOwner, newOwner],
@@ -237,6 +263,8 @@ export class LiveContractClient implements ContractClient {
     newActor: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'rotate_authorized_actor_key',
       [productId, oldActor, newActor],
@@ -252,6 +280,8 @@ export class LiveContractClient implements ContractClient {
     rules: ComplianceRule[],
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'set_compliance_policy',
       [productId, rules],
@@ -262,8 +292,9 @@ export class LiveContractClient implements ContractClient {
 
   async getCompliancePolicy(
     productId: string,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<CompliancePolicy | null> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead(
       'get_compliance_policy',
       [productId],
@@ -282,6 +313,8 @@ export class LiveContractClient implements ContractClient {
     metadata: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'add_tracking_event',
       [productId, location, eventType, metadata],
@@ -297,6 +330,8 @@ export class LiveContractClient implements ContractClient {
     metadataCommitment: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'add_private_tracking_event',
       [productId, callerAddress, location, eventType, metadataCommitment],
@@ -305,7 +340,8 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async getTrackingEvents(productId: string, callerAddress: string = ''): Promise<TrackingEvent[]> {
+  async getTrackingEvents(productId: string, callerAddress?: string): Promise<TrackingEvent[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead(
       'get_tracking_events',
       [productId],
@@ -321,11 +357,9 @@ export class LiveContractClient implements ContractClient {
     limit: number = 20,
     filter?: EventFilter,
   ): Promise<EventPage> {
+    requireNonEmptyId(productId, 'productId');
     const all = await this.getTrackingEvents(productId);
-    const total = all.length;
-    const rawPage = all.slice(offset, offset + limit);
-    const filtered = applyFilter(rawPage, filter);
-    return { events: filtered, total, offset, limit };
+    return paginateEvents(all, offset, limit, filter);
   }
 
   async fetchAllEvents(
@@ -333,37 +367,43 @@ export class LiveContractClient implements ContractClient {
     filter?: EventFilter,
     pageSize: number = 20,
   ): Promise<TrackingEvent[]> {
-    const first = await this.fetchEventPage(productId, 0, pageSize, filter);
-    const total = first.total;
-    const results: TrackingEvent[] = [...first.events];
-
-    for (let offset = pageSize; offset < total; offset += pageSize) {
-      const page = await this.fetchEventPage(productId, offset, pageSize, filter);
-      results.push(...page.events);
-    }
-
-    return results;
+    requireNonEmptyId(productId, 'productId');
+    return collectAllEventPages(
+      (offset, limit) => this.fetchEventPage(productId, offset, limit, filter),
+      pageSize,
+    );
   }
 
   async fetchProvenancePath(productId: string): Promise<TrackingEvent[]> {
+    requireNonEmptyId(productId, 'productId');
     const events = await this.fetchAllEvents(productId);
-    return [...events].sort((a, b) => a.timestamp - b.timestamp);
+    return sortEventsByTimestamp(events);
   }
 
   async fetchAuthPolicy(productId: string): Promise<AuthPolicy> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_authorization_policy', [productId], '', undefined, (raw) => {
       if (typeof raw === 'object' && raw !== null) {
         const r = raw as Record<string, unknown>;
         return {
           threshold: typeof r.threshold === 'number' ? r.threshold : 1,
-          roles: Array.isArray(r.roles) ? r.roles.map(String) : [],
+          roles: Array.isArray(r.roles)
+            ? r.roles.map((entry): ActorRoleAssignment => {
+                const e = entry as Record<string, unknown>;
+                return {
+                  actor: String(e?.actor ?? ''),
+                  role: (e?.role as ActorRole) ?? 'Any',
+                };
+              })
+            : [],
         };
       }
       return { threshold: 1, roles: [] };
     });
   }
 
-  async getNonce(actor: string, callerAddress: string = ''): Promise<number> {
+  async getNonce(actor: string, callerAddress?: string): Promise<number> {
+    requireNonEmptyId(actor, 'actor');
     return this.executeRead('get_nonce', [actor], callerAddress, undefined, (raw) =>
       Number(raw ?? 0),
     );
@@ -375,6 +415,8 @@ export class LiveContractClient implements ContractClient {
     approver: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const nonce = await this.getNonce(approver, callerAddress);
     return this.executeWrite(
       'approve_event',
@@ -390,6 +432,8 @@ export class LiveContractClient implements ContractClient {
     reason: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     const nonce = await this.getNonce(rejector, callerAddress);
     return this.executeWrite(
       'reject_event',
@@ -398,13 +442,15 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async getPendingEvents(productId: string, callerAddress: string = ''): Promise<unknown[]> {
+  async getPendingEvents(productId: string, callerAddress?: string): Promise<unknown[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_pending_events', [productId], callerAddress, undefined, (raw) =>
       Array.isArray(raw) ? raw : [],
     );
   }
 
-  async getProvenanceRoot(productId: string, callerAddress: string = ''): Promise<Uint8Array> {
+  async getProvenanceRoot(productId: string, callerAddress?: string): Promise<Uint8Array> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_provenance_root', [productId], callerAddress, undefined, (raw) => {
       if (raw instanceof Uint8Array) return raw;
       if (Buffer.isBuffer(raw)) return new Uint8Array(raw);
@@ -416,28 +462,36 @@ export class LiveContractClient implements ContractClient {
   // ── Governance & Upgrades ─────────────────────────────────────────────────
 
   async registerUpgradeGuardian(guardian: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(guardian, 'guardian');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('register_upgrade_guardian', [guardian], callerAddress);
   }
 
   async revokeUpgradeGuardian(guardian: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(guardian, 'guardian');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('revoke_upgrade_guardian', [guardian], callerAddress);
   }
 
   async authorizeContractUpgrade(contractId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(contractId, 'contractId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('authorize_contract_upgrade', [contractId], callerAddress);
   }
 
   async revokeContractUpgrade(contractId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(contractId, 'contractId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('revoke_contract_upgrade', [contractId], callerAddress);
   }
 
-  async getUpgradeGuardians(callerAddress: string = ''): Promise<string[]> {
+  async getUpgradeGuardians(callerAddress?: string): Promise<string[]> {
     return this.executeRead('get_upgrade_guardians', [], callerAddress, undefined, (raw) =>
       Array.isArray(raw) ? raw.map(String) : [],
     );
   }
 
-  async getAuthorizedContractUpgrades(callerAddress: string = ''): Promise<string[]> {
+  async getAuthorizedContractUpgrades(callerAddress?: string): Promise<string[]> {
     return this.executeRead(
       'get_authorized_contract_upgrades',
       [],
@@ -447,10 +501,8 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async isContractUpgradeAuthorized(
-    contractId: string,
-    callerAddress: string = '',
-  ): Promise<boolean> {
+  async isContractUpgradeAuthorized(contractId: string, callerAddress?: string): Promise<boolean> {
+    requireNonEmptyId(contractId, 'contractId');
     return this.executeRead(
       'is_contract_upgrade_authorized',
       [contractId],
@@ -462,8 +514,9 @@ export class LiveContractClient implements ContractClient {
 
   async validateContractUpgradeTarget(
     contractId: string,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<boolean> {
+    requireNonEmptyId(contractId, 'contractId');
     return this.isContractUpgradeAuthorized(contractId, callerAddress);
   }
 
@@ -475,6 +528,8 @@ export class LiveContractClient implements ContractClient {
     hash: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'anchor_document_hash',
       [productId, label, hash, callerAddress],
@@ -486,8 +541,9 @@ export class LiveContractClient implements ContractClient {
   async verifyDocumentHash(
     productId: string,
     hash: string,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<boolean> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead(
       'verify_document_hash',
       [productId, hash],
@@ -497,7 +553,8 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async getDocumentAnchors(productId: string, callerAddress: string = ''): Promise<unknown[]> {
+  async getDocumentAnchors(productId: string, callerAddress?: string): Promise<unknown[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_document_anchors', [productId], callerAddress, undefined, (raw) =>
       Array.isArray(raw) ? raw : [],
     );
@@ -509,8 +566,9 @@ export class LiveContractClient implements ContractClient {
     actor: string,
     offset: number,
     limit: number,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<string[]> {
+    requireNonEmptyId(actor, 'actor');
     return this.executeRead(
       'list_events_by_actor',
       [actor, offset, limit],
@@ -524,8 +582,9 @@ export class LiveContractClient implements ContractClient {
     location: string,
     offset: number,
     limit: number,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<string[]> {
+    requireNonEmptyId(location, 'location');
     return this.executeRead(
       'list_events_by_location',
       [location, offset, limit],
@@ -539,8 +598,9 @@ export class LiveContractClient implements ContractClient {
     eventType: string,
     offset: number,
     limit: number,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<string[]> {
+    requireNonEmptyId(eventType, 'eventType');
     return this.executeRead(
       'list_events_by_type',
       [eventType, offset, limit],
@@ -552,8 +612,9 @@ export class LiveContractClient implements ContractClient {
 
   async getSignerProof(
     eventStableId: string,
-    callerAddress: string = '',
+    callerAddress?: string,
   ): Promise<{ signer: string; payloadHash: string; timestamp: number } | null> {
+    requireNonEmptyId(eventStableId, 'eventStableId');
     return this.executeRead(
       'get_signer_proof',
       [eventStableId],
@@ -571,7 +632,8 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async isEventReplayed(stableId: string, callerAddress: string = ''): Promise<boolean> {
+  async isEventReplayed(stableId: string, callerAddress?: string): Promise<boolean> {
+    requireNonEmptyId(stableId, 'stableId');
     return this.executeRead('is_event_replayed', [stableId], callerAddress, undefined, (raw) =>
       Boolean(raw),
     );
@@ -582,6 +644,8 @@ export class LiveContractClient implements ContractClient {
     snapshotHash: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'snapshot_product_state',
       [productId, snapshotHash],
@@ -590,7 +654,8 @@ export class LiveContractClient implements ContractClient {
     );
   }
 
-  async getSnapshots(productId: string, callerAddress: string = ''): Promise<unknown[]> {
+  async getSnapshots(productId: string, callerAddress?: string): Promise<unknown[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_snapshots', [productId], callerAddress, undefined, (raw) =>
       Array.isArray(raw) ? raw : [],
     );
@@ -604,6 +669,8 @@ export class LiveContractClient implements ContractClient {
     expiresAt: number,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'delegate_actor_authority',
       [productId, delegatee, expiresAt],
@@ -616,10 +683,13 @@ export class LiveContractClient implements ContractClient {
     delegationId: number,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('revoke_delegate', [productId, delegationId], callerAddress);
   }
 
   async getActiveDelegations(productId: string): Promise<Delegation[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_active_delegations', [productId], '', undefined, (raw) =>
       Array.isArray(raw) ? (raw as Delegation[]) : [],
     );
@@ -633,6 +703,8 @@ export class LiveContractClient implements ContractClient {
     description: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(parentId, 'parentId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'register_assembly',
       [parentId, componentIds, description],
@@ -641,6 +713,7 @@ export class LiveContractClient implements ContractClient {
   }
 
   async getAssembly(parentId: string): Promise<ProductAssembly | null> {
+    requireNonEmptyId(parentId, 'parentId');
     return this.executeRead('get_assembly', [parentId], '', undefined, (raw) =>
       raw ? (raw as ProductAssembly) : null,
     );
@@ -650,6 +723,7 @@ export class LiveContractClient implements ContractClient {
     componentId: string,
     candidateParentIds: string[],
   ): Promise<string[]> {
+    requireNonEmptyId(componentId, 'componentId');
     return this.executeRead(
       'get_parents_of_component',
       [componentId, candidateParentIds],
@@ -668,6 +742,8 @@ export class LiveContractClient implements ContractClient {
     termsRef: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'register_warranty',
       [productId, durationSeconds, terms, termsRef],
@@ -676,16 +752,20 @@ export class LiveContractClient implements ContractClient {
   }
 
   async getWarranty(productId: string): Promise<WarrantyInfo | null> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('get_warranty', [productId], '', undefined, (raw) =>
       raw ? (raw as WarrantyInfo) : null,
     );
   }
 
   async voidWarranty(productId: string, callerAddress: string): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('void_warranty', [productId], callerAddress);
   }
 
   async isWarrantyActive(productId: string): Promise<boolean> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('is_warranty_active', [productId], '', undefined, (raw) =>
       Boolean(raw),
     );
@@ -698,6 +778,9 @@ export class LiveContractClient implements ContractClient {
     proofRef: string,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(claimId, 'claimId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite(
       'file_warranty_claim',
       [productId, claimId, description, proofRef],
@@ -706,6 +789,7 @@ export class LiveContractClient implements ContractClient {
   }
 
   async listWarrantyClaims(productId: string): Promise<WarrantyClaim[]> {
+    requireNonEmptyId(productId, 'productId');
     return this.executeRead('list_warranty_claims', [productId], '', undefined, (raw) =>
       Array.isArray(raw) ? (raw as WarrantyClaim[]) : [],
     );
@@ -717,6 +801,9 @@ export class LiveContractClient implements ContractClient {
     newStatus: ClaimStatus,
     callerAddress: string,
   ): Promise<string> {
+    requireNonEmptyId(productId, 'productId');
+    requireNonEmptyId(claimId, 'claimId');
+    requireNonEmptyId(callerAddress, 'callerAddress');
     return this.executeWrite('update_claim_status', [productId, claimId, newStatus], callerAddress);
   }
 }
