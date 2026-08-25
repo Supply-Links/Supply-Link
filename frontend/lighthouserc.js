@@ -43,6 +43,7 @@ module.exports = {
         'redirects': 'warn',
         'target-size': 'warn',
         'unused-javascript': 'warn',
+        'valid-source-maps': 'warn',
       },
     },
     upload: {
